@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bodyGrad" x1="32" y1="3" x2="32" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e87b4a" />
+      <stop offset="0.55" stop-color="#c75d3c" />
+      <stop offset="1" stop-color="#a8482c" />
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="32" y1="40" x2="32" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9764f" />
+      <stop offset="1" stop-color="#f4a261" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#c75d3c" stop-opacity="0.35" />
+      <stop offset="0.7" stop-color="#c75d3c" stop-opacity="0.08" />
+      <stop offset="1" stop-color="#c75d3c" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient launch glow -->
+  <circle cx="32" cy="28" r="30" fill="url(#glow)" />
+
+  <!-- Nose cone -->
+  <path d="M25 13 L32 3 L39 13 Z" fill="#141414" />
+
+  <!-- Rocket body (gradient) -->
+  <path d="M25 13 L39 13 L42 40 L22 40 Z" fill="url(#bodyGrad)" />
+
+  <!-- Fins -->
+  <path d="M22 32 L14 41 L22 41 Z" fill="#a8482c" />
+  <path d="M42 32 L50 41 L42 41 Z" fill="#a8482c" />
+
+  <!-- AI window -->
+  <circle cx="32" cy="23" r="5.5" fill="#1ca6b8" opacity="0.85" />
+  <circle cx="32" cy="23" r="5.5" stroke="#141414" stroke-opacity="0.55" stroke-width="1" fill="none" />
+
+  <!-- Outer flame -->
+  <path d="M24 40 C20 47 26 54 32 54 C38 54 44 47 40 40 Z" fill="url(#flameGrad)" />
+  <!-- Inner flame -->
+  <path d="M28 41 C25 46 29 50 32 50 C35 50 39 46 36 41 Z" fill="#f4a261" />
+
+  <!-- Speed sparkles -->
+  <circle cx="47" cy="12" r="1.6" fill="#7c5cfc" />
+  <circle cx="14" cy="29" r="1.4" fill="#1ca6b8" />
+  <circle cx="48" cy="30" r="1.1" fill="#c75d3c" />
+  <path d="M10 16 l2.4 0.8 L13.2 19.2 l0.8 -2.4 L16.4 16 l-2.4 -0.8 L13.2 12.8 l-0.8 2.4 Z" fill="#7c5cfc" />
+</svg>

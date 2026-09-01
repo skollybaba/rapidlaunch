@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 48" fill="none">
+  <!-- Icon: stylised launch mark -->
+  <g transform="translate(2,4)">
+    <!-- Rocket body - tapered, pointing upper-right -->
+    <path
+      d="M18 2 C18 2 30 12 30 24 C30 30 26 34 20 34 L16 34 C10 34 6 30 6 24 C6 12 18 2 18 2Z"
+      fill="#c75d3c"
+    />
+    <!-- Window -->
+    <circle cx="18" cy="20" r="4" fill="#141414" opacity="0.85"/>
+    <!-- Flame -->
+    <path d="M12 34 C12 34 14 40 18 40 C22 40 24 34 24 34" fill="#e87b4a" opacity="0.9"/>
+    <path d="M14 34 C14 34 15.5 38 18 38 C20.5 38 22 34 22 34" fill="#f4a261" opacity="0.8"/>
+  </g>
+
+  <!-- Wordmark: RAPID LAUNCH -->
+  <text x="46" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.02em" fill="#141414">
+    Rapid
+  </text>
+  <text x="46" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.02em" fill="#c75d3c">
+    Launch
+  </text>
+</svg>

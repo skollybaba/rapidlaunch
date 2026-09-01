@@ -1,26 +1,223 @@
 @import "tailwindcss";
 
+@theme {
+  /* ------------------------------------------------------------------
+     Rapid Launch Design System (DESIGN.md v1.0)
+     Warm paper canvas + deep charcoal surfaces + warm terracotta actions.
+     ------------------------------------------------------------------ */
+  --color-ink-950: #141414;
+  --color-ink-900: #1d1d1d;
+  --color-ink-800: #292929;
+  --color-ink-700: #454545;
+
+  --color-terracotta-600: #c75d3c;
+  --color-terracotta-500: #d9764f;
+  --color-terracotta-100: #fae9e0;
+
+  --color-paper-50: #fcfaf8;
+
+  --color-neutral-100: #f3f4f8;
+  --color-neutral-300: #d7d9e5;
+  --color-neutral-500: #74778c;
+  --color-neutral-700: #35374a;
+  --color-neutral-950: #11121d;
+
+  --color-lavender-100: #eef0ff;
+  --color-lavender-200: #e5e8fa;
+
+  --color-success-600: #159447;
+  --color-success-100: #e7f7ed;
+  --color-warning-600: #b86b00;
+  --color-warning-100: #fff4d6;
+  --color-danger-600: #c93737;
+  --color-danger-100: #fdecec;
+
+  --color-ai-violet: #7c5cfc;
+  --color-ai-violet-soft: #f0edff;
+  --color-ai-cyan: #1ca6b8;
+
+  /* Typography (Manrope + IBM Plex Mono) */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Motion tokens (DESIGN.md §Motion) */
+  --motion-instant: 100ms;
+  --motion-fast: 160ms;
+  --motion-standard: 240ms;
+  --motion-emphasis: 360ms;
+  --motion-slow: 600ms;
+  --motion-marquee: 32s;
+  --vp-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --vp-ease-exit: cubic-bezier(0.16, 1, 0.3, 1);
+  --vp-ease-standard: var(--vp-ease-out);
+  --vp-ease-emphasis: var(--vp-ease-exit);
+
+  /* Back-compat aliases for existing class references */
+  --duration-instant: var(--motion-instant);
+  --duration-fast: var(--motion-fast);
+  --duration-standard: var(--motion-standard);
+  --duration-emphasis: var(--motion-emphasis);
+  --duration-slow: var(--motion-slow);
+  --duration-marquee: var(--motion-marquee);
+
+  /* Reveal shift used by enter animations */
+  --reveal-offset: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    background: var(--color-paper-50);
+    color: var(--color-neutral-950);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: var(--color-neutral-950);
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-terracotta-500) 40%, transparent);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Motion utilities — enter/reveal states */
+.reveal {
+  opacity: 0;
+  transform: translateY(var(--reveal-offset));
+  filter: blur(3px);
+  transition:
+    opacity var(--motion-emphasis) var(--vp-ease-emphasis),
+    transform var(--motion-emphasis) var(--vp-ease-emphasis),
+    filter var(--motion-emphasis) var(--vp-ease-emphasis);
+  will-change: opacity, transform, filter;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Fade-up enter primitive — pairs with the Reveal component */
+.fade-up {
+  opacity: 0;
+  transform: translateY(var(--reveal-offset));
+  transition:
+    opacity var(--motion-standard) var(--vp-ease-standard),
+    transform var(--motion-standard) var(--vp-ease-standard);
+}
+
+.fade-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Hero artwork gentle scale-in (DESIGN §Motion: 0.98 → 1) */
+.animate-artwork-in {
+  animation: artwork-in var(--motion-slow) var(--vp-ease-emphasis) both;
+}
+
+@keyframes artwork-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Marquee for nonessential logo / topic ticker loops (pause-on-hover) */
+.animate-marquee {
+  animation: marquee var(--motion-marquee) linear infinite;
+}
+
+.marquee:hover .animate-marquee,
+.marquee:focus-within .animate-marquee {
+  animation-play-state: paused;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Ambient gradient drift behind hero artwork */
+@keyframes drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, 3%, 0) scale(1.12);
+  }
+}
+
+.animate-drift {
+  animation: drift 16s ease-in-out infinite alternate;
+}
+
+/* Soft ambient pulse for live/unverified status marks */
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal,
+  .fade-up,
+  .animate-artwork-in {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none !important;
+    transition: none !important;
+  }
 }
