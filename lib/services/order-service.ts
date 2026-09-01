@@ -19,7 +19,12 @@ import {
   type VerifyTransactionResult,
 } from "@/lib/providers/paystack";
 import { createMailAdapter } from "@/lib/providers/mail";
+import {
+  createGoogleCalendarAdapter,
+  GoogleCalendarProviderError,
+} from "@/lib/providers/calendar";
 import { formatPrice } from "@/lib/utils";
+import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
@@ -106,7 +111,7 @@ function paystackPaymentFilter(extra: Record<string, unknown>) {
 
 export async function createCheckoutSession(
   input: unknown
-): Promise<{ orderReference: string; itemTitle: string }> {
+): Promise<{ orderReference: string; itemTitle: string; bookingId?: string }> {
   const parsed = createCheckoutSessionSchema.parse(input) as CreateCheckoutSessionInput;
 
   await dbConnect();
@@ -168,8 +173,39 @@ export async function createCheckoutSession(
       productType: product.type,
       productFulfillmentMode: product.fulfillmentMode,
       productSlug: product.slug,
+      productDurationMinutes:
+        product.type === "CONSULTATION"
+          ? product.consultationDetails?.durationMinutes ?? 90
+          : undefined,
     },
   });
+
+  if (product.type === "CONSULTATION" && parsed.session) {
+    const booking = await Booking.create({
+      orderId: order._id,
+      productId: product._id,
+      customerEmail: parsed.customerEmail,
+      customerName: parsed.session.customerName,
+      answers: {
+        whatYouAreBuilding: parsed.session.whatYouAreBuilding,
+        currentStage: parsed.session.currentStage,
+        helpNeeded: parsed.session.helpNeeded,
+      },
+      timezone: parsed.session.timezone,
+      requestedStartTime: parsed.session.requestedStartTime
+        ? new Date(parsed.session.requestedStartTime)
+        : null,
+      provider: "google_calendar",
+      schedulingUrl: product.consultationDetails?.schedulerUrl,
+      status: "PENDING",
+      attempts: 0,
+    });
+    return {
+      orderReference: order.orderReference,
+      itemTitle: product.title,
+      bookingId: String(booking._id),
+    };
+  }
 
   return {
     orderReference: order.orderReference,
@@ -460,6 +496,8 @@ async function settleVerifiedPayment(
 
   await createFulfillmentIfMissing(order);
 
+  await bookConsultationIfPending(order);
+
   await sendPaymentConfirmationEmail(order);
 
   return {
@@ -499,12 +537,120 @@ async function createFulfillmentIfMissing(order: LeanDoc<OrderDoc>) {
   ).exec();
 }
 
+async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
+  if (order.metadata?.productType !== "CONSULTATION") return;
+
+  const booking = await Booking.findOne({ orderId: order._id })
+    .lean()
+    .exec();
+  if (!booking || booking.status !== "PENDING") return;
+  if (!booking.requestedStartTime) return;
+
+  const calendarId = env.GOOGLE_CALENDAR_OWNER_EMAIL;
+  if (
+    !calendarId ||
+    !env.GOOGLE_CLIENT_ID ||
+    !env.GOOGLE_CLIENT_SECRET ||
+    !env.GOOGLE_REFRESH_TOKEN
+  ) {
+    await Booking.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          status: "FAILED",
+          lastError: "GOOGLE_CALENDAR_NOT_CONFIGURED",
+          attempts: booking.attempts + 1,
+        },
+      }
+    );
+    return;
+  }
+
+  const durationMinutes =
+    (order.metadata?.productDurationMinutes as number | undefined) ?? 90;
+  const timezone = booking.timezone ?? "Africa/Lagos";
+  const startTime = new Date(booking.requestedStartTime);
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
+
+  const adapter = createGoogleCalendarAdapter({
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    refreshToken: env.GOOGLE_REFRESH_TOKEN,
+    calendarId,
+    timezone: env.GOOGLE_CALENDAR_TIME_ZONE,
+    workStart: env.GOOGLE_CALENDAR_WORK_START,
+    workEnd: env.GOOGLE_CALENDAR_WORK_END,
+  });
+
+  const description = [
+    booking.answers?.whatYouAreBuilding
+      ? `Building: ${booking.answers.whatYouAreBuilding}`
+      : null,
+    booking.answers?.currentStage
+      ? `Stage: ${booking.answers.currentStage}`
+      : null,
+    booking.answers?.helpNeeded
+      ? `Help needed: ${booking.answers.helpNeeded}`
+      : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+
+  try {
+    const event = await adapter.createMeetEvent({
+      calendarId,
+      summary: order.items[0]?.titleSnapshot ?? "Strategy session",
+      description,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      timezone,
+      attendeeEmail: booking.customerEmail,
+      attendeeName: booking.customerName,
+    });
+
+    await Booking.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          status: "CONFIRMED",
+          providerBookingUri: event.htmlLink,
+          providerEventUri: event.id,
+          meetingUrl: event.hangoutLink ?? "",
+          scheduledStartTime: new Date(event.startTime),
+          scheduledEndTime: new Date(event.endTime),
+          attempts: booking.attempts + 1,
+          bookedAt: new Date(),
+          lastError: null,
+        },
+      }
+    );
+  } catch (error) {
+    const message =
+      error instanceof GoogleCalendarProviderError
+        ? error.code
+        : "GOOGLE_CALENDAR_BOOKING_FAILED";
+    console.error("Google Calendar booking failed for order", order.orderReference, {
+      error,
+    });
+    await Booking.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          status: "FAILED",
+          lastError: message,
+          attempts: booking.attempts + 1,
+        },
+      }
+    );
+  }
+}
+
 function orderNextStepText(order: LeanDoc<OrderDoc>): string {
   const mode = order.metadata?.productFulfillmentMode;
   const type = order.metadata?.productType;
 
   if (mode === "CLASSROOM") {
-    return "Your course enrollment is being processed — you will receive a separate email with access to your Google Classroom course.";
+    return "Your course enrollment is being processed. You will receive a separate email with access to your Google Classroom course.";
   }
   if (mode === "DOWNLOAD") {
     return "Your download links are being prepared and will be sent to you shortly.";
@@ -516,7 +662,7 @@ function orderNextStepText(order: LeanDoc<OrderDoc>): string {
     return "We will send you a link to book your consultation shortly.";
   }
   if (type === "MVP_SERVICE") {
-    return "Our team will reach out to start your MVP project — expect an onboarding message soon.";
+    return "Our team will reach out to start your MVP project. Expect an onboarding message soon.";
   }
   return "We are preparing the next steps for your purchase and will email you shortly.";
 }
@@ -528,6 +674,8 @@ async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
 
   if (!email) return;
 
+  const booking = await Booking.findOne({ orderId: order._id }).lean().exec();
+
   try {
     await adapter.sendTemplateEmail({
       templateKey: "payment_successful",
@@ -536,7 +684,22 @@ async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
         itemTitle,
         orderReference: order.orderReference,
         amount: formatPrice(order.totalMinor, order.currency),
+        customerName: booking?.customerName ?? "",
         nextStep: orderNextStepText(order),
+        meetingUrl: booking?.meetingUrl ?? "",
+        bookingUrl:
+          booking?.providerBookingUri ??
+          booking?.schedulingUrl ??
+          "",
+        scheduledAt: booking?.scheduledStartTime
+          ? new Date(booking.scheduledStartTime).toLocaleString("en-GB", {
+              timeZone: booking.timezone || undefined,
+              dateStyle: "full",
+              timeStyle: "short",
+            })
+          : "",
+        timezone: booking?.timezone ?? "",
+        bookingPending: booking && booking.status === "PENDING" ? "true" : "false",
       },
     });
   } catch (error) {

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Services | Rapid Launch",
   description:
-    "Consulting sessions and outcome-led MVP builds — product strategy, AI tooling guidance, and launching your idea in shipping waves.",
+    "Consulting sessions and outcome-led MVP builds: product strategy, AI tooling guidance, and launching your idea in shipping waves.",
 };
 
 async function ServicesGrid() {
@@ -229,7 +229,7 @@ export default function ServicesPage() {
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-neutral-300">
                 Tell us one sentence about what you are building and we will
-                point you at the right next step — a session, a course, or a
+                point you at the right next step: a session, a course, or a
                 sprint.
               </p>
               <Link

@@ -23,7 +23,7 @@ const products: SeedProduct[] = [
     slug: "ai-product-craft-from-idea-to-roadmap",
     title: "AI Product Craft: From Idea to Roadmap",
     shortDescription:
-      "A crash course on using AI inside product work — from problem framing to a buildable roadmap.",
+      "A crash course on using AI inside product work, from problem framing to a buildable roadmap.",
     description:
       "Most product teams treat AI as a feature to bolt on. This course treats it as a working practice.\n\nYou will move from a raw idea to a prioritized roadmap by applying structured product thinking with AI support at every step: framing the problem, mapping users, pressure-testing assumptions, and turning the result into a plan you can execute.",
     status: "PUBLISHED",
@@ -130,7 +130,7 @@ const products: SeedProduct[] = [
     shortDescription:
       "A one-on-one to close the gap between your idea and execution.",
     description:
-      "Whether you already have a strategy or are still shaping your idea, this session helps you move from idea to execution.\n\nIn ninety minutes we walk through your roadmap, the team you need and how to set it up, and what you should be building right now. We explain, in detail, how to build your product with AI — every step of the way — so you leave knowing exactly how to build it and what to watch for at each point.\n\nYou leave with real clarity: on what to build and how to build it. If you would like us to build the solution for you, we can do that too, as a paid service.",
+      "Whether you already have a strategy or are still shaping your idea, this session helps you move from idea to execution.\n\nIn ninety minutes we walk through your roadmap, the team you need and how to set it up, and what you should be building right now. We explain, in detail, how to build your product with AI, every step of the way, so you leave knowing exactly how to build it and what to watch for at each point.\n\nYou leave with real clarity: on what to build and how to build it. If you would like us to build the solution for you, we can do that too, as a paid service.",
     status: "PUBLISHED",
     priceMinor: 10_000_000,
     currency: "NGN",
@@ -146,7 +146,7 @@ const products: SeedProduct[] = [
       ],
       durationMinutes: 90,
       bookingMode: "EXTERNAL_SCHEDULER",
-      schedulerUrl: "https://cal.example.com/quicklaunch/strategy",
+      schedulerUrl: "",
       preparationInstructions:
         "Tell us where you are: whether you already have a strategy you want to build, or an idea you are still shaping. A short paragraph is enough before the session.",
       reschedulePolicy: "Free rescheduling up to 24 hours before the session.",

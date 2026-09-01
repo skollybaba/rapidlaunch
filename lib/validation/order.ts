@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const sessionDetailsSchema = z
+  .object({
+    customerName: z.string().trim().min(1, "Your name is required").max(120),
+    whatYouAreBuilding: z.string().trim().max(400).optional(),
+    currentStage: z.string().trim().max(60).optional(),
+    helpNeeded: z.string().trim().max(1000).optional(),
+    timezone: z.string().trim().max(80).optional(),
+    requestedStartTime: z.string().datetime().optional(),
+  })
+  .strict()
+  .optional();
+
 export const createCheckoutSessionSchema = z
   .object({
     productId: z.string().min(1, "productId is required"),
@@ -8,6 +20,7 @@ export const createCheckoutSessionSchema = z
       .trim()
       .toLowerCase()
       .email("A valid email is required"),
+    session: sessionDetailsSchema,
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

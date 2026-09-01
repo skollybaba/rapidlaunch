@@ -15,7 +15,7 @@ const FACTS = [
   {
     icon: Clock,
     title: "Response time",
-    body: "We reply to every message within two working days — usually faster during normal hours (WAT).",
+    body: "We reply to every message within two working days, usually faster during normal hours (WAT).",
   },
   {
     icon: HelpCircle,
@@ -35,7 +35,7 @@ export default function ContactPage() {
       <CatalogPageHeader
         eyebrow="Contact"
         title="Tell us where you are."
-        description="A session, an MVP sprint, a question about access — choosing a reason below pre-fills your message so we can route it correctly."
+        description="A session, an MVP sprint, or a question about access. Choosing a reason below pre-fills your message so we can route it correctly."
       />
 
       <div className="flex flex-1 flex-col bg-white">

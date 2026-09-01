@@ -18,7 +18,7 @@ export function SiteFooter() {
 Rapid Launch
             </p>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-neutral-500">
-              Launch and test your ideas faster — product strategy, AI learning,
+              Launch and test your ideas faster: product strategy, AI learning,
               and MVP execution.
             </p>
           </div>

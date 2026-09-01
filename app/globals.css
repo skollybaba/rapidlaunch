@@ -104,7 +104,7 @@
   }
 }
 
-/* Motion utilities — enter/reveal states */
+/* Motion utilities: enter/reveal states */
 .reveal {
   opacity: 0;
   transform: translateY(var(--reveal-offset));
@@ -122,7 +122,7 @@
   filter: blur(0);
 }
 
-/* Fade-up enter primitive — pairs with the Reveal component */
+/* Fade-up enter primitive (pairs with the Reveal component) */
 .fade-up {
   opacity: 0;
   transform: translateY(var(--reveal-offset));

@@ -158,7 +158,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
               <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                 Your purchase is verified before we grant course access. After a
                 successful payment you receive an email with a Google Classroom
-                invitation. Use the Google account you want enrolled — it can be
+                invitation. Use the Google account you want enrolled. It can be
                 different from the email you pay with.
               </p>
             </div>

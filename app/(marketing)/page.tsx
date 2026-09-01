@@ -4,7 +4,6 @@ import {
   ArrowRight,
   CalendarClock,
   GraduationCap,
-  MessagesSquare,
   Play,
 } from "lucide-react";
 
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
 const TOPICS = [
   {
     title: "AI agents",
-    body: "How an agent coordinates tools, memory, and a human goal — and how to build your own.",
+    body: "How an agent coordinates tools, memory, and a human goal, and how you can build your own.",
     illustration: AgentIllustration,
   },
   {
@@ -41,7 +40,7 @@ const TOPICS = [
   },
   {
     title: "Databases",
-    body: "How applications store, organise, and return information — and how you set one up.",
+    body: "How applications store, organise, and return information, and how you set one up.",
     illustration: DatabaseIllustration,
   },
   {
@@ -67,27 +66,6 @@ const STATS = [
   { value: "2 wd", label: "for every inquiry to get a personal reply" },
 ];
 
-const VIDEOS = [
-  {
-    title: "From idea to roadmap in one session",
-    duration: "22 min",
-    body: "A live strategy walkthrough with a real product problem (anonymised).",
-    illustration: LearningPathIllustration,
-  },
-  {
-    title: "AI crash course: the first working slice",
-    duration: "18 min",
-    body: "The fastest honest path from a blank page to a demo worth showing a customer.",
-    illustration: VibecodingIllustration,
-  },
-  {
-    title: "MVP scoping vs feature creep",
-    duration: "15 min",
-    body: "The framing that keeps a sprint small enough to ship and honest enough to learn from.",
-    illustration: AgentIllustration,
-  },
-];
-
 function TopicNavigator() {
   return (
     <section className="bg-paper-50">
@@ -101,8 +79,8 @@ function TopicNavigator() {
           </h2>
           <p className="mt-4 max-w-2xl text-lg leading-[1.55] text-neutral-500">
             Learn the practical way of building with AI and building a scalable
-            solution with it — from AI agents and vibecoding to databases, APIs,
-            authentication, and deployment.
+            solution with it. We cover AI agents and vibecoding through to
+            databases, APIs, authentication, and deployment.
           </p>
         </Reveal>
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -152,13 +130,13 @@ function BuildWithAISection() {
               Build with AI
             </p>
             <h2 className="mt-3 text-[1.75rem] leading-[1.2] text-white">
-              Building has taken a new trajectory — build with a team, build
-              with AI.
+              Building has taken a new trajectory: you can build with a team
+              and build with AI.
             </h2>
             <p className="mt-5 text-base leading-relaxed text-neutral-300">
               It is no longer about assembling a system from scratch. Learn how
               to produce software that a developer can pick up tomorrow and
-              keep writing into — scalable, shareable, and real.
+              keep writing into. It stays scalable, shareable, and real.
             </p>
             <ol className="mt-8 space-y-5">
               {[
@@ -264,7 +242,7 @@ export default function HomePage() {
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
                   Stop debating and start validating. Get the clarity you need
-                  to build — with AI — and ship a product a team can keep
+                  to build with AI and ship a product a team can keep
                   writing into tomorrow. One session, not a whole build cycle.
                 </p>
                 <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -352,8 +330,8 @@ export default function HomePage() {
                   <p className="mt-2 text-sm leading-relaxed text-neutral-500">
                     Launch and test your idea faster. In a clarity session you
                     tell us what you want to build, and we help you focus on
-                    what to build now across a realistic slice you can ship —
-                    including the size of the team it really takes to move.
+                    what to build now across a realistic slice you can ship.
+                    We also size the team it really takes to move.
                   </p>
                   <Link
                     href="/services/90-minute-one-on-one-strategy-session"
@@ -366,10 +344,10 @@ export default function HomePage() {
                 <div className="rounded-md border border-neutral-300 bg-white p-6">
                   <h3 className="text-[1.25rem] leading-snug">Product managers</h3>
                   <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                    Learn to build your product yourself for almost zero cost —
+                    Learn to build your product yourself for almost zero cost, using
                     AI agents, coding, databases, APIs, authentication, and
-                    deployment. You build it, you own it, and it scales — no
-                    developer required.
+                    deployment. You build it, you own it, and it scales without
+                    a developer.
                   </p>
                   <Link
                     href="/courses"
@@ -401,63 +379,6 @@ export default function HomePage() {
 
       <BuildWithAISection />
 
-      <section className="bg-ink-900">
-        <div className="mx-auto w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
-          <Reveal>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
-              Resources
-            </p>
-            <h2 className="mt-3 max-w-xl text-[1.75rem] leading-[1.2] text-white">
-              Learn by watching — then do it yourself.
-            </h2>
-          </Reveal>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {VIDEOS.map((video, index) => {
-              const Art = video.illustration;
-              return (
-                <Reveal key={video.title} delay={index * 60}>
-                  <a
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href="/resources"
-                    className="group flex h-full flex-col overflow-hidden rounded-md border border-white/10 bg-ink-950/60 transition-all duration-[var(--duration-standard)] hover:-translate-y-0.5 hover:border-white/25 hover:shadow-xl"
-                  >
-                    <div className="p-3">
-                      <div className="relative overflow-hidden rounded-sm">
-                        <Art className="h-40 w-full object-cover" />
-                        <span className="absolute inset-0 flex items-center justify-center bg-ink-950/30 transition-colors duration-[var(--duration-fast)] group-hover:bg-ink-950/10">
-                          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink-900 shadow-lg">
-                            <Play
-                              aria-hidden="true"
-                              className="ml-0.5 h-5 w-5"
-                            />
-                          </span>
-                        </span>
-                        <span className="absolute right-3 top-3 rounded-full bg-ink-950/70 px-2.5 py-1 font-sans text-[10px] font-semibold text-white">
-                          {video.duration}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-1 flex-col p-6 pt-2">
-                      <h3 className="text-[1.125rem] leading-snug text-white">
-                        {video.title}
-                      </h3>
-                      <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-300">
-                        {video.body}
-                      </p>
-                      <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-terracotta-100 transition-colors duration-[var(--duration-fast)] group-hover:text-white">
-                        <MessagesSquare aria-hidden="true" className="h-4 w-4" />
-                        Open the resource
-                      </span>
-                    </div>
-                  </a>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       <section className="bg-ink-950">
         <div className="relative mx-auto w-[min(80%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
           <Reveal>
@@ -466,7 +387,7 @@ export default function HomePage() {
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-[1.55] text-neutral-300">
               Book a one-on-one session to set up your product and launch faster
-              — no whole tech team required. Every purchase is verified and
+              without a whole tech team. Every purchase is verified and
               followed by the right next step: a course enrollment, a session,
               or an onboarding conversation.
             </p>

@@ -16,7 +16,7 @@ const SECTIONS = [
   },
   {
     title: "Necessary cookies",
-    body: "These cookies are required for the site to function — for example, remembering completed payments, keeping a checkout session on track, and recording your cookie preference itself. They are always set and cannot be switched off.",
+    body: "These cookies are required for the site to function. They remember completed payments, keep a checkout session on track, and record your cookie preference itself. They are always set and cannot be switched off.",
   },
   {
     title: "Optional cookies",

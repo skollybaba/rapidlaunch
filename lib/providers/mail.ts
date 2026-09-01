@@ -77,19 +77,46 @@ function buildTemplate(
       const orderReference = variables.orderReference ?? "";
       const amount = variables.amount ?? "";
       const nextStep = variables.nextStep ?? "";
-      const subject = `Payment confirmed — ${itemTitle}`;
-      const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;max-width:520px;margin:0 auto;padding:24px;">
-<h1 style="font-size:22px;margin:0 0 16px;">Payment confirmed 🎉</h1>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px;">Hi there,</p>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px;">Thank you! Your payment for <strong>${itemTitle}</strong> was successful.</p>
-<table style="width:100%;border:1px solid #e2e8f0;border-radius:8px;margin:0 0 16px;border-collapse:collapse;">
-<tr><td style="padding:10px 14px;font-size:14px;color:#475569;">Order reference</td><td style="padding:10px 14px;font-size:14px;font-weight:bold;">${orderReference}</td></tr>
-<tr><td style="padding:10px 14px;font-size:14px;color:#475569;">Amount paid</td><td style="padding:10px 14px;font-size:14px;font-weight:bold;">${amount}</td></tr>
-</table>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px;">${nextStep}</p>
-<p style="font-size:13px;color:#94a3b8;margin:0;">If you have any questions, just reply to this email or contact our support team.</p>
+      const customerName = variables.customerName ?? "";
+      const meetingUrl = variables.meetingUrl ?? "";
+      const bookingUrl = variables.bookingUrl ?? "";
+      const scheduledAt = variables.scheduledAt ?? "";
+      const bookingPending = variables.bookingPending === "true";
+      const greeting = customerName
+        ? `Hi ${customerName},`
+        : "Hi there,";
+
+      const bookingBlock = meetingUrl
+        ? `<a href="${meetingUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Join your session</a>
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;"><strong style="color:#11121d;">${scheduledAt}</strong></p>
+<p style="font-size:13px;line-height:1.6;margin:0 0 12px;color:#74778c;">Your session is on your calendar and runs over Google Meet.</p>`
+        : bookingPending
+          ? `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your session time is being confirmed. We will send your meeting link as soon as it is booked.</p>`
+          : bookingUrl
+            ? `<a href="${bookingUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Book your session</a>`
+            : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">${nextStep}</p>`;
+
+      const subject = `Payment confirmed for ${itemTitle}`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Payment confirmed</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Thank you! Your payment for <strong style="color:#11121d;">${itemTitle}</strong> was successful.</p>
+    <table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;">
+      <tr><td style="padding:14px 20px;font-size:14px;color:#74778c;border-bottom:1px solid #f3efe8;">Order reference</td><td style="padding:14px 20px;font-size:14px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #f3efe8;">${orderReference}</td></tr>
+      <tr><td style="padding:14px 20px;font-size:14px;color:#74778c;">Amount paid</td><td style="padding:14px 20px;font-size:14px;font-weight:700;color:#11121d;text-align:right;">${amount}</td></tr>
+    </table>
+    <p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:0 0 8px;">Your next step</p>
+    ${bookingBlock}
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
+  </div>
+</div>
 </div>`;
-      const text = `Payment confirmed — ${itemTitle}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}\n\nIf you have any questions, contact our support team.`;
+      const text = `Payment confirmed for ${itemTitle}\n\n${greeting}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}${scheduledAt ? `\n\nSession time: ${scheduledAt}` : ""}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}${bookingUrl ? `\nBooking link: ${bookingUrl}` : ""}\n\nQuestions? Reply to this email or contact our support team.`;
       return { subject, html, text };
     }
     default:

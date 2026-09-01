@@ -17,7 +17,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Rapid Launch",
   description:
-    "Product strategy, AI learning, and MVP execution — from idea to buildable plan.",
+    "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
   icons: {
     icon: "/logo-icon.svg",
     apple: "/logo-icon.svg",

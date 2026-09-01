@@ -10,7 +10,7 @@ import { buttonStyles } from "@/components/ui/button";
 export const metadata: Metadata = {
   title: "About Rapid Launch",
   description:
-    "Rapid Launch exists to turn product ideas into buildable plans — through consulting, AI courses, practical books, and MVP builds.",
+    "Rapid Launch exists to turn product ideas into buildable plans through consulting, AI courses, practical books, and MVP builds.",
 };
 
 const PILLARS = [
@@ -27,7 +27,7 @@ const PILLARS = [
   {
     icon: MessageSquareQuote,
     title: "Human guidance",
-    body: "Posts, books, and sessions come from real product work — not recycled generic advice. If you need a tailored answer, ask directly.",
+    body: "Posts, books, and sessions come from real product work, not recycled generic advice. If you need a tailored answer, ask directly.",
   },
   {
     icon: BookMarked,
@@ -39,7 +39,7 @@ const PILLARS = [
 const CHAPTERS = [
   {
     period: "The testing ground",
-    body: "Early product work was a rapid cycle of assumptions, prototypes, and customer interviews — learning which instincts hold up and which die on contact with reality.",
+    body: "Early product work was a rapid cycle of assumptions, prototypes, and customer interviews. We learned which instincts hold up and which die on contact with reality.",
   },
   {
     period: "The AI shift",
@@ -57,7 +57,7 @@ export default function AboutPage() {
       <CatalogPageHeader
         eyebrow="About"
         title="Why Rapid Launch exists."
-        description="Founders don't lack ideas. They lack the bridge between an idea and correct execution. Rapid Launch is that bridge — built from real product work, not from generic advice."
+        description="Founders don't lack ideas. They lack the bridge between an idea and correct execution. Rapid Launch is that bridge, built from real product work and not from generic advice."
       />
 
       <div className="flex flex-1 flex-col bg-white">
@@ -69,7 +69,7 @@ export default function AboutPage() {
                   The founder&apos;s view
                 </p>
                 <h2 className="mt-3 text-[1.75rem] leading-[1.2]">
-                  Product instinct is learnable — and AI makes it go further.
+                  Product instinct is learnable, and AI makes it go further.
                 </h2>
                 <div className="mt-6 space-y-4 text-base leading-relaxed text-neutral-700">
                   <p>
@@ -81,7 +81,7 @@ export default function AboutPage() {
                   </p>
                   <p>
                     Rapid Launch exists because that craft was never taught as a
-                    working method — it was picked up through painful launches.
+                    working method. It was picked up through painful launches.
                     Add AI to the stack and the same method moves faster, which
                     is both an opportunity and a trap: speed without structure
                     ships the wrong thing sooner.

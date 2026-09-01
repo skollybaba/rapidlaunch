@@ -85,7 +85,7 @@ export function ContactForm() {
         </p>
         <p className="mt-2 text-sm leading-relaxed text-neutral-500">
           We usually reply within two working days. Your message opens in your
-          email client with the subject pre-filled — press send and we will
+          email client with the subject pre-filled. Press send and we will
           take it from there.
         </p>
       </div>

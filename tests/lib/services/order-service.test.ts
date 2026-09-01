@@ -22,6 +22,10 @@ vi.mock("@/models/Fulfillment", () => ({
   Fulfillment: { findOneAndUpdate: vi.fn() },
 }));
 
+vi.mock("@/models/Booking", () => ({
+  Booking: { findOne: vi.fn(), create: vi.fn(), updateOne: vi.fn() },
+}));
+
 vi.mock("@/models/Product", () => ({
   Product: { findOne: vi.fn() },
 }));
@@ -31,6 +35,7 @@ vi.mock("axios", () => ({
 }));
 
 import axios from "axios";
+import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
@@ -111,9 +116,66 @@ function sign(body: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(Booking.findOne).mockReturnValue(lean(null));
 });
 
 describe("createCheckoutSession", () => {
+  it("creates a pending booking for a consultation with session answers", async () => {
+    vi.mocked(Product.findOne).mockReturnValue(
+      lean({
+        ...productDoc,
+        type: "CONSULTATION",
+        fulfillmentMode: "SCHEDULER",
+        consultationDetails: { durationMinutes: 90 },
+      })
+    );
+    vi.mocked(Order.create).mockResolvedValue(orderDoc as never);
+    vi.mocked(Booking.create).mockResolvedValue({
+      _id: "BOOK1",
+      orderId: "ORD1",
+    } as never);
+
+    const result = await createCheckoutSession({
+      productId: "PROD1",
+      customerEmail: "buyer@example.com",
+      session: {
+        customerName: "Buyer Person",
+        whatYouAreBuilding: "A booking tool",
+        currentStage: "Idea",
+        helpNeeded: "Scope help",
+        timezone: "Africa/Lagos",
+        requestedStartTime: "2026-09-10T10:00:00.000Z",
+      },
+    });
+
+    expect(Booking.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "ORD1",
+        customerEmail: "buyer@example.com",
+        customerName: "Buyer Person",
+        answers: expect.objectContaining({
+          whatYouAreBuilding: "A booking tool",
+          currentStage: "Idea",
+          helpNeeded: "Scope help",
+        }),
+        provider: "google_calendar",
+        status: "PENDING",
+      })
+    );
+    expect(result).toMatchObject({ bookingId: "BOOK1" });
+  });
+
+  it("does not create a booking for a course checkout", async () => {
+    vi.mocked(Product.findOne).mockReturnValue(lean(productDoc));
+    vi.mocked(Order.create).mockResolvedValue(orderDoc as never);
+
+    await createCheckoutSession({
+      productId: "PROD1",
+      customerEmail: "buyer@example.com",
+    });
+
+    expect(Booking.create).not.toHaveBeenCalled();
+  });
   it("snapshots the server-side price and creates a pending order", async () => {
     vi.mocked(Product.findOne).mockReturnValue(lean(productDoc));
     vi.mocked(Order.create).mockResolvedValue(orderDoc as never);

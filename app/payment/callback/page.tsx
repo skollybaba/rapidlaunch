@@ -51,7 +51,7 @@ export default async function PaymentCallbackPage({
           variant: "PAID",
           title: "Payment confirmed",
           message:
-            "Your payment was verified and your order is paid. You will receive the correct next step — course enrollment, a scheduling link, or an onboarding conversation — by email.",
+            "Your payment was verified and your order is paid. You will receive the correct next step by email: course enrollment, a scheduling link, or an onboarding conversation.",
           totalMinor: result.totalMinor,
           currency: result.currency,
         };
@@ -60,7 +60,7 @@ export default async function PaymentCallbackPage({
           variant: "DISCREPANCY",
           title: "We're checking this payment manually",
           message:
-            "Something about this payment doesn't match its order. We have flagged it for review and will contact you — please do not make a second payment.",
+            "Something about this payment doesn't match its order. We have flagged it for review and will contact you. Please do not make a second payment.",
         };
       } else {
         state = {
@@ -79,7 +79,7 @@ export default async function PaymentCallbackPage({
           variant: "UNVERIFIED",
           title: "Payment verification is being set up",
           message:
-            "Secure payment verification isn't online yet. We will confirm your payment manually — contact us with your order details and we will help.",
+            "Secure payment verification isn't online yet. We will confirm your payment manually. Contact us with your order details and we will help.",
         };
       }
     }

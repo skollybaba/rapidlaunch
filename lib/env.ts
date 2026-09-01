@@ -2,6 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
+function emptyToUndefined(value: unknown) {
+  return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -26,6 +30,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REFRESH_TOKEN: z.string().optional(),
   GOOGLE_CLASSROOM_OWNER_EMAIL: z.string().email().optional(),
+  GOOGLE_CALENDAR_OWNER_EMAIL: z.preprocess(
+    emptyToUndefined,
+    z.string().email().optional()
+  ),
+  GOOGLE_CALENDAR_TIME_ZONE: z.string().default("Africa/Lagos"),
+  GOOGLE_CALENDAR_WORK_START: z.string().default("09:00"),
+  GOOGLE_CALENDAR_WORK_END: z.string().default("17:00"),
   GOOGLE_SMTP_HOST: z.string().default("smtp.gmail.com"),
   GOOGLE_SMTP_PORT: z.coerce.number().default(465),
   GOOGLE_SMTP_USER: z.string().optional(),

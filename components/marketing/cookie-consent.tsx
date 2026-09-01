@@ -15,7 +15,7 @@ export function CookieConsent() {
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === "accepted" || stored === "necessary") {
-      /* Sync read of client storage on mount — localStorage is not available
+      /* Sync read of client storage on mount; localStorage is not available
          during SSR, so this deliberate one-time read avoids a hydration
          mismatch (banner must not flash for users who already chose). */
       // eslint-disable-next-line react-hooks/set-state-in-effect
