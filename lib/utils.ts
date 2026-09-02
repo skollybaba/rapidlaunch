@@ -30,3 +30,35 @@ export function formatDuration(durationMinutes?: number): string | null {
   if (minutes === 0) return `${hours} hr${hours > 1 ? "s" : ""}`;
   return `${hours} hr ${minutes} min`;
 }
+
+export function formatDate(
+  value: string | number | Date,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = typeof value === "string" || typeof value === "number"
+    ? new Date(value)
+    : value;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    ...options,
+  }).format(date);
+}
+
+export function formatDateTime(
+  value: string | number | Date,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = typeof value === "string" || typeof value === "number"
+    ? new Date(value)
+    : value;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    ...options,
+  }).format(date);
+}

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { OrderServiceError } from "@/lib/services/order-service";
+import { AuthServiceError } from "@/lib/services/auth-service";
 
 export function newRequestId(): string {
   return randomUUID();
@@ -40,6 +41,10 @@ export function handleApiError(
   }
 
   if (error instanceof OrderServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof AuthServiceError) {
     return apiError(error.status, error.code, error.message, requestId);
   }
 

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
 
+import { useAuth } from "@/components/auth/auth-provider";
+
 const NAV_LINKS = [
   { href: "/courses", label: "Courses" },
   { href: "/services", label: "Services" },
@@ -15,9 +17,11 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const closeMenu = () => setMenuOpen(false);
+  const accountHref = user ? "/account/overview" : "/account";
 
   return (
     <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
@@ -55,6 +59,17 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <Link
+            href={accountHref}
+            aria-current={pathname.startsWith("/account") ? "page" : undefined}
+            className={`text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
+              pathname.startsWith("/account")
+                ? "text-white"
+                : "text-neutral-300 hover:text-white"
+            }`}
+          >
+            {user ? "Account" : "Sign in"}
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -104,6 +119,22 @@ export function SiteHeader() {
                   </li>
                 );
               })}
+              <li>
+                <Link
+                  href={accountHref}
+                  onClick={closeMenu}
+                  aria-current={
+                    pathname.startsWith("/account") ? "page" : undefined
+                  }
+                  className={`flex min-h-12 items-center border-b border-ink-800/70 py-3 text-base transition-colors duration-[var(--duration-fast)] ${
+                    pathname.startsWith("/account")
+                      ? "text-white"
+                      : "text-neutral-300 hover:text-white"
+                  }`}
+                >
+                  {user ? "Account" : "Sign in"}
+                </Link>
+              </li>
             </ul>
             <Link
               href="/book"

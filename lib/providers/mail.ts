@@ -4,6 +4,8 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 export type EmailTemplateKey =
   | "welcome"
+  | "account_welcome"
+  | "password_reset"
   | "payment_initiated"
   | "payment_successful"
   | "payment_failed"
@@ -158,6 +160,50 @@ function buildTemplate(
 </div>
 </div>`;
       const text = `${timingLabel}\n\n${greeting}\n\nThis is a quick reminder about your one-on-one session with Rapid Launch.\n\n${timingLabel}.\n\nSession time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nRunning late or need to reschedule? Reply to this email and we will help.`;
+      return { subject, html, text };
+    }
+    case "account_welcome": {
+      const name = variables.name ?? "there";
+      const appUrl = variables.appUrl ?? "#";
+      const subject = "Welcome to Rapid Launch";
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Welcome aboard</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi ${name},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your account is ready. Now your purchases, sessions, and books are kept in one place so you can track everything you've registered for.</p>
+    <a href="${appUrl}/account" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Go to your account</a>
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email and we will help.</p>
+  </div>
+</div>
+</div>`;
+      const text = `Welcome to Rapid Launch\n\nHi ${name},\n\nYour account is ready. Your purchases, sessions, and books are now kept in one place.\n\nGo to your account: ${appUrl}/account\n\nQuestions? Reply to this email and we will help.`;
+      return { subject, html, text };
+    }
+    case "password_reset": {
+      const name = variables.name ?? "there";
+      const resetUrl = variables.resetUrl ?? "#";
+      const appUrl = variables.appUrl ?? "#";
+      const subject = "Reset your password";
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Reset your password</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi ${name},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">We received a request to reset your password. This link expires in one hour.</p>
+    <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Reset your password</a>
+    <p style="font-size:13px;line-height:1.6;margin:18px 0 0;color:#74778c;">If you didn't request this, you can safely ignore this email.</p>
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">If the button doesn't work, copy this link into your browser: ${resetUrl}. Need help? Visit ${appUrl}/contact.</p>
+  </div>
+</div>
+</div>`;
+      const text = `Reset your password\n\nHi ${name},\n\nWe received a request to reset your password. This link expires in one hour.\n\nReset your password: ${resetUrl}\n\nIf you didn't request this, you can safely ignore this email.\n\nNeed help? Visit ${appUrl}/contact.`;
       return { subject, html, text };
     }
     default:

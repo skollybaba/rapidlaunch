@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   SchedulerCalendar,
   type SchedulerSlot,
 } from "@/components/checkout/scheduler-calendar";
+import { AuthCard } from "@/components/auth/auth-card";
 import { buttonStyles } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/auth-provider";
 
 interface CheckoutFormProps {
   productId: string;
@@ -30,6 +32,7 @@ export function CheckoutForm({
   sessionDurationMinutes,
   disabled,
 }: CheckoutFormProps) {
+  const { user, refresh } = useAuth();
   const [email, setEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [whatYouAreBuilding, setWhatYouAreBuilding] = useState("");
@@ -42,6 +45,9 @@ export function CheckoutForm({
   );
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
+  const [showAuthGate, setShowAuthGate] = useState(false);
+  const [authTouched, setAuthTouched] = useState(false);
+  const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     if (!isSession) return;
@@ -83,10 +89,28 @@ export function CheckoutForm({
     };
   }, [isSession, sessionDurationMinutes]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (state === "submitting" || state === "redirecting") return;
+  function buildOrderBody() {
+    return JSON.stringify({
+      productId,
+      customerEmail: email,
+      ...(isSession
+        ? {
+            session: {
+              customerName,
+              whatYouAreBuilding: whatYouAreBuilding.trim() || undefined,
+              currentStage: currentStage || undefined,
+              helpNeeded: helpNeeded.trim() || undefined,
+              timezone:
+                Intl.DateTimeFormat().resolvedOptions().timeZone ||
+                "Africa/Lagos",
+              requestedStartTime: selectedSlot || undefined,
+            },
+          }
+        : {}),
+    });
+  }
 
+  async function runCheckout() {
     setState("submitting");
     setMessage("");
 
@@ -94,25 +118,7 @@ export function CheckoutForm({
       const sessionResponse = await fetch("/api/checkout/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId,
-          customerEmail: email,
-          ...(isSession
-            ? {
-                session: {
-                  customerName,
-                  whatYouAreBuilding:
-                    whatYouAreBuilding.trim() || undefined,
-                  currentStage: currentStage || undefined,
-                  helpNeeded: helpNeeded.trim() || undefined,
-                  timezone:
-                    Intl.DateTimeFormat().resolvedOptions().timeZone ||
-                    "Africa/Lagos",
-                  requestedStartTime: selectedSlot || undefined,
-                },
-              }
-            : {}),
-        }),
+        body: buildOrderBody(),
       });
       const sessionJson = await sessionResponse.json();
 
@@ -152,207 +158,286 @@ export function CheckoutForm({
     }
   }
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state === "submitting" || state === "redirecting") return;
+
+    if (!user) {
+      pendingSubmitRef.current = runCheckout;
+      setAuthTouched(false);
+      setShowAuthGate(true);
+      return;
+    }
+
+    void runCheckout();
+  }
+
+  async function continueAsGuest() {
+    setShowAuthGate(false);
+    const submit = pendingSubmitRef.current;
+    if (submit) await submit();
+  }
+
+  async function continueAfterAuth() {
+    setShowAuthGate(false);
+    await refresh();
+    const submit = pendingSubmitRef.current;
+    if (submit) await submit();
+  }
+
   const inputClasses =
     "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-      {isSession ? (
-        <div>
-          <label
-            htmlFor="checkout-name"
-            className="text-sm font-semibold text-neutral-950"
-          >
-            Full name
-          </label>
-          <input
-            id="checkout-name"
-            name="customerName"
-            type="text"
-            autoComplete="name"
-            required
-            disabled={disabled || state === "submitting" || state === "redirecting"}
-            value={customerName}
-            onChange={(event) => setCustomerName(event.target.value)}
-            placeholder="Your name"
-            className={inputClasses}
-          />
-        </div>
-      ) : null}
-
-      <div>
-        <label
-          htmlFor="checkout-email"
-          className="text-sm font-semibold text-neutral-950"
-        >
-          Email for this purchase
-        </label>
-        <input
-          id="checkout-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          disabled={disabled || state === "submitting" || state === "redirecting"}
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
-          className={inputClasses}
-        />
-        <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-          {isSession
-            ? "We send your receipt and the booking confirmation here."
-            : "Your payment is verified before access is granted. Google Classroom email can be different from this address."}
-        </p>
-      </div>
-
-      {isSession ? (
-        <>
+    <div className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {isSession ? (
           <div>
             <label
-              htmlFor="checkout-building"
+              htmlFor="checkout-name"
               className="text-sm font-semibold text-neutral-950"
             >
-              What are you building?
+              Full name
             </label>
             <input
-              id="checkout-building"
-              name="whatYouAreBuilding"
+              id="checkout-name"
+              name="customerName"
               type="text"
+              autoComplete="name"
+              required
               disabled={disabled || state === "submitting" || state === "redirecting"}
-              value={whatYouAreBuilding}
-              onChange={(event) => setWhatYouAreBuilding(event.target.value)}
-              placeholder="A short description of your product"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder="Your name"
               className={inputClasses}
             />
           </div>
+        ) : null}
 
-          <div>
-            <label
-              htmlFor="checkout-stage"
-              className="text-sm font-semibold text-neutral-950"
-            >
-              Where are you today?
-            </label>
-            <select
-              id="checkout-stage"
-              name="currentStage"
-              disabled={disabled || state === "submitting" || state === "redirecting"}
-              value={currentStage}
-              onChange={(event) => setCurrentStage(event.target.value)}
-              className={inputClasses}
-            >
-              <option value="">Select a stage</option>
-              <option value="Idea">Just an idea</option>
-              <option value="Prototype">Working prototype</option>
-              <option value="Building">Actively building</option>
-              <option value="Live">Live product</option>
-            </select>
-          </div>
+        <div>
+          <label
+            htmlFor="checkout-email"
+            className="text-sm font-semibold text-neutral-950"
+          >
+            Email for this purchase
+          </label>
+          <input
+            id="checkout-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            disabled={disabled || state === "submitting" || state === "redirecting"}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className={inputClasses}
+          />
+          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+            {isSession
+              ? "We send your receipt and the booking confirmation here."
+              : "Your payment is verified before access is granted. Google Classroom email can be different from this address."}
+          </p>
+        </div>
 
-          <div>
-            <label
-              htmlFor="checkout-help"
-              className="text-sm font-semibold text-neutral-950"
-            >
-              What do you need help with?
-            </label>
-            <textarea
-              id="checkout-help"
-              name="helpNeeded"
-              rows={3}
-              disabled={disabled || state === "submitting" || state === "redirecting"}
-              value={helpNeeded}
-              onChange={(event) => setHelpNeeded(event.target.value)}
-              placeholder="The main thing you want to get clarity on"
-              className={inputClasses}
-            />
-          </div>
+        {isSession ? (
+          <>
+            <div>
+              <label
+                htmlFor="checkout-building"
+                className="text-sm font-semibold text-neutral-950"
+              >
+                What are you building?
+              </label>
+              <input
+                id="checkout-building"
+                name="whatYouAreBuilding"
+                type="text"
+                disabled={disabled || state === "submitting" || state === "redirecting"}
+                value={whatYouAreBuilding}
+                onChange={(event) => setWhatYouAreBuilding(event.target.value)}
+                placeholder="A short description of your product"
+                className={inputClasses}
+              />
+            </div>
 
-          <div>
-            <span className="text-sm font-semibold text-neutral-950">
-              Pick a time for your session
-            </span>
-            {slotStatus === "loading" ? (
-              <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                Loading available times…
-              </p>
-            ) : slotStatus === "unavailable" ? (
-              <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                Times are being set up. You can complete the purchase and pick
-                your slot after payment.
-              </p>
-            ) : slotStatus === "empty" ? (
-              <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                No times are available in the next few weeks. Complete the
-                purchase and we will arrange a time with you.
-              </p>
-            ) : (
-              <>
+            <div>
+              <label
+                htmlFor="checkout-stage"
+                className="text-sm font-semibold text-neutral-950"
+              >
+                Where are you today?
+              </label>
+              <select
+                id="checkout-stage"
+                name="currentStage"
+                disabled={disabled || state === "submitting" || state === "redirecting"}
+                value={currentStage}
+                onChange={(event) => setCurrentStage(event.target.value)}
+                className={inputClasses}
+              >
+                <option value="">Select a stage</option>
+                <option value="Idea">Just an idea</option>
+                <option value="Prototype">Working prototype</option>
+                <option value="Building">Actively building</option>
+                <option value="Live">Live product</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="checkout-help"
+                className="text-sm font-semibold text-neutral-950"
+              >
+                What do you need help with?
+              </label>
+              <textarea
+                id="checkout-help"
+                name="helpNeeded"
+                rows={3}
+                disabled={disabled || state === "submitting" || state === "redirecting"}
+                value={helpNeeded}
+                onChange={(event) => setHelpNeeded(event.target.value)}
+                placeholder="The main thing you want to get clarity on"
+                className={inputClasses}
+              />
+            </div>
+
+            <div>
+              <span className="text-sm font-semibold text-neutral-950">
+                Pick a time for your session
+              </span>
+              {slotStatus === "loading" ? (
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-                  {sessionDurationMinutes
-                    ? `Each session is ${sessionDurationMinutes} minutes. Pick a day, then choose a time.`
-                    : "Pick a day, then choose a time."}
+                  Loading available times…
                 </p>
-                <SchedulerCalendar
-                  slots={slots}
-                  selectedSlot={selectedSlot}
-                  onSelect={setSelectedSlot}
-                  disabled={
-                    disabled || state === "submitting" || state === "redirecting"
-                  }
-                  durationMinutes={sessionDurationMinutes}
-                />
-              </>
-            )}
-          </div>
-        </>
-      ) : null}
+              ) : slotStatus === "unavailable" ? (
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  Times are being set up. You can complete the purchase and pick
+                  your slot after payment.
+                </p>
+              ) : slotStatus === "empty" ? (
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  No times are available in the next few weeks. Complete the
+                  purchase and we will arrange a time with you.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                    {sessionDurationMinutes
+                      ? `Each session is ${sessionDurationMinutes} minutes. Pick a day, then choose a time.`
+                      : "Pick a day, then choose a time."}
+                  </p>
+                  <SchedulerCalendar
+                    slots={slots}
+                    selectedSlot={selectedSlot}
+                    onSelect={setSelectedSlot}
+                    disabled={
+                      disabled || state === "submitting" || state === "redirecting"
+                    }
+                    durationMinutes={sessionDurationMinutes}
+                  />
+                </>
+              )}
+            </div>
+          </>
+        ) : null}
 
-      <button
-        type="submit"
-        disabled={
-          disabled || state === "submitting" || state === "redirecting"
-        }
-        className={buttonStyles({
-          variant: "primary",
-          size: "lg",
-          className: "w-full",
-        })}
-      >
-        {state === "submitting"
-          ? "Preparing your order…"
-          : state === "redirecting"
-            ? "Redirecting to Paystack…"
-            : isSession
-              ? "Book my session"
-              : "Pay securely with Paystack"}
-      </button>
-
-      <p className="text-xs leading-relaxed text-neutral-500">
-        By continuing you agree to our{" "}
-        <a href="/refund-policy" className="text-terracotta-600 underline">
-          refund policy
-        </a>{" "}
-        and{" "}
-        <a href="/terms" className="text-terracotta-600 underline">
-          terms
-        </a>
-        . You will be redirected to Paystack to complete payment securely.
-      </p>
-
-      {state !== "idle" ? (
-        <p
-          role="status"
-          className={
-            state === "error" || state === "unavailable"
-              ? "rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#B91C1C]"
-              : "rounded-[12px] border border-[#C7D2FE] bg-[#EEF2FF] px-4 py-3 text-sm text-[#4338CA]"
+        <button
+          type="submit"
+          disabled={
+            disabled || state === "submitting" || state === "redirecting"
           }
+          className={buttonStyles({
+            variant: "primary",
+            size: "lg",
+            className: "w-full",
+          })}
         >
-          {message}
+          {state === "submitting"
+            ? "Preparing your order…"
+            : state === "redirecting"
+              ? "Redirecting to Paystack…"
+              : isSession
+                ? "Book my session"
+                : "Pay securely with Paystack"}
+        </button>
+
+        <p className="text-xs leading-relaxed text-neutral-500">
+          By continuing you agree to our{" "}
+          <a href="/refund-policy" className="text-terracotta-600 underline">
+            refund policy
+          </a>{" "}
+          and{" "}
+          <a href="/terms" className="text-terracotta-600 underline">
+            terms
+          </a>
+          . You will be redirected to Paystack to complete payment securely.
         </p>
+
+        {state !== "idle" ? (
+          <p
+            role="status"
+            className={
+              state === "error" || state === "unavailable"
+                ? "rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#B91C1C]"
+                : "rounded-[12px] border border-[#C7D2FE] bg-[#EEF2FF] px-4 py-3 text-sm text-[#4338CA]"
+            }
+          >
+            {message}
+          </p>
+        ) : null}
+      </form>
+
+      {showAuthGate ? (
+        <div className="rounded-[16px] border border-terracotta-100 bg-terracotta-100 p-5">
+          <h3 className="text-[1.125rem] leading-snug">
+            Create an account to track this purchase?
+          </h3>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-700">
+            {user
+              ? "You'll be signed in."
+              : "Sign in or create a free account so this order — and every session you book — is saved to your profile and visible in your account."}
+          </p>
+
+          <div className="mt-4 space-y-2">
+            <button
+              type="button"
+              onClick={() => setAuthTouched(true)}
+              className={buttonStyles({
+                variant: "primary",
+                size: "lg",
+                className: "w-full",
+              })}
+            >
+              Create account or sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => void continueAsGuest()}
+              disabled={state === "submitting" || state === "redirecting"}
+              className={buttonStyles({
+                variant: "secondary",
+                size: "lg",
+                className: "w-full",
+              })}
+            >
+              Continue as guest
+            </button>
+          </div>
+
+          {authTouched ? (
+            <div className="mt-5">
+              <AuthCard
+                title={user ? "Complete payment" : "One more step"}
+                subtitle="Authenticate to link this purchase to your account. You can still continue as a guest instead."
+                showBackHome={false}
+                onSuccess={() => void continueAfterAuth()}
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
-    </form>
+    </div>
   );
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { CookieConsent } from "@/components/marketing/cookie-consent";
+import { AuthProvider } from "@/components/auth/auth-provider";
+import { getCurrentPublicUser } from "@/lib/auth/session";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -24,16 +26,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const user = await getCurrentPublicUser();
+
   return (
     <html
       lang="en"
       className={`${manrope.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <AuthProvider initialUser={user}>{children}</AuthProvider>
         <CookieConsent />
       </body>
     </html>

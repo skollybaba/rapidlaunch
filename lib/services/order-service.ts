@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
+import { getSessionUser } from "@/lib/auth/session";
 import {
   createCheckoutSessionSchema,
   initializePaymentSchema,
@@ -109,6 +110,15 @@ function paystackPaymentFilter(extra: Record<string, unknown>) {
   } as PaystackFilter as unknown as Parameters<typeof Payment.findOne>[0];
 }
 
+async function resolveSessionUserId(): Promise<unknown> {
+  try {
+    const user = await getSessionUser();
+    return user ? String(user._id) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createCheckoutSession(
   input: unknown
 ): Promise<{ orderReference: string; itemTitle: string; bookingId?: string }> {
@@ -149,11 +159,12 @@ export async function createCheckoutSession(
 
   const unitPriceMinor = product.priceMinor;
   const orderReference = generateOrderReference();
+  const userId = await resolveSessionUserId();
 
   const order = await Order.create({
     orderReference,
     customerEmail: parsed.customerEmail,
-    userId: (parsed.metadata?.userId as string) ?? null,
+    userId,
     items: [
       {
         productId: product._id,
