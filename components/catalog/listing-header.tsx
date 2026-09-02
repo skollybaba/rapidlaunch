@@ -13,7 +13,7 @@ export function CatalogPageHeader({
 }: CatalogPageHeaderProps) {
   return (
     <div className="border-b border-neutral-300 bg-neutral-100">
-      <div className="mx-auto w-[min(80%,96rem)] px-6 py-14 lg:px-8 lg:py-20">
+      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-14 lg:px-8 lg:py-20">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             {eyebrow}

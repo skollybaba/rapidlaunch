@@ -71,12 +71,12 @@ const STATS = [
 function TopicNavigator() {
   return (
     <section className="bg-paper-50">
-      <div className="mx-auto w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             Learn how to build with AI
           </p>
-          <h2 className="mt-3 max-w-3xl text-[1.75rem] leading-[1.2]">
+          <h2 className="mt-3 max-w-3xl text-[1.75rem] leading-[1.286]">
             The building blocks, one visual at a time.
           </h2>
           <p className="mt-4 max-w-2xl text-lg leading-[1.55] text-neutral-500">
@@ -125,13 +125,13 @@ function TopicNavigator() {
 function BuildWithAISection() {
   return (
     <section className="bg-ink-900">
-      <div className="mx-auto w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
               Build with AI
             </p>
-            <h2 className="mt-3 text-[1.75rem] leading-[1.2] text-white">
+            <h2 className="mt-3 text-[1.75rem] leading-[1.286] text-white">
               Building has taken a new trajectory: you can build with a team
               and build with AI.
             </h2>
@@ -232,7 +232,7 @@ export default function HomePage() {
           aria-hidden="true"
           className="animate-drift absolute inset-0 bg-[radial-gradient(90%_70%_at_18%_8%,var(--color-ink-700)_0%,var(--color-ink-900)_48%,var(--color-ink-950)_100%)]"
         />
-        <div className="relative mx-auto w-[min(80%,96rem)] px-6 py-20 lg:px-8 lg:py-28">
+        <div className="relative mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-20 lg:px-8 lg:py-28">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_520px]">
             <div className="max-w-2xl">
               <Reveal>
@@ -278,7 +278,7 @@ export default function HomePage() {
               <div className="translate-y-10 animate-artwork-in rounded-md border border-white/10 bg-ink-900/70 p-3 shadow-2xl shadow-ink-950/50">
                 <VibecodingIllustration className="h-[21rem] w-full rounded-sm" />
                 <div className="mt-3 flex items-center justify-between px-1">
-                  <span className="font-sans text-xs font-bold uppercase tracking-[0.14em] text-lavender-200">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-lavender-200">
                     Idea → working screen
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
@@ -312,13 +312,13 @@ export default function HomePage() {
       <TopicNavigator />
 
 <section className="bg-neutral-100">
-        <div className="mx-auto w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <Reveal>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 Who this is for
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.2]">
+              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
                 Built for founders, built for the builders
               </h2>
               <p className="mt-4 text-lg leading-[1.55] text-neutral-500">
@@ -376,7 +376,7 @@ export default function HomePage() {
               <div className="flex h-full flex-col justify-center rounded-md border border-neutral-300 bg-white p-4">
                 <AgentIllustration className="h-72 w-full rounded-sm bg-lavender-100" />
                 <div className="mt-3 flex items-center justify-between px-1">
-                  <span className="font-sans text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
                     Founder + agent team-up
                   </span>
                   <span className="rounded-full bg-lavender-100 px-3 py-1 font-sans text-[10px] font-semibold text-ink-700">
@@ -392,9 +392,9 @@ export default function HomePage() {
       <BuildWithAISection />
 
       <section className="bg-ink-950">
-        <div className="relative mx-auto w-[min(80%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
+        <div className="relative mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
           <Reveal>
-            <h2 className="text-[1.75rem] leading-[1.2] text-white">
+            <h2 className="text-[1.75rem] leading-[1.286] text-white">
               Get clarity on your product before you spend on code.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-[1.55] text-neutral-300">

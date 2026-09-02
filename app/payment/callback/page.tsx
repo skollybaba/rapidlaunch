@@ -98,7 +98,7 @@ export default async function PaymentCallbackPage({
     <div className="flex flex-1 flex-col bg-white">
       <div className="mx-auto w-full max-w-[440px] flex-1 px-6 py-16 lg:py-24">
         <Badge tone={tone}>{tone === "success" ? "Paid" : tone === "error" ? "Action required" : tone === "pending" ? "Processing" : "Unconfirmed"}</Badge>
-        <h1 className="mt-4 text-[1.75rem] leading-[1.2]">{state.title}</h1>
+        <h1 className="mt-4 text-[1.75rem] leading-[1.286]">{state.title}</h1>
         <p className="mt-4 text-base leading-relaxed text-neutral-500">
           {state.message}
         </p>

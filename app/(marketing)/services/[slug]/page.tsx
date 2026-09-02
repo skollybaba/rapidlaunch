@@ -67,7 +67,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
     : formatPrice(product.priceMinor, product.currency);
 
   return (
-    <div className="mx-auto w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+    <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_340px]">
         <article className="max-w-[680px]">
           <div className="mb-8 overflow-hidden rounded-md border border-neutral-300">
@@ -94,7 +94,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
             )}
           </div>
           <Badge>{isMvp ? "MVP build" : "Consultation"}</Badge>
-          <h1 className="mt-4 text-[1.25rem] leading-[1.16] md:text-[1.5rem]">
+          <h1 className="mt-4 text-[1.875rem] leading-[1.16] md:text-[2.25rem]">
             {product.title}
           </h1>
           {product.shortDescription ? (

@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/courses", label: "Courses" },
@@ -14,12 +15,16 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
-      <div className="mx-auto flex w-[min(80%,96rem)] items-center justify-between gap-6 px-6 py-5 lg:px-8">
+      <div className="mx-auto flex w-[95%] md:w-[min(80%,96rem)] items-center justify-between gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <Link
           href="/"
+          onClick={closeMenu}
           className="group inline-flex items-center gap-3 font-sans text-xl font-bold tracking-tight text-white"
         >
           <span className="inline-flex h-9 w-9 items-center justify-center overflow-hidden">
@@ -33,6 +38,7 @@ export function SiteHeader() {
           </span>
           Rapid Launch
         </Link>
+
         <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -50,14 +56,66 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <Link
-          href="/book"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-pill bg-terracotta-600 px-5 text-sm font-semibold text-white transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500"
-        >
-          Book a session
-          <ArrowRight aria-hidden="true" className="h-4 w-4" />
-        </Link>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/book"
+            className="hidden h-11 items-center justify-center gap-2 rounded-pill bg-terracotta-600 px-5 text-sm font-semibold text-white transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500 sm:inline-flex"
+          >
+            Book a session
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-pill text-white transition-colors duration-[var(--duration-fast)] hover:bg-ink-800 md:hidden"
+          >
+            {menuOpen ? (
+              <X aria-hidden="true" className="h-6 w-6" />
+            ) : (
+              <Menu aria-hidden="true" className="h-6 w-6" />
+            )}
+          </button>
+        </div>
       </div>
+
+      {menuOpen ? (
+        <div id="mobile-menu" className="border-t border-ink-800 bg-ink-950 md:hidden">
+          <nav aria-label="Mobile" className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-4 py-4 sm:px-6">
+            <ul className="flex flex-col">
+              {NAV_LINKS.map((link) => {
+                const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={closeMenu}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-12 items-center border-b border-ink-800/70 py-3 text-base transition-colors duration-[var(--duration-fast)] ${
+                        active ? "text-white" : "text-neutral-300 hover:text-white"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <Link
+              href="/book"
+              onClick={closeMenu}
+              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-pill bg-terracotta-600 px-5 text-sm font-semibold text-white transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500"
+            >
+              Book a session
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          </nav>
+        </div>
+      ) : null}
     </header>
   );
 }

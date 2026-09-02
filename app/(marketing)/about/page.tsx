@@ -61,14 +61,14 @@ export default function AboutPage() {
       />
 
       <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[2fr_1fr]">
             <Reveal>
               <article className="max-w-[680px]">
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                   The founder&apos;s view
                 </p>
-                <h2 className="mt-3 text-[1.75rem] leading-[1.2]">
+                <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
                   Product instinct is learnable, and AI makes it go further.
                 </h2>
                 <div className="mt-6 space-y-4 text-base leading-relaxed text-neutral-700">
@@ -106,7 +106,7 @@ export default function AboutPage() {
                     className="h-80 w-full object-cover"
                   />
                   <div className="flex items-center justify-between gap-3 bg-white px-5 py-4">
-                    <span className="font-sans text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
                       Founder, practice-lead
                     </span>
                     <span className="rounded-full bg-lavender-100 px-3 py-1 font-sans text-[10px] font-semibold text-ink-700">
@@ -143,7 +143,7 @@ export default function AboutPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 The journey
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.2]">
+              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
                 How this practice came together
               </h2>
             </Reveal>
@@ -168,7 +168,7 @@ export default function AboutPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 How we work
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.2]">
+              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
                 Four principles behind every engagement
               </h2>
             </Reveal>
@@ -196,7 +196,7 @@ export default function AboutPage() {
         <section className="bg-ink-900">
           <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center lg:px-8 lg:py-24">
             <Reveal>
-              <h2 className="text-[1.75rem] leading-[1.2] text-white">
+              <h2 className="text-[1.75rem] leading-[1.286] text-white">
                 Start with the offer that matches where you are.
               </h2>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">

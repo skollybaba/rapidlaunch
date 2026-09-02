@@ -15,7 +15,7 @@ export default function Error({
       <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
         Something went wrong
       </p>
-      <h1 className="mt-3 max-w-xl text-[1.75rem] leading-[1.2]">
+      <h1 className="mt-3 max-w-xl text-[1.75rem] leading-[1.286]">
         We couldn&apos;t load this page.
       </h1>
       <p className="mt-4 max-w-md text-base leading-relaxed text-neutral-500">
