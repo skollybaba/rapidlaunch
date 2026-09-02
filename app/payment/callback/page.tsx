@@ -6,7 +6,6 @@ import { CheckCircle2, CreditCard, Mail, ArrowRight, Clock } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
-import { PaymentLoader } from "@/components/ui/payment-loader";
 import { formatPrice } from "@/lib/utils";
 
 interface VerifyResult {
@@ -39,7 +38,7 @@ function getInitialReference(): string | null {
   return params.get("reference");
 }
 
-function SuccessView({ data }: { data: VerifyResult["data"] }) {
+function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
       <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-16 lg:py-24">
@@ -67,17 +66,21 @@ function SuccessView({ data }: { data: VerifyResult["data"] }) {
               </p>
             </div>
             <div className="px-6 py-5">
-              {data.itemTitle ? (
+              {data?.itemTitle ? (
                 <p className="text-sm font-semibold text-neutral-950">
                   {data.itemTitle}
                 </p>
-              ) : null}
+              ) : (
+                <p className="text-sm font-semibold text-neutral-400">
+                  Your order
+                </p>
+              )}
               <p className="mt-1 text-3xl font-bold text-neutral-950">
-                {data.totalMinor !== undefined
+                {data?.totalMinor !== undefined
                   ? formatPrice(data.totalMinor, data.currency)
                   : "\u2014"}
               </p>
-              {data.orderReference ? (
+              {data?.orderReference ? (
                 <p className="mt-2 text-xs text-neutral-400">
                   Ref: {data.orderReference}
                 </p>
@@ -202,8 +205,10 @@ function StaticPage({
 
 export default function PaymentCallbackPage() {
   const [reference] = useState(() => getInitialReference());
+  // Optimistically show success immediately (no full-page loader); the fast
+  // verify call reconciles the real state in the background.
   const [renderState, setRenderState] = useState<RenderState>(
-    reference ? "loading" : "no-reference"
+    reference ? "success" : "no-reference"
   );
   const [data, setData] = useState<VerifyResult["data"] | null>(null);
   const fetchedRef = useRef(false);
@@ -213,17 +218,14 @@ export default function PaymentCallbackPage() {
     fetchedRef.current = true;
 
     let cancelled = false;
-    let retries = 0;
     const ref = reference;
-    const MAX_RETRIES = 5;
-    const RETRY_DELAY = 1500;
 
     async function verify() {
       if (!ref) return;
       try {
         const refParam = encodeURIComponent(ref);
         const res = await fetch(
-          `/api/payments/paystack/verify/${refParam}`
+          `/api/payments/paystack/verify/${refParam}?fast=1`
         );
         const json: VerifyResult = await res.json();
 
@@ -232,40 +234,27 @@ export default function PaymentCallbackPage() {
         if (!json.ok) {
           if (json.error?.code === "PAYSTACK_NOT_CONFIGURED") {
             setRenderState("unverified");
-            return;
           }
-          if (json.error?.code === "PAYMENT_NOT_FOUND" && retries < MAX_RETRIES) {
-            retries++;
-            setTimeout(verify, RETRY_DELAY);
-            return;
-          }
-          setRenderState("unverified");
           return;
         }
 
         setData(json.data);
 
         if (json.data.paymentStatus === "PAID" && !json.data.discrepancy) {
-          setRenderState(json.data.itemTitle ? "success" : "paid-no-details");
+          setRenderState("success");
         } else if (
           json.data.discrepancy ||
           json.data.paymentStatus === "SUSPICIOUS"
         ) {
           setRenderState("discrepancy");
-        } else if (json.data.status === "PENDING" && retries < MAX_RETRIES) {
-          retries++;
-          setTimeout(verify, RETRY_DELAY);
-          return;
+        } else if (json.data.paymentStatus === "PENDING") {
+          // Webhook may still be landing; keep the (already-rendered)
+          // optimistic view rather than blocking the user.
         } else {
           setRenderState("pending");
         }
       } catch {
-        if (!cancelled && retries < MAX_RETRIES) {
-          retries++;
-          setTimeout(verify, RETRY_DELAY);
-        } else if (!cancelled) {
-          setRenderState("unverified");
-        }
+        // Network hiccup: leave the optimistic success view in place.
       }
     }
 
@@ -274,10 +263,6 @@ export default function PaymentCallbackPage() {
       cancelled = true;
     };
   }, [reference]);
-
-  if (renderState === "loading") {
-    return <PaymentLoader />;
-  }
 
   if (renderState === "no-reference") {
     return (
@@ -303,7 +288,7 @@ export default function PaymentCallbackPage() {
     );
   }
 
-  if (renderState === "success" && data) {
+  if (renderState === "success") {
     return <SuccessView data={data} />;
   }
 

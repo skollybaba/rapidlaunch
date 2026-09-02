@@ -333,9 +333,11 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
 }
 
 export async function verifyCheckoutPayment(
-  reference: string | string[]
+  reference: string | string[],
+  options?: { fast?: boolean }
 ): Promise<OrderPublicSummary & { paymentStatus: string; discrepancy: boolean }> {
   const ref = Array.isArray(reference) ? reference[0] : reference;
+  const fast = options?.fast ?? false;
   await dbConnect();
 
   const payment = await Payment.findOne(
@@ -362,6 +364,60 @@ export async function verifyCheckoutPayment(
   }
 
   const adapter = createPaystackAdapter(secretKey);
+
+  if (fast) {
+    let result: VerifyTransactionResult | undefined;
+    try {
+      result = await adapter.verifyTransaction(ref);
+    } catch (error) {
+      if (error instanceof PaystackProviderError && error.retryable) {
+        // In fast mode we don't block the confirmation page with retries;
+        // return the current DB state and let the webhook settle it.
+        return {
+          id: String(payment.orderId),
+          orderReference: "",
+          status: "PENDING",
+          itemTitle: "",
+          totalMinor: payment.amountMinor,
+          currency: payment.currency,
+          paymentStatus: "PENDING",
+          discrepancy: false,
+        };
+      }
+      throw error;
+    }
+
+    if (!result.paid) {
+      if (result.status === "abandoned" || result.status === "failed") {
+        await Payment.updateOne(
+          { _id: payment._id },
+          {
+            $set: {
+              status: result.status === "abandoned" ? "ABANDONED" : "FAILED",
+              verificationPayload: result.raw,
+            },
+          }
+        );
+      }
+      return {
+        id: String(payment.orderId),
+        orderReference: "",
+        status: "PENDING",
+        itemTitle: "",
+        totalMinor: payment.amountMinor,
+        currency: payment.currency,
+        paymentStatus:
+          result.status === "abandoned"
+            ? "ABANDONED"
+            : result.status === "failed"
+              ? "FAILED"
+              : "PENDING",
+        discrepancy: false,
+      };
+    }
+
+    return settleVerifiedPayment(payment, result);
+  }
 
   let result: VerifyTransactionResult | undefined;
   let lastRetryableError: unknown;
