@@ -10,15 +10,35 @@ export const metadata: Metadata = {
   title: "Sign in | Rapid Launch",
 };
 
-export default async function AccountPage() {
+interface AccountPageProps {
+  searchParams: Promise<{ next?: string }>;
+}
+
+function resolveNext(raw: string | undefined): string | null {
+  if (!raw) return null;
+  if (typeof window !== "undefined") {
+    try {
+      if (new URL(raw, window.location.origin).origin !== window.location.origin) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
+  const { next } = await searchParams;
   const user = await getCurrentPublicUser();
-  if (user) redirect("/account");
+  if (user) redirect(resolveNext(next) ?? "/account");
 
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
       <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-16 lg:px-8 lg:py-24">
         <div className="mx-auto w-full max-w-md">
-          <AccountSignIn />
+          <AccountSignIn next={next} />
         </div>
       </div>
     </div>

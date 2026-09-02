@@ -124,7 +124,11 @@ export function CheckoutForm({
       const sessionJson = await sessionResponse.json();
 
       if (!sessionJson.ok) {
-        throw new Error(sessionJson.error?.code ?? "CHECKOUT_FAILED");
+        throw new Error(
+          sessionJson.error?.message ??
+            sessionJson.error?.code ??
+            "CHECKOUT_FAILED"
+        );
       }
 
       const orderReference = sessionJson.data.orderReference as string;
@@ -145,16 +149,21 @@ export function CheckoutForm({
           );
           return;
         }
-        throw new Error(code ?? "PAYMENT_INIT_FAILED");
+        throw new Error(
+          initJson.error?.message ?? code ?? "PAYMENT_INIT_FAILED"
+        );
       }
 
       const authorizationUrl = initJson.data.authorizationUrl as string;
       setState("redirecting");
       window.location.href = authorizationUrl;
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
       setState("error");
       setMessage(
-        "We couldn't start your checkout. Please try again. No payment has been taken."
+        message
+          ? message
+          : "We couldn't start your checkout. Please try again. No payment has been taken."
       );
     }
   }
@@ -180,6 +189,22 @@ export function CheckoutForm({
 
   async function continueAfterAuth() {
     setShowAuthModal(false);
+
+    // Make sure the fresh session cookie is committed before we start
+    // checkout; otherwise /api/checkout/session would see an anonymous user.
+    let attempts = 0;
+    let authed = false;
+    while (attempts < 6) {
+      const response = await fetch("/api/auth/session", {
+        headers: { "Content-Type": "application/json" },
+      });
+      const json = await response.json();
+      authed = Boolean(json.ok && json.data?.user);
+      if (authed) break;
+      attempts++;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
     await refresh();
     const submit = pendingSubmitRef.current;
     if (submit) await submit();

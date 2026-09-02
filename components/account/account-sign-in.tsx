@@ -1,35 +1,26 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 
 import { AuthCard } from "@/components/auth/auth-card";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { useAuth } from "@/components/auth/auth-provider";
 
-function AccountSignInInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { loginWithGoogle, refresh } = useAuth();
+interface AccountSignInProps {
+  next?: string;
+}
 
-  const next =
-    typeof searchParams.get("next") === "string"
-      ? searchParams.get("next")!
-      : "/account";
+export function AccountSignIn({ next }: AccountSignInProps) {
+  const router = useRouter();
+  const { loginWithGoogle } = useAuth();
 
   function resolveNext() {
-    // Only allow internal redirects to avoid open-redirect vulnerabilities.
-    try {
-      const url = new URL(next, window.location.origin);
-      if (url.origin !== window.location.origin) return "/account";
-      return url.pathname + url.search;
-    } catch {
-      return "/account";
-    }
+    if (!next) return "/account";
+    if (!next.startsWith("/") || next.startsWith("//")) return "/account";
+    return next;
   }
 
   async function afterAuth() {
-    await refresh();
     router.push(resolveNext());
     router.refresh();
   }
@@ -61,13 +52,5 @@ function AccountSignInInner() {
         onSuccess={() => void afterAuth()}
       />
     </div>
-  );
-}
-
-export function AccountSignIn() {
-  return (
-    <Suspense fallback={null}>
-      <AccountSignInInner />
-    </Suspense>
   );
 }
