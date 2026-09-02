@@ -234,7 +234,7 @@ export default function ServicesPage() {
               </p>
               <Link
                 href="/contact"
-                className={buttonStyles({
+                className=                {buttonStyles({
                   variant: "primary",
                   theme: "dark",
                   size: "lg",
@@ -242,6 +242,7 @@ export default function ServicesPage() {
                 })}
               >
                 Get a recommendation
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Link>
             </Reveal>
           </div>

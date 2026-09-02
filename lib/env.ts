@@ -34,6 +34,7 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string().email().optional()
   ),
+  GOOGLE_CALENDAR_ORGANIZER_NAME: z.string().default("Agile Minds Hub"),
   GOOGLE_CALENDAR_TIME_ZONE: z.string().default("Africa/Lagos"),
   GOOGLE_CALENDAR_WORK_START: z.string().default("09:00"),
   GOOGLE_CALENDAR_WORK_END: z.string().default("17:00"),
@@ -41,8 +42,9 @@ const envSchema = z.object({
   GOOGLE_SMTP_PORT: z.coerce.number().default(465),
   GOOGLE_SMTP_USER: z.string().optional(),
   GOOGLE_SMTP_PASSWORD: z.string().optional(),
-  MAIL_FROM_NAME: z.string().default("Rapid Launch"),
+  MAIL_FROM_NAME: z.string().default("Agile Minds Hub"),
   MAIL_FROM_EMAIL: z.string().email().optional(),
+  REMINDER_CRON_SECRET: z.string().optional(),
   AI_PROVIDER_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
 });

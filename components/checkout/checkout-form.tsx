@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
+import {
+  SchedulerCalendar,
+  type SchedulerSlot,
+} from "@/components/checkout/scheduler-calendar";
 import { buttonStyles } from "@/components/ui/button";
 
 interface CheckoutFormProps {
@@ -20,21 +24,6 @@ type SubmitState =
 
 type SlotStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
 
-interface TimeSlot {
-  startTime: string;
-  endTime: string;
-}
-
-function formatSlot(date: Date): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
 export function CheckoutForm({
   productId,
   isSession = false,
@@ -46,7 +35,7 @@ export function CheckoutForm({
   const [whatYouAreBuilding, setWhatYouAreBuilding] = useState("");
   const [currentStage, setCurrentStage] = useState("");
   const [helpNeeded, setHelpNeeded] = useState("");
-  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [slots, setSlots] = useState<SchedulerSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [slotStatus, setSlotStatus] = useState<SlotStatus>(
     isSession ? "loading" : "idle"
@@ -64,7 +53,7 @@ export function CheckoutForm({
         Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Lagos";
       try {
         const response = await fetch(
-          `/api/calendar/availability?durationMinutes=${duration}&timezone=${encodeURIComponent(timezone)}`,
+          `/api/calendar/availability?days=30&durationMinutes=${duration}&timezone=${encodeURIComponent(timezone)}`,
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },
@@ -76,7 +65,7 @@ export function CheckoutForm({
           setSlotStatus("unavailable");
           return;
         }
-        const data = json.data as { slots: TimeSlot[] };
+        const data = json.data as { slots: SchedulerSlot[] };
         if (!data.slots?.length) {
           setSlotStatus("empty");
           return;
@@ -93,25 +82,6 @@ export function CheckoutForm({
       cancelled = true;
     };
   }, [isSession, sessionDurationMinutes]);
-
-  const groupedSlots = useMemo(() => {
-    const groups = new Map<string, TimeSlot[]>();
-    for (const slot of slots) {
-      const key = new Date(slot.startTime).toDateString();
-      const list = groups.get(key) ?? [];
-      list.push(slot);
-      groups.set(key, list);
-    }
-    return Array.from(groups.entries())
-      .map(([key, list]) => ({
-        date: new Date(key),
-        slots: list.sort(
-          (a, b) =>
-            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        ),
-      }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [slots]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -321,48 +291,18 @@ export function CheckoutForm({
               <>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">
                   {sessionDurationMinutes
-                    ? `Each session is ${sessionDurationMinutes} minutes. Select the slot that suits you.`
-                    : "Select the slot that suits you."}
+                    ? `Each session is ${sessionDurationMinutes} minutes. Pick a day, then choose a time.`
+                    : "Pick a day, then choose a time."}
                 </p>
-                <div className="mt-3 space-y-4">
-                  {groupedSlots.map((group) => (
-                    <div key={group.date.toISOString()}>
-                      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500">
-                        {new Intl.DateTimeFormat("en-GB", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                        }).format(group.date)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Available times">
-                        {group.slots.map((slot) => {
-                          const isSelected = selectedSlot === slot.startTime;
-                          return (
-                            <button
-                              key={slot.startTime}
-                              type="button"
-                              role="radio"
-                              aria-checked={isSelected}
-                              disabled={
-                                disabled ||
-                                state === "submitting" ||
-                                state === "redirecting"
-                              }
-                              onClick={() => setSelectedSlot(slot.startTime)}
-                              className={
-                                isSelected
-                                  ? "rounded-pill border border-terracotta-600 bg-terracotta-600 px-3.5 py-2 font-sans text-xs font-semibold text-white transition-colors duration-[var(--duration-fast)]"
-                                  : "rounded-pill border border-neutral-300 bg-white px-3.5 py-2 font-sans text-xs font-semibold text-neutral-700 transition-colors duration-[var(--duration-fast)] hover:border-terracotta-600 hover:text-terracotta-600"
-                              }
-                            >
-                              {formatSlot(new Date(slot.startTime))}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SchedulerCalendar
+                  slots={slots}
+                  selectedSlot={selectedSlot}
+                  onSelect={setSelectedSlot}
+                  disabled={
+                    disabled || state === "submitting" || state === "redirecting"
+                  }
+                  durationMinutes={sessionDurationMinutes}
+                />
               </>
             )}
           </div>

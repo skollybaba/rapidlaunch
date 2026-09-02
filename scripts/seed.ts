@@ -146,9 +146,37 @@ const products: SeedProduct[] = [
       ],
       durationMinutes: 90,
       bookingMode: "EXTERNAL_SCHEDULER",
-      schedulerUrl: "",
       preparationInstructions:
         "Tell us where you are: whether you already have a strategy you want to build, or an idea you are still shaping. A short paragraph is enough before the session.",
+      reschedulePolicy: "Free rescheduling up to 24 hours before the session.",
+      cancellationPolicy: "Sessions cancelled with less than 24 hours notice are not refunded.",
+    },
+  },
+  {
+    type: "CONSULTATION",
+    slug: "60-minute-product-manager-clarity-session",
+    title: "60-Minute Product Manager Clarity Session",
+    shortDescription:
+      "A one-on-one for product managers who want to work faster with AI.",
+    description:
+      "A clarity session for product managers who want to build a career that uses AI strongly inside their organization.\n\nIn sixty minutes we focus on your current workflow and show you where and how to bring AI in: structuring how you work with AI, and how to integrate AI into your workflows and into your code so you operate and ship like a product manager who uses AI every day.\n\nYou leave with clarity on how to impute AI into the way you work, from process down to code, and a practical plan you can take straight back to your product team.",
+    status: "PUBLISHED",
+    priceMinor: 5_000_000,
+    currency: "NGN",
+    fulfillmentMode: "SCHEDULER",
+    featured: false,
+    sortOrder: 2,
+    consultationDetails: {
+      sessionTypes: [
+        "Product manager clarity",
+        "Bringing AI into your workflow",
+        "Integrating AI into your code",
+        "Operating with AI inside your organization",
+      ],
+      durationMinutes: 60,
+      bookingMode: "EXTERNAL_SCHEDULER",
+      preparationInstructions:
+        "Tell us a little about your role and the workflows or codebases you work with today. A short paragraph is enough before the session.",
       reschedulePolicy: "Free rescheduling up to 24 hours before the session.",
       cancellationPolicy: "Sessions cancelled with less than 24 hours notice are not refunded.",
     },

@@ -2,6 +2,7 @@ import { Schema, model, models, type Model } from "mongoose";
 
 import {
   BOOKING_PROVIDERS,
+  BOOKING_REMINDER_POINTS,
   BOOKING_STATUSES,
   type BookingDoc,
 } from "@/types/booking";
@@ -48,6 +49,20 @@ const BookingSchema = new Schema<BookingDoc>(
     attempts: { type: Number, required: true, min: 0, default: 0 },
     lastError: String,
     bookedAt: { type: Date, default: null },
+    reminders: {
+      type: [
+        {
+          _id: false,
+          point: {
+            type: String,
+            enum: BOOKING_REMINDER_POINTS,
+            required: true,
+          },
+          sentAt: { type: Date, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

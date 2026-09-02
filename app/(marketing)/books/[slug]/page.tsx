@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowRight, Barcode, BookOpenCheck, Download, FileText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
@@ -45,15 +47,21 @@ const DELIVERY_LABELS: Record<string, string> = {
 interface DetailRowProps {
   label: string;
   value: string;
+  icon: LucideIcon;
 }
 
-function DetailRow({ label, value }: DetailRowProps) {
+function DetailRow({ label, value, icon: Icon }: DetailRowProps) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <dt className="text-sm font-medium text-neutral-500">{label}</dt>
-      <dd className="text-right text-sm font-semibold text-neutral-950">
-        {value}
-      </dd>
+    <div className="flex items-center gap-3 py-3">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-ink-900">
+        <Icon aria-hidden="true" className="h-4 w-4 text-lavender-200" />
+      </span>
+      <div className="flex flex-1 items-start justify-between gap-4">
+        <dt className="text-sm font-medium text-neutral-500">{label}</dt>
+        <dd className="text-right text-sm font-semibold text-neutral-950">
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }
@@ -114,12 +122,13 @@ function BookContent({ product }: { product: ProductDetail }) {
           <div className="rounded-md border border-neutral-300 bg-white p-6">
             <dl className="divide-y divide-neutral-100">
               {details?.format ? (
-                <DetailRow label="Format" value={details.format} />
+                <DetailRow icon={FileText} label="Format" value={details.format} />
               ) : null}
               {details?.isbn ? (
-                <DetailRow label="ISBN" value={details.isbn} />
+                <DetailRow icon={Barcode} label="ISBN" value={details.isbn} />
               ) : null}
               <DetailRow
+                icon={Download}
                 label="Delivery"
                 value={deliveryMode ?? "Fulfillment on purchase"}
               />
@@ -137,6 +146,7 @@ function BookContent({ product }: { product: ProductDetail }) {
                 })}
               >
                 Buy on external store
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Link>
             ) : (
               <Link
@@ -148,6 +158,7 @@ function BookContent({ product }: { product: ProductDetail }) {
                 })}
               >
                 Buy this book
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Link>
             )}
             <Link
@@ -157,6 +168,7 @@ function BookContent({ product }: { product: ProductDetail }) {
                 className: "mt-3 w-full",
               })}
             >
+              <BookOpenCheck aria-hidden="true" className="h-4 w-4" />
               Question about the book?
             </Link>
           </div>

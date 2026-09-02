@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Clock,
+  GraduationCap,
+  ListOrdered,
+  MessageCircleQuestion,
+  MonitorPlay,
+  UserRound,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,15 +54,21 @@ export async function generateMetadata({
 interface DetailRowProps {
   label: string;
   value: string;
+  icon: LucideIcon;
 }
 
-function DetailRow({ label, value }: DetailRowProps) {
+function DetailRow({ label, value, icon: Icon }: DetailRowProps) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <dt className="text-sm font-medium text-neutral-500">{label}</dt>
-      <dd className="text-right text-sm font-semibold text-neutral-950">
-        {value}
-      </dd>
+    <div className="flex items-center gap-3 py-3">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-ink-900">
+        <Icon aria-hidden="true" className="h-4 w-4 text-lavender-200" />
+      </span>
+      <div className="flex flex-1 items-start justify-between gap-4">
+        <dt className="text-sm font-medium text-neutral-500">{label}</dt>
+        <dd className="text-right text-sm font-semibold text-neutral-950">
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }
@@ -108,7 +125,10 @@ function CourseContent({ product }: { product: ProductDetail }) {
                 {details.outcomes.map((outcome, index) => (
                   <Reveal key={index} delay={index * 50}>
                     <li className="flex items-start gap-3 text-base leading-relaxed text-neutral-700">
-                      <span className="mt-[0.5em] h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta-600" />
+                      <BadgeCheck
+                        aria-hidden="true"
+                        className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-600"
+                      />
                       {outcome}
                     </li>
                   </Reveal>
@@ -126,10 +146,13 @@ function CourseContent({ product }: { product: ProductDetail }) {
                     key={index}
                     className="flex items-start gap-3 text-base leading-relaxed text-neutral-700"
                   >
-                    <span className="text-sm font-bold text-terracotta-600">
-                      {String(index + 1).padStart(2, "0")}
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-lavender-100">
+                      <ListOrdered
+                        aria-hidden="true"
+                        className="h-4 w-4 text-ink-700"
+                      />
                     </span>
-                    {module}
+                    <span>{module}</span>
                   </li>
                 ))}
               </ol>
@@ -170,15 +193,16 @@ function CourseContent({ product }: { product: ProductDetail }) {
             <div className="rounded-md border border-neutral-300 bg-white p-6">
             <dl className="divide-y divide-neutral-100">
               {duration ? (
-                <DetailRow label="Duration" value={duration} />
+                <DetailRow icon={Clock} label="Duration" value={duration} />
               ) : null}
               {details?.level ? (
-                <DetailRow label="Level" value={details.level} />
+                <DetailRow icon={GraduationCap} label="Level" value={details.level} />
               ) : null}
               {details?.instructor ? (
-                <DetailRow label="Instructor" value={details.instructor} />
+                <DetailRow icon={UserRound} label="Instructor" value={details.instructor} />
               ) : null}
               <DetailRow
+                icon={MonitorPlay}
                 label="Delivery"
                 value={
                   product.fulfillmentMode === "MANUAL"
@@ -199,6 +223,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
               })}
             >
               Buy this course
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
             <Link
               href="/contact"
@@ -207,6 +232,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
                 className: "mt-3 w-full",
               })}
             >
+              <MessageCircleQuestion aria-hidden="true" className="h-4 w-4" />
               Not sure? Get a recommendation
             </Link>
           </div>

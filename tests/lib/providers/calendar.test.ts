@@ -29,6 +29,7 @@ const CONFIG = {
   clientSecret: "client-secret",
   refreshToken: "refresh-token",
   calendarId: "owner@gmail.com",
+  organizerName: "Agile Minds Hub",
   timezone: "Africa/Lagos",
   workStart: "09:00",
   workEnd: "17:00",
@@ -63,6 +64,24 @@ describe("HttpGoogleCalendarAdapter", () => {
     // 09:00-17:00 local (UTC+1) => 09:00,10:30,12:00,13:30,15:00 => 5 slots.
     expect(slots).toHaveLength(5);
     expect(slots[0].startTime).toBe("2026-09-07T08:00:00.000Z");
+  });
+
+  it("covers a full 30-day window without truncating at a small slot cap", async () => {
+    sharedClient.freebusy.query.mockResolvedValue({
+      data: { calendars: { "owner@gmail.com": { busy: [] } } },
+    });
+
+    const slots = await adapter.getAvailableSlots({
+      from: "2026-09-07T00:00:00.000Z",
+      to: "2026-10-07T00:00:00.000Z",
+      durationMinutes: 90,
+    });
+
+    expect(slots.length).toBeGreaterThan(100);
+    const last = new Date(slots[slots.length - 1].startTime);
+    const fromDay = new Date("2026-09-07T00:00:00.000Z").getTime();
+    const spanDays = (last.getTime() - fromDay) / 86_400_000;
+    expect(spanDays).toBeGreaterThan(25);
   });
 
   it("skips slots that overlap a busy window", async () => {
@@ -140,6 +159,40 @@ describe("HttpGoogleCalendarAdapter", () => {
       htmlLink: "https://calendar.google.com/event?eid=abc",
       hangoutLink: "https://meet.google.com/abc-def-ghi",
     });
+  });
+
+  it("sets the organizer display name and prefixes the description", async () => {
+    sharedClient.events.insert.mockResolvedValue({
+      data: {
+        id: "EVT1",
+        htmlLink: "https://calendar.google.com/event?eid=abc",
+        start: { dateTime: "2026-09-07T10:00:00.000Z" },
+        end: { dateTime: "2026-09-07T11:30:00.000Z" },
+      },
+    });
+
+    await adapter.createMeetEvent({
+      calendarId: CONFIG.calendarId,
+      summary: "90-Minute Session",
+      description: "Building: A booking tool",
+      startTime: "2026-09-07T10:00:00.000Z",
+      endTime: "2026-09-07T11:30:00.000Z",
+      timezone: "Africa/Lagos",
+      attendeeEmail: "buyer@example.com",
+    });
+
+    const call = sharedClient.events.insert.mock.calls[0][0] as {
+      requestBody: {
+        organizer?: { email?: string; displayName?: string };
+        description?: string;
+      };
+    };
+    expect(call.requestBody.organizer).toMatchObject({
+      email: CONFIG.calendarId,
+      displayName: "Agile Minds Hub",
+    });
+    expect(call.requestBody.description).toContain("Agile Minds Hub");
+    expect(call.requestBody.description).toContain("Building: A booking tool");
   });
 
   it("propagates a malformed response as a non-retryable provider error", async () => {

@@ -577,6 +577,7 @@ async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
     clientSecret: env.GOOGLE_CLIENT_SECRET,
     refreshToken: env.GOOGLE_REFRESH_TOKEN,
     calendarId,
+    organizerName: env.GOOGLE_CALENDAR_ORGANIZER_NAME,
     timezone: env.GOOGLE_CALENDAR_TIME_ZONE,
     workStart: env.GOOGLE_CALENDAR_WORK_START,
     workEnd: env.GOOGLE_CALENDAR_WORK_END,
@@ -599,6 +600,7 @@ async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   try {
     const event = await adapter.createMeetEvent({
       calendarId,
+      organizerName: env.GOOGLE_CALENDAR_ORGANIZER_NAME,
       summary: order.items[0]?.titleSnapshot ?? "Strategy session",
       description,
       startTime: startTime.toISOString(),

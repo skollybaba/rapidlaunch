@@ -9,6 +9,7 @@ export interface GoogleCalendarAdapterConfig {
   clientSecret: string;
   refreshToken: string;
   calendarId: string;
+  organizerName?: string;
   timezone: string;
   workStart: string;
   workEnd: string;
@@ -30,6 +31,7 @@ export interface CreateMeetEventInput {
   calendarId: string;
   summary: string;
   description?: string;
+  organizerName?: string;
   startTime: string;
   endTime: string;
   timezone: string;
@@ -129,7 +131,7 @@ export class HttpGoogleCalendarAdapter implements GoogleCalendarAdapter {
       dayStart = startOfDayInTimezone(new Date(dayStart + 86_400_000), timezone)
     ) {
       const { year, month, day } = datePartsInTimezone(dayStart, timezone);
-      if (isWeekend(year, month, day)) continue;
+      if (isSunday(year, month, day)) continue;
 
       const workStartUtc = wallClockToUtc(year, month, day, workStart, timezone);
       const workEndUtc = wallClockToUtc(year, month, day, workEnd, timezone);
@@ -149,14 +151,19 @@ export class HttpGoogleCalendarAdapter implements GoogleCalendarAdapter {
         });
       }
 
-      if (slots.length >= 60) break;
+      if (slots.length >= 200) break;
     }
 
-    return slots.slice(0, 60);
+    return slots.slice(0, 200);
   }
 
   async createMeetEvent(input: CreateMeetEventInput): Promise<CreatedMeetEvent> {
     const calendar = this.client();
+
+    const organizerName = input.organizerName ?? this.config.organizerName;
+    const description = organizerName
+      ? `Scheduled by ${organizerName}\n\n${input.description ?? ""}`.trim()
+      : input.description;
 
     let created: calendar_v3.Schema$Event;
     try {
@@ -166,9 +173,15 @@ export class HttpGoogleCalendarAdapter implements GoogleCalendarAdapter {
         sendUpdates: "all",
         requestBody: {
           summary: input.summary,
-          description: input.description,
+          description,
           start: { dateTime: input.startTime, timeZone: input.timezone },
           end: { dateTime: input.endTime, timeZone: input.timezone },
+          organizer: organizerName
+            ? {
+                email: input.calendarId,
+                displayName: organizerName,
+              }
+            : undefined,
           attendees: [
             {
               email: input.attendeeEmail,
@@ -315,9 +328,8 @@ function startOfDayInTimezone(date: Date, timezone: string): number {
   return wallClockToUtc(year, month, day, { hour: 0, minute: 0 }, timezone);
 }
 
-function isWeekend(year: number, month: number, day: number): boolean {
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return weekday === 0 || weekday === 6;
+function isSunday(year: number, month: number, day: number): boolean {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 0;
 }
 
 function overlapsBusy(

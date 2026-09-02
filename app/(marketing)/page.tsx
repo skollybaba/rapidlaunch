@@ -5,6 +5,8 @@ import {
   CalendarClock,
   GraduationCap,
   Play,
+  Rocket,
+  Users,
 } from "lucide-react";
 
 import { Reveal } from "@/components/marketing/reveal";
@@ -169,7 +171,7 @@ function BuildWithAISection() {
                 Browse AI courses
               </Link>
               <Link
-                href="/services/mvp-build"
+                href="/services/idea-to-mvp-sprint"
                 className={buttonStyles({ variant: "secondary", theme: "dark", size: "lg" })}
               >
                 Build your first slice
@@ -247,7 +249,7 @@ export default function HomePage() {
                 </p>
                 <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <Link
-                    href="/services/90-minute-one-on-one-strategy-session"
+                    href="/book"
                     className={buttonStyles({
                       variant: "primary",
                       theme: "dark",
@@ -272,8 +274,8 @@ export default function HomePage() {
               </Reveal>
             </div>
 
-            <Reveal delay={160} className="hidden lg:block">
-              <div className="animate-artwork-in rounded-md border border-white/10 bg-ink-900/70 p-3 shadow-2xl shadow-ink-950/50">
+            <Reveal delay={160} className="hidden self-center lg:block">
+              <div className="translate-y-10 animate-artwork-in rounded-md border border-white/10 bg-ink-900/70 p-3 shadow-2xl shadow-ink-950/50">
                 <VibecodingIllustration className="h-[21rem] w-full rounded-sm" />
                 <div className="mt-3 flex items-center justify-between px-1">
                   <span className="font-sans text-xs font-bold uppercase tracking-[0.14em] text-lavender-200">
@@ -326,15 +328,20 @@ export default function HomePage() {
               </p>
               <div className="mt-8 space-y-4">
                 <div className="rounded-md border border-neutral-300 bg-white p-6">
-                  <h3 className="text-[1.25rem] leading-snug">Founders</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
+                      <Rocket aria-hidden="true" className="h-5 w-5 text-lavender-200" />
+                    </span>
+                    <h3 className="text-[1.25rem] leading-snug">Founders</h3>
+                  </div>
+                  <p className="mt-4 text-sm leading-relaxed text-neutral-500">
                     Launch and test your idea faster. In a clarity session you
                     tell us what you want to build, and we help you focus on
                     what to build now across a realistic slice you can ship.
                     We also size the team it really takes to move.
                   </p>
                   <Link
-                    href="/services/90-minute-one-on-one-strategy-session"
+                    href="/book"
                     className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-terracotta-600 transition-colors duration-[var(--duration-fast)] hover:text-terracotta-500"
                   >
                     Book a clarity session
@@ -342,8 +349,13 @@ export default function HomePage() {
                   </Link>
                 </div>
                 <div className="rounded-md border border-neutral-300 bg-white p-6">
-                  <h3 className="text-[1.25rem] leading-snug">Product managers</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
+                      <Users aria-hidden="true" className="h-5 w-5 text-lavender-200" />
+                    </span>
+                    <h3 className="text-[1.25rem] leading-snug">Product managers</h3>
+                  </div>
+                  <p className="mt-4 text-sm leading-relaxed text-neutral-500">
                     Learn to build your product yourself for almost zero cost, using
                     AI agents, coding, databases, APIs, authentication, and
                     deployment. You build it, you own it, and it scales without
@@ -393,7 +405,7 @@ export default function HomePage() {
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/services/90-minute-one-on-one-strategy-session"
+                href="/book"
                 className={buttonStyles({
                   variant: "primary",
                   theme: "dark",

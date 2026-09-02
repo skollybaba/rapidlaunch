@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookMarked, Compass, Layers, MessageSquareQuote } from "lucide-react";
+import { ArrowRight, BookMarked, Compass, Layers, MessageSquareQuote } from "lucide-react";
 
 import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
@@ -209,6 +209,7 @@ export default function AboutPage() {
                   })}
                 >
                   Explore services
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/contact"
@@ -218,6 +219,7 @@ export default function AboutPage() {
                     size: "lg",
                   })}
                 >
+                  <MessageSquareQuote aria-hidden="true" className="h-4 w-4" />
                   Ask a question
                 </Link>
               </div>

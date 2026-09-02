@@ -16,19 +16,19 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="bg-ink-950">
+    <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
       <div className="mx-auto flex w-[min(80%,96rem)] items-center justify-between gap-6 px-6 py-5 lg:px-8">
         <Link
           href="/"
-          className="group inline-flex items-center gap-2 font-sans text-lg font-bold tracking-tight text-white"
+          className="group inline-flex items-center gap-3 font-sans text-xl font-bold tracking-tight text-white"
         >
-          <span className="inline-flex h-7 w-7 items-center justify-center overflow-hidden">
+          <span className="inline-flex h-9 w-9 items-center justify-center overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-icon.svg"
               alt=""
               aria-hidden="true"
-              className="h-7 w-7 transition-transform duration-[var(--duration-standard)] group-hover:-translate-y-0.5"
+              className="h-9 w-9 transition-transform duration-[var(--duration-standard)] group-hover:-translate-y-0.5"
             />
           </span>
           Rapid Launch
@@ -51,7 +51,7 @@ export function SiteHeader() {
           })}
         </nav>
         <Link
-          href="/services/90-minute-one-on-one-strategy-session"
+          href="/book"
           className="inline-flex h-11 items-center justify-center gap-2 rounded-pill bg-terracotta-600 px-5 text-sm font-semibold text-white transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500"
         >
           Book a session
