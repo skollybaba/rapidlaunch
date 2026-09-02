@@ -1,5 +1,8 @@
 import "server-only";
 
+import { OAuth2Client } from "google-auth-library";
+import { z } from "zod";
+
 import {
   signPasswordResetToken,
   verifyPasswordResetToken,
@@ -115,6 +118,111 @@ export async function loginUser(input: unknown): Promise<PublicUser> {
 
 export async function logoutUser(): Promise<void> {
   await clearSessionCookie();
+}
+
+export async function loginWithGoogle(
+  input: unknown
+): Promise<PublicUser> {
+  const googleClientId = env.GOOGLE_CLIENT_ID;
+  if (!googleClientId) {
+    throw new AuthServiceError(
+      "GOOGLE_NOT_CONFIGURED",
+      "Google sign-in is not configured yet.",
+      503
+    );
+  }
+
+  const parsed = z
+    .object({
+      credential: z.string().min(1, "Google credential is required"),
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    throw new AuthServiceError(
+      "INVALID_GOOGLE_CREDENTIAL",
+      "Invalid Google sign-in request.",
+      400
+    );
+  }
+
+  const client = new OAuth2Client(googleClientId);
+  let ticket;
+  try {
+    ticket = await client.verifyIdToken({
+      idToken: parsed.data.credential,
+      audience: googleClientId,
+    });
+  } catch {
+    throw new AuthServiceError(
+      "INVALID_GOOGLE_CREDENTIAL",
+      "We could not verify your Google account. Try again.",
+      401
+    );
+  }
+
+  const payload = ticket.getPayload();
+  const email = payload?.email;
+  const googleId = payload?.sub;
+  if (!email || !googleId) {
+    throw new AuthServiceError(
+      "INVALID_GOOGLE_CREDENTIAL",
+      "Your Google account did not include a verified email.",
+      401
+    );
+  }
+
+  await dbConnect();
+  const normalizedEmail = normalizeEmail(email);
+
+  // Link an existing email/password account to Google if the email matches and
+  // the account has never been linked; otherwise find by Google ID or email.
+  let user = await User.findOne({
+    $or: [{ googleId }, { email: normalizedEmail }],
+  })
+    .lean()
+    .exec();
+
+  if (user) {
+    if (!user.googleId) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { googleId, provider: "google" } }
+      );
+    }
+    await createSessionCookie(user);
+  } else {
+    const created = await User.create({
+      email: normalizedEmail,
+      name: payload.name || undefined,
+      provider: "google",
+      googleId,
+      role: "customer",
+    });
+    await createSessionCookie(created);
+    user = { ...created.toObject(), _id: created._id };
+
+    const mail = createMailAdapter();
+    try {
+      await mail.sendTemplateEmail({
+        templateKey: "account_welcome",
+        to: email,
+        variables: {
+          name: payload.name || "there",
+          appUrl: env.NEXT_PUBLIC_APP_URL,
+        },
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
+  return toPublicUser({
+    _id: user._id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  });
 }
 
 export async function requestPasswordReset(input: unknown): Promise<void> {

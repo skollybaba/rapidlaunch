@@ -22,6 +22,7 @@ interface AuthContextValue {
     email: string;
     password: string;
   }) => Promise<PublicUser>;
+  loginWithGoogle: (credential: string) => Promise<PublicUser>;
   logout: () => Promise<void>;
 }
 
@@ -88,9 +89,32 @@ export function AuthProvider({
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const response = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+    const json = await response.json();
+    if (!json.ok) {
+      throw new Error(json.error?.message ?? "Could not sign in with Google");
+    }
+    setUser(json.data.user);
+    return json.data.user as PublicUser;
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, refresh, setUser, login, register, logout }),
-    [user, loading, refresh, login, register, logout]
+    () => ({
+      user,
+      loading,
+      refresh,
+      setUser,
+      login,
+      register,
+      loginWithGoogle,
+      logout,
+    }),
+    [user, loading, refresh, login, register, loginWithGoogle, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -13,7 +13,13 @@ const UserSchema = new Schema<UserDoc>(
       index: true,
     },
     name: { type: String, trim: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String },
+    provider: {
+      type: String,
+      enum: ["password", "google"],
+      default: "password",
+    },
+    googleId: { type: String, unique: true, sparse: true },
     role: {
       type: String,
       enum: USER_ROLES,

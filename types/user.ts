@@ -6,7 +6,9 @@ export interface UserDoc {
   _id: unknown;
   email: string;
   name?: string;
-  passwordHash: string;
+  passwordHash?: string;
+  provider?: "password" | "google";
+  googleId?: string;
   role: UserRole;
   createdAt?: Date;
   updatedAt?: Date;

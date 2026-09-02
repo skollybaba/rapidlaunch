@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import {
   SchedulerCalendar,
   type SchedulerSlot,
 } from "@/components/checkout/scheduler-calendar";
-import { AuthCard } from "@/components/auth/auth-card";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -32,6 +33,7 @@ export function CheckoutForm({
   sessionDurationMinutes,
   disabled,
 }: CheckoutFormProps) {
+  const pathname = usePathname();
   const { user, refresh } = useAuth();
   const [email, setEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -45,8 +47,7 @@ export function CheckoutForm({
   );
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
-  const [showAuthGate, setShowAuthGate] = useState(false);
-  const [authTouched, setAuthTouched] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
@@ -164,8 +165,7 @@ export function CheckoutForm({
 
     if (!user) {
       pendingSubmitRef.current = runCheckout;
-      setAuthTouched(false);
-      setShowAuthGate(true);
+      setShowAuthModal(true);
       return;
     }
 
@@ -173,13 +173,13 @@ export function CheckoutForm({
   }
 
   async function continueAsGuest() {
-    setShowAuthGate(false);
+    setShowAuthModal(false);
     const submit = pendingSubmitRef.current;
     if (submit) await submit();
   }
 
   async function continueAfterAuth() {
-    setShowAuthGate(false);
+    setShowAuthModal(false);
     await refresh();
     const submit = pendingSubmitRef.current;
     if (submit) await submit();
@@ -389,55 +389,13 @@ export function CheckoutForm({
         ) : null}
       </form>
 
-      {showAuthGate ? (
-        <div className="rounded-[16px] border border-terracotta-100 bg-terracotta-100 p-5">
-          <h3 className="text-[1.125rem] leading-snug">
-            Create an account to track this purchase?
-          </h3>
-          <p className="mt-1 text-sm leading-relaxed text-neutral-700">
-            {user
-              ? "You'll be signed in."
-              : "Sign in or create a free account so this order — and every session you book — is saved to your profile and visible in your account."}
-          </p>
-
-          <div className="mt-4 space-y-2">
-            <button
-              type="button"
-              onClick={() => setAuthTouched(true)}
-              className={buttonStyles({
-                variant: "primary",
-                size: "lg",
-                className: "w-full",
-              })}
-            >
-              Create account or sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => void continueAsGuest()}
-              disabled={state === "submitting" || state === "redirecting"}
-              className={buttonStyles({
-                variant: "secondary",
-                size: "lg",
-                className: "w-full",
-              })}
-            >
-              Continue as guest
-            </button>
-          </div>
-
-          {authTouched ? (
-            <div className="mt-5">
-              <AuthCard
-                title={user ? "Complete payment" : "One more step"}
-                subtitle="Authenticate to link this purchase to your account. You can still continue as a guest instead."
-                showBackHome={false}
-                onSuccess={() => void continueAfterAuth()}
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onContinueAsGuest={() => void continueAsGuest()}
+        onAuthenticated={() => void continueAfterAuth()}
+        redirectPath={pathname}
+      />
     </div>
   );
 }

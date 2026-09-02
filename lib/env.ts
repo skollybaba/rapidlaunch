@@ -14,6 +14,7 @@ const envSchema = z.object({
     .string()
     .url()
     .default("http://localhost:3000"),
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   MONGODB_DB_NAME: z.string().default("quicklaunch"),
   MONGODB_SERVER_SELECTION_TIMEOUT_MS: z.coerce
