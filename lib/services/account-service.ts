@@ -2,9 +2,11 @@ import "server-only";
 
 import { dbConnect } from "@/lib/db";
 import { Booking } from "@/models/Booking";
+import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
 import { Product } from "@/models/Product";
 import type { BookingDoc } from "@/types/booking";
+import type { FulfillmentDoc } from "@/types/payment";
 import type { OrderDoc } from "@/types/order";
 
 export interface AccountPurchase {
@@ -33,10 +35,73 @@ export interface AccountSession {
   isUpcoming: boolean;
 }
 
+export interface AccountCourse {
+  id: string;
+  orderReference: string;
+  title: string;
+  priceMinor: number;
+  currency: string;
+  purchasedAt: string;
+  enrollmentId?: string;
+  enrollmentStatus: string;
+  courseUrl?: string;
+  courseId?: string;
+}
+
+export async function getCoursesForUser(
+  userId: string
+): Promise<AccountCourse[]> {
+  await dbConnect();
+
+  const orders = await Order.find({
+    userId,
+    status: "PAID",
+    "metadata.productType": "COURSE",
+  })
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
+
+  if (!orders.length) return [];
+
+  const orderIds = orders.map((order) => order._id);
+  const fulfillments = await Fulfillment.find({
+    orderId: { $in: orderIds },
+    type: "CLASSROOM_ENROLLMENT",
+  })
+    .lean()
+    .exec();
+
+  const fulfillmentByOrder = new Map<string, FulfillmentDoc>(
+    fulfillments.map((f) => [String(f.orderId), f])
+  );
+
+  return orders.map((order: OrderDoc) => {
+    const fulfillment = fulfillmentByOrder.get(String(order._id));
+    const meta = (fulfillment?.metadata ?? {}) as Record<string, unknown>;
+    return {
+      id: String(order._id),
+      orderReference: order.orderReference,
+      title: order.items[0]?.titleSnapshot ?? "Course",
+      priceMinor: order.totalMinor,
+      currency: order.currency,
+      purchasedAt: order.createdAt
+        ? new Date(order.createdAt).toISOString()
+        : new Date().toISOString(),
+      enrollmentId:
+        typeof meta.studentId === "string" ? meta.studentId : undefined,
+      enrollmentStatus: fulfillment?.status ?? "PENDING",
+      courseUrl:
+        typeof meta.courseAltLink === "string" ? meta.courseAltLink : undefined,
+      courseId: typeof meta.courseId === "string" ? meta.courseId : undefined,
+    };
+  });
+}
+
 export async function getPurchasesForUser(userId: string): Promise<AccountPurchase[]> {
   await dbConnect();
 
-  const orders = await Order.find({ userId })
+  const orders = await Order.find({ userId, status: "PAID" })
     .sort({ createdAt: -1 })
     .lean()
     .exec();

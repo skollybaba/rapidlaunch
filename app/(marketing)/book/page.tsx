@@ -251,12 +251,12 @@ export default function BookPage() {
       />
 
       <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <OptionsGrid />
         </div>
 
         <section className="border-t border-neutral-200 bg-neutral-100">
-          <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+          <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
             <Reveal>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 What happens next

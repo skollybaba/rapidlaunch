@@ -12,7 +12,7 @@ const SITE_LINKS = [
 export function SiteFooter() {
   return (
     <footer className="bg-ink-950">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-12 lg:px-8">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-12 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-start">
           <div>
             <p className="inline-flex items-center gap-3 font-sans text-xl font-bold tracking-tight text-white">

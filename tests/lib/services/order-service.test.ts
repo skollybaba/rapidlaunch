@@ -19,7 +19,11 @@ vi.mock("@/models/PaymentEvent", () => ({
 }));
 
 vi.mock("@/models/Fulfillment", () => ({
-  Fulfillment: { findOneAndUpdate: vi.fn() },
+  Fulfillment: {
+    findOneAndUpdate: vi.fn(),
+    findOne: vi.fn(),
+    updateOne: vi.fn(),
+  },
 }));
 
 vi.mock("@/models/Booking", () => ({
@@ -34,6 +38,32 @@ vi.mock("axios", () => ({
   default: { post: vi.fn(), get: vi.fn() },
 }));
 
+vi.mock("@/lib/providers/mail", () => ({
+  createMailAdapter: vi.fn(() => ({
+    sendTemplateEmail: vi.fn().mockResolvedValue({}),
+    sendEmail: vi.fn().mockResolvedValue({}),
+    sendTestEmail: vi.fn().mockResolvedValue({}),
+  })),
+}));
+
+vi.mock("@/lib/providers/classroom", () => ({
+  createClassroomAdapter: vi.fn(() => ({
+    listConfiguredCourses: vi.fn().mockResolvedValue([]),
+    getCourse: vi.fn().mockResolvedValue({
+      id: "CRS1",
+      name: "AI Course",
+      alternateLink: "https://classroom.google.com/c/CRS1",
+    }),
+    enrollStudent: vi.fn().mockResolvedValue({
+      studentId: "STU1",
+      alreadyEnrolled: false,
+      errorCategory: null,
+      providerResponse: {},
+    }),
+    checkEnrollment: vi.fn().mockResolvedValue(true),
+  })),
+}));
+
 import axios from "axios";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -41,6 +71,8 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
+import { createMailAdapter } from "@/lib/providers/mail";
+import { createClassroomAdapter } from "@/lib/providers/classroom";
 import {
   createCheckoutSession,
   initializeCheckoutPayment,
@@ -117,6 +149,10 @@ function sign(body: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(Booking.findOne).mockReturnValue(lean(null));
+  vi.mocked(Fulfillment.findOne).mockReturnValue(
+    lean({ _id: "FUL1", status: "FULFILLED", attempts: 1, metadata: {} })
+  );
+  vi.mocked(Fulfillment.findOneAndUpdate).mockReturnValue(fulfillExec());
 });
 
 describe("createCheckoutSession", () => {
@@ -384,6 +420,130 @@ describe("verifyCheckoutPayment", () => {
       expect.anything(),
       expect.objectContaining({ upsert: true })
     );
+  });
+
+  it("enrolls the buyer in Google Classroom and marks the fulfillment fulfilled and emails access", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          reference: "QL-PAY-ABC",
+          status: "success",
+          amount: 5_000_000,
+          currency: "NGN",
+        },
+      },
+    });
+
+    vi.mocked(Fulfillment.findOne).mockReturnValue(
+      lean({
+        _id: "FUL1",
+        orderId: "ORD1",
+        type: "CLASSROOM_ENROLLMENT",
+        status: "PENDING",
+        attempts: 0,
+        metadata: {},
+      })
+    );
+    vi.mocked(Order.findById).mockReturnValue(
+      lean({
+        ...orderDoc,
+        metadata: { ...orderDoc.metadata, classroomCourseId: "CRS1" },
+      })
+    );
+
+    await verifyCheckoutPayment("QL-PAY-ABC");
+
+    const classroomAdapter = vi.mocked(createClassroomAdapter).mock.results[0]
+      .value;
+    expect(classroomAdapter.enrollStudent).toHaveBeenCalledWith({
+      courseId: "CRS1",
+      studentEmail: "buyer@example.com",
+    });
+    expect(vi.mocked(Fulfillment.updateOne)).toHaveBeenCalledWith(
+      { _id: "FUL1" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "FULFILLED",
+          metadata: expect.objectContaining({
+            courseId: "CRS1",
+            courseAltLink: "https://classroom.google.com/c/CRS1",
+          }),
+        }),
+      })
+    );
+    const emailTemplates = vi
+      .mocked(createMailAdapter)
+      .mock.results.flatMap((result) =>
+        result.value.sendTemplateEmail.mock.calls.map(
+          (call: [{ templateKey: string }]) => call[0].templateKey
+        )
+      );
+    expect(emailTemplates).toContain("course_access_fulfilled");
+  });
+
+  it("marks the course fulfillment ACTION_REQUIRED and emails action required when classroom enrollment fails", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          reference: "QL-PAY-ABC",
+          status: "success",
+          amount: 5_000_000,
+          currency: "NGN",
+        },
+      },
+    });
+
+    vi.mocked(Fulfillment.findOne).mockReturnValue(
+      lean({
+        _id: "FUL1",
+        orderId: "ORD1",
+        type: "CLASSROOM_ENROLLMENT",
+        status: "PENDING",
+        attempts: 0,
+        metadata: {},
+      })
+    );
+    vi.mocked(Order.findById).mockReturnValue(
+      lean({
+        ...orderDoc,
+        metadata: { ...orderDoc.metadata, classroomCourseId: "CRS1" },
+      })
+    );
+    vi.mocked(createClassroomAdapter).mockReturnValue({
+      getCourse: vi.fn().mockResolvedValue({
+        id: "CRS1",
+        name: "AI Course",
+        alternateLink: "https://classroom.google.com/c/CRS1",
+      }),
+      enrollStudent: vi.fn().mockResolvedValue({
+        studentId: null,
+        alreadyEnrolled: false,
+        errorCategory: "FORBIDDEN",
+        providerResponse: null,
+      }),
+      listConfiguredCourses: vi.fn().mockResolvedValue([]),
+      checkEnrollment: vi.fn().mockResolvedValue(true),
+    } as never);
+
+    await verifyCheckoutPayment("QL-PAY-ABC");
+
+    expect(vi.mocked(Fulfillment.updateOne)).toHaveBeenCalledWith(
+      { _id: "FUL1" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "ACTION_REQUIRED",
+          lastError: "FORBIDDEN",
+        }),
+      })
+    );
+    const emailTemplates = vi
+      .mocked(createMailAdapter)
+      .mock.results.flatMap((result) =>
+        result.value.sendTemplateEmail.mock.calls.map(
+          (call: [{ templateKey: string }]) => call[0].templateKey
+        )
+      );
+    expect(emailTemplates).toContain("course_access_action_required");
   });
 
   it("marks amount mismatches as SUSPICIOUS and never fulfills", async () => {

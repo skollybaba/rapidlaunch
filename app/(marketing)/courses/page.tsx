@@ -71,7 +71,7 @@ export default function CoursesPage() {
         description="Self-paced crash courses on using AI inside product work. Every course is delivered through Google Classroom so you learn where the work actually happens."
       />
       <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <Suspense fallback={<CourseGridFallback />}>
             <CourseGrid />
           </Suspense>

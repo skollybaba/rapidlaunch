@@ -6,6 +6,7 @@ import { CheckCircle2, CreditCard, Mail, ArrowRight, Clock } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils";
 
 interface VerifyResult {
@@ -41,7 +42,7 @@ function getInitialReference(): string | null {
 function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-16 lg:py-24">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:py-24">
         <div className="mx-auto max-w-[580px]">
           <div className="text-center">
             <div className="relative mx-auto inline-flex">
@@ -66,25 +67,38 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
               </p>
             </div>
             <div className="px-6 py-5">
-              {data?.itemTitle ? (
-                <p className="text-sm font-semibold text-neutral-950">
-                  {data.itemTitle}
-                </p>
+              {data ? (
+                <>
+                  {data.itemTitle ? (
+                    <p className="text-sm font-semibold text-neutral-950">
+                      {data.itemTitle}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-semibold text-neutral-400">
+                      Your order
+                    </p>
+                  )}
+                  <p className="mt-1 text-3xl font-bold text-neutral-950">
+                    {data.totalMinor !== undefined
+                      ? formatPrice(data.totalMinor, data.currency)
+                      : "\u2014"}
+                  </p>
+                  {data.orderReference ? (
+                    <p className="mt-2 text-xs text-neutral-400">
+                      Ref: {data.orderReference}
+                    </p>
+                  ) : null}
+                </>
               ) : (
-                <p className="text-sm font-semibold text-neutral-400">
-                  Your order
-                </p>
+                <div className="flex items-center gap-3 py-1">
+                  <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-neutral-200 border-t-terracotta-600" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
               )}
-              <p className="mt-1 text-3xl font-bold text-neutral-950">
-                {data?.totalMinor !== undefined
-                  ? formatPrice(data.totalMinor, data.currency)
-                  : "\u2014"}
-              </p>
-              {data?.orderReference ? (
-                <p className="mt-2 text-xs text-neutral-400">
-                  Ref: {data.orderReference}
-                </p>
-              ) : null}
             </div>
           </div>
 
@@ -187,7 +201,7 @@ function StaticPage({
 }) {
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-16 lg:py-24">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:py-24">
         <div className="mx-auto max-w-[540px]">
           <Badge tone={tone}>{badge}</Badge>
           <h1 className="mt-4 text-[1.75rem] leading-[1.286]">{title}</h1>

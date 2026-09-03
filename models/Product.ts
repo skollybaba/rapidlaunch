@@ -12,6 +12,7 @@ const courseDetailsSchema = new Schema<ProductCourseDetails>(
     syllabus: [String],
     previewUrl: String,
     classroomCourseId: String,
+    courseJoinUrl: String,
     enrollmentMode: { type: String, enum: ["AUTOMATIC", "MANUAL"] },
     accessInstructions: String,
   },

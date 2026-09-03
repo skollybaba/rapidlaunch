@@ -16,6 +16,7 @@ const courseDetailsInputSchema = z
     syllabus: z.array(z.string().min(1)).optional(),
     previewUrl: z.string().url().optional(),
     classroomCourseId: z.string().min(1).optional(),
+    courseJoinUrl: z.string().url().optional(),
     enrollmentMode: z.enum(["AUTOMATIC", "MANUAL"]).optional(),
     accessInstructions: z.string().optional(),
   })

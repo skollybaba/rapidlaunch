@@ -30,6 +30,7 @@ export interface ProductCourseDetails {
   syllabus?: string[];
   previewUrl?: string;
   classroomCourseId?: string;
+  courseJoinUrl?: string;
   enrollmentMode?: "AUTOMATIC" | "MANUAL";
   accessInstructions?: string;
 }

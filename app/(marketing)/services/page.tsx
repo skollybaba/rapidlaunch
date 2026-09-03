@@ -140,7 +140,7 @@ export default function ServicesPage() {
         description="Consulting sessions clarify a decision you are facing today. MVP sprints turn a validated idea into a buildable plan and a launchable product. Both end with something you keep."
       />
       <div className="border-b border-neutral-300 bg-white">
-        <div className="mx-auto grid w-[95%] md:w-[min(80%,96rem)] grid-cols-1 items-center gap-10 px-6 py-14 lg:grid-cols-[1fr_440px] lg:px-8">
+        <div className="mx-auto grid w-[98%] md:w-[min(83%,96rem)] grid-cols-1 items-center gap-10 px-6 py-14 lg:grid-cols-[1fr_440px] lg:px-8">
           <Reveal>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
               Choose the engagement
@@ -161,7 +161,7 @@ export default function ServicesPage() {
       </div>
 
       <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <Suspense
             fallback={
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -186,7 +186,7 @@ export default function ServicesPage() {
         </div>
 
         <section className="bg-neutral-100">
-          <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+          <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
             <Reveal>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 The engagement

@@ -71,7 +71,7 @@ const STATS = [
 function TopicNavigator() {
   return (
     <section className="bg-paper-50">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             Learn how to build with AI
@@ -125,7 +125,7 @@ function TopicNavigator() {
 function BuildWithAISection() {
   return (
     <section className="bg-ink-900">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
@@ -227,19 +227,19 @@ function BuildWithAISection() {
 export default function HomePage() {
   return (
     <div className="flex flex-1 flex-col">
-      <section className="relative overflow-hidden bg-ink-950">
+      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-ink-950">
         <div
           aria-hidden="true"
           className="animate-drift absolute inset-0 bg-[radial-gradient(90%_70%_at_18%_8%,var(--color-ink-700)_0%,var(--color-ink-900)_48%,var(--color-ink-950)_100%)]"
         />
-        <div className="relative mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-20 lg:px-8 lg:py-28">
+        <div className="relative mx-auto flex w-[98%] flex-1 -translate-y-4 flex-col justify-center px-6 py-20 md:w-[min(83%,96rem)] lg:-translate-y-8 lg:px-8 lg:py-28">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_520px]">
             <div className="max-w-2xl">
               <Reveal>
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
                   For founders &amp; product managers
                 </p>
-                <h1 className="mt-4 text-[2.375rem] leading-[1.08] tracking-tight text-white md:text-[3.25rem]">
+                <h1 className="mt-4 text-[2.5rem] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
                   Launch and test your ideas faster.
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
@@ -312,7 +312,7 @@ export default function HomePage() {
       <TopicNavigator />
 
 <section className="bg-neutral-100">
-        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
+        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-16 lg:px-8 lg:py-24">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <Reveal>
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
@@ -392,7 +392,7 @@ export default function HomePage() {
       <BuildWithAISection />
 
       <section className="bg-ink-950">
-        <div className="relative mx-auto w-[95%] md:w-[min(80%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
+        <div className="relative mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
           <Reveal>
             <h2 className="text-[1.75rem] leading-[1.286] text-white">
               Get clarity on your product before you spend on code.

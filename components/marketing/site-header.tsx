@@ -25,7 +25,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
-      <div className="mx-auto flex w-[95%] md:w-[min(80%,96rem)] items-center justify-between gap-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-[98%] md:w-[min(83%,96rem)] items-center justify-between gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <Link
           href="/"
           onClick={closeMenu}
@@ -100,7 +100,7 @@ export function SiteHeader() {
 
       {menuOpen ? (
         <div id="mobile-menu" className="border-t border-ink-800 bg-ink-950 md:hidden">
-          <nav aria-label="Mobile" className="mx-auto w-[95%] md:w-[min(80%,96rem)] px-4 py-4 sm:px-6">
+          <nav aria-label="Mobile" className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-4 py-4 sm:px-6">
             <ul className="flex flex-col">
               {NAV_LINKS.map((link) => {
                 const active = pathname === link.href || pathname.startsWith(`${link.href}/`);

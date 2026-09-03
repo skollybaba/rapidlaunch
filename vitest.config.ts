@@ -19,6 +19,9 @@ export default defineConfig({
       PAYSTACK_SECRET_KEY: "sk_test_unit_dummy",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       REMINDER_CRON_SECRET: "unit-test-reminder-secret",
+      GOOGLE_CLIENT_ID: "unit-client-id",
+      GOOGLE_CLIENT_SECRET: "unit-client-secret",
+      GOOGLE_REFRESH_TOKEN: "unit-refresh-token",
     },
   },
 });

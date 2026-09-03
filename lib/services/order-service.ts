@@ -24,6 +24,7 @@ import {
   createGoogleCalendarAdapter,
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
+import { createClassroomAdapter } from "@/lib/providers/classroom";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -184,6 +185,8 @@ export async function createCheckoutSession(
       productType: product.type,
       productFulfillmentMode: product.fulfillmentMode,
       productSlug: product.slug,
+      classroomCourseId: product.courseDetails?.classroomCourseId,
+      courseJoinUrl: product.courseDetails?.courseJoinUrl,
       productDurationMinutes:
         product.type === "CONSULTATION"
           ? product.consultationDetails?.durationMinutes ?? 90
@@ -563,6 +566,8 @@ async function settleVerifiedPayment(
 
   await createFulfillmentIfMissing(order);
 
+  await processCourseEnrollment(order);
+
   await bookConsultationIfPending(order);
 
   await sendPaymentConfirmationEmail(order);
@@ -603,6 +608,204 @@ async function createFulfillmentIfMissing(order: LeanDoc<OrderDoc>) {
     { upsert: true, setDefaultsOnInsert: true }
   ).exec();
 }
+
+async function findFulfillment(order: LeanDoc<OrderDoc>) {
+  return Fulfillment.findOne({
+    orderId: order._id,
+    type: "CLASSROOM_ENROLLMENT",
+  })
+    .lean()
+    .exec();
+}
+
+async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
+  if (fulfillmentTypeForOrder(order) !== "CLASSROOM_ENROLLMENT") return;
+
+  const email = order.customerEmail;
+  if (!email) return;
+
+  const classroomCourseId = order.metadata?.classroomCourseId as
+    | string
+    | undefined;
+  if (!classroomCourseId) {
+    await markCourseEnrollmentFailed(order, "CLASSROOM_COURSE_NOT_CONFIGURED");
+    return;
+  }
+
+  const enrollment = await findFulfillment(order);
+  if (!enrollment || enrollment.status === "FULFILLED") return;
+
+  const courseJoinUrl = order.metadata?.courseJoinUrl as
+    | string
+    | undefined;
+
+  if (courseJoinUrl) {
+    const metadata: Record<string, unknown> = {
+      courseId: classroomCourseId,
+      courseName: order.items[0]?.titleSnapshot || "",
+      courseAltLink: courseJoinUrl,
+      studentId: null,
+      ...(enrollment.metadata ?? {}),
+    };
+    await Fulfillment.updateOne(
+      { _id: enrollment._id },
+      {
+        $set: {
+          status: "FULFILLED",
+          attempts: (enrollment.attempts ?? 0) + 1,
+          fulfilledAt: new Date(),
+          lastError: null,
+          metadata,
+        },
+      }
+    );
+    await sendCourseAccessEmail(order, {
+      courseName: metadata.courseName as string,
+      courseLink: courseJoinUrl,
+      enrolled: true,
+    });
+    return;
+  }
+
+  if (
+    !env.GOOGLE_CLIENT_ID ||
+    !env.GOOGLE_CLIENT_SECRET ||
+    !env.GOOGLE_REFRESH_TOKEN
+  ) {
+    await markCourseEnrollmentFailed(
+      order,
+      "GOOGLE_CLASSROOM_NOT_CONFIGURED",
+      enrollment
+    );
+    return;
+  }
+
+  const adapter = createClassroomAdapter({
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    refreshToken: env.GOOGLE_REFRESH_TOKEN,
+  });
+
+  let courseName = "";
+  let courseLink = "";
+  try {
+    const course = await adapter.getCourse(classroomCourseId);
+    courseName = course.name;
+    courseLink = course.alternateLink ?? "";
+  } catch {
+    // Still attempt enrollment; the link can be resolved from the course later.
+  }
+
+  const result = await adapter.enrollStudent({
+    courseId: classroomCourseId,
+    studentEmail: email,
+  });
+
+  if (!result.errorCategory) {
+    const loaded = result.providerResponse ?? undefined;
+    const name =
+      (loaded && typeof loaded === "object"
+        ? (loaded as { name?: { fullName?: string } }).name?.fullName
+        : undefined) || courseName || order.items[0]?.titleSnapshot || "";
+    const metadata: Record<string, unknown> = {
+      courseId: classroomCourseId,
+      courseName: name,
+      courseAltLink: courseLink,
+      studentId: result.studentId ?? null,
+      ...(enrollment.metadata ?? {}),
+    };
+    await Fulfillment.updateOne(
+      { _id: enrollment._id },
+      {
+        $set: {
+          status: "FULFILLED",
+          attempts: (enrollment.attempts ?? 0) + 1,
+          fulfilledAt: new Date(),
+          lastError: null,
+          metadata,
+        },
+      }
+    );
+    await sendCourseAccessEmail(order, {
+      courseName: metadata.courseName as string,
+      courseLink,
+      enrolled: true,
+    });
+    return;
+  }
+
+  await markCourseEnrollmentFailed(order, result.errorCategory, enrollment);
+}
+
+async function markCourseEnrollmentFailed(
+  order: LeanDoc<OrderDoc>,
+  reason: string | null,
+  fulfillment?: { _id: unknown; attempts?: number } | null
+) {
+  const id = fulfillment?._id ?? (await findFulfillment(order))?._id;
+  const attempts =
+    (fulfillment?.attempts ?? 0) + 1;
+
+  if (!id) {
+    await sendCourseAccessEmail(order, {
+      courseName: order.items[0]?.titleSnapshot ?? "",
+      courseLink: "",
+      enrolled: false,
+    });
+    return;
+  }
+
+  await Fulfillment.updateOne(
+    { _id: id },
+    {
+      $set: {
+        status: "ACTION_REQUIRED",
+        attempts,
+        lastError: String(reason ?? "UNKNOWN"),
+        metadata: {
+          ...((fulfillment as { metadata?: Record<string, unknown> })
+            ?.metadata ?? {}),
+        },
+      },
+    }
+  );
+
+  await sendCourseAccessEmail(order, {
+    courseName: order.items[0]?.titleSnapshot ?? "",
+    courseLink: "",
+    enrolled: false,
+  });
+}
+
+async function sendCourseAccessEmail(
+  order: LeanDoc<OrderDoc>,
+  input: { courseName: string; courseLink: string; enrolled: boolean }
+) {
+  const adapter = createMailAdapter();
+  const email = order.customerEmail;
+  if (!email) return;
+
+  const emailAddress = order.customerEmail;
+  try {
+    await adapter.sendTemplateEmail({
+      templateKey: input.enrolled
+        ? "course_access_fulfilled"
+        : "course_access_action_required",
+      to: email,
+      variables: {
+        itemTitle: input.courseName,
+        courseTitle: input.courseName,
+        orderReference: order.orderReference,
+        courseUrl: input.courseLink,
+        customerEmail: emailAddress,
+        appUrl: env.NEXT_PUBLIC_APP_URL,
+      },
+    });
+  } catch (error) {
+    console.error("Course access email failed to send", email, { error });
+  }
+}
+
 
 async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   if (order.metadata?.productType !== "CONSULTATION") return;

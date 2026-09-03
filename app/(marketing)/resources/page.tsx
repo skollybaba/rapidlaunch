@@ -77,7 +77,7 @@ export default function ResourcesPage() {
       />
 
       <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
+        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <section>
               <Reveal>

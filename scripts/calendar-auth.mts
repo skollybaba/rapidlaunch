@@ -24,16 +24,20 @@ const authUrl = oauth.generateAuthUrl({
   scope: [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/classroom.rosters",
+    "https://www.googleapis.com/auth/classroom.courses",
   ],
 });
 
-console.log("\nIMPORTANT: Sign into Google as:", owner);
+console.log("\nNOTE: This consent covers BOTH Google Calendar and Google Classroom");
+console.log("because they share the same GOOGLE_REFRESH_TOKEN in .env.local.\n");
+console.log("IMPORTANT: Sign into Google as:", owner);
 console.log("This address MUST be listed under Test users on the consent screen.\n");
 console.log("1) Open this URL in a browser where you are signed in as that account:\n");
 console.log(authUrl);
 console.log("\n2) If you see 'Access blocked/denied', add this address as a Test user:");
 console.log("   Console > APIs & Services > OAuth consent screen > Test users.\n");
-console.log("3) Approve the consent screen.");
+console.log("3) Approve the consent screen (grant Calendar AND Classroom access).");
 console.log(
   "\n4) You'll be redirected to http://localhost/?code=XXXX...  Copy the CODE value (the part after ?code=)."
 );

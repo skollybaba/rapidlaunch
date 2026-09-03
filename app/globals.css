@@ -98,6 +98,17 @@
 }
 
 @layer base {
+  /* Scale the whole design system up to the equivalent of a 110% browser
+     zoom by raising the root font size (all rem-based text & spacing). */
+  html {
+    font-size: 110%;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   body {
     background: var(--color-paper-50);
     color: var(--color-neutral-950);

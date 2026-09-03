@@ -53,7 +53,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
 
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
-      <div className="mx-auto w-[95%] md:w-[min(80%,96rem)] flex-1 px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:px-8 lg:py-24">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 lg:grid-cols-[1.05fr_1fr]">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">

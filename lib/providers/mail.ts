@@ -206,6 +206,51 @@ function buildTemplate(
       const text = `Reset your password\n\nHi ${name},\n\nWe received a request to reset your password. This link expires in one hour.\n\nReset your password: ${resetUrl}\n\nIf you didn't request this, you can safely ignore this email.\n\nNeed help? Visit ${appUrl}/contact.`;
       return { subject, html, text };
     }
+    case "course_access_fulfilled": {
+      const courseTitle = variables.courseTitle ?? variables.itemTitle ?? "your course";
+      const customerEmail = variables.customerEmail ?? "";
+      const courseUrl = variables.courseUrl ?? "";
+      const subject = `You're enrolled: ${courseTitle}`;
+      const courseButton = courseUrl
+        ? `<a href="${courseUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Open your course</a>`
+        : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your course is available now. Open your account and go to Courses to find the class.</p>`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">You're enrolled</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi there,</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You now have access to <strong style="color:#11121d;">${courseTitle}</strong> in Google Classroom.</p>
+    ${courseButton}
+    <p style="font-size:13px;line-height:1.6;margin:0 0 12px;color:#74778c;">${customerEmail ? `The invite was sent to <strong>${customerEmail}</strong>.` : ""}</p>
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
+  </div>
+</div>
+</div>`;
+      const text = `You're enrolled: ${courseTitle}\n\nHi there,\n\nYou now have access to ${courseTitle} in Google Classroom.\n\nOpen your course: ${courseUrl || "Open your account and go to Courses."}\n\nQuestions? Reply to this email or contact our support team.`;
+      return { subject, html, text };
+    }
+    case "course_access_action_required": {
+      const courseTitle = variables.courseTitle ?? variables.itemTitle ?? "your course";
+      const subject = `Action needed for ${courseTitle}`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">One more step</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi there,</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">We're finishing your enrollment into <strong style="color:#11121d;">${courseTitle}</strong>. No action is needed from you — our team will confirm your classroom access and email you once it's ready.</p>
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
+  </div>
+</div>
+</div>`;
+      const text = `Action needed for ${courseTitle}\n\nHi there,\n\nWe're finishing your enrollment into ${courseTitle}. Our team will confirm your classroom access and email you once it's ready.\n\nQuestions? Reply to this email or contact our support team.`;
+      return { subject, html, text };
+    }
     default:
       return {
         subject: "Rapid Launch update",
