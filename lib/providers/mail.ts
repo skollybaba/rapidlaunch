@@ -84,6 +84,9 @@ function buildTemplate(
       const bookingUrl = variables.bookingUrl ?? "";
       const scheduledAt = variables.scheduledAt ?? "";
       const bookingPending = variables.bookingPending === "true";
+      const answerBuilding = variables.answerBuilding ?? "";
+      const answerStage = variables.answerStage ?? "";
+      const answerHelp = variables.answerHelp ?? "";
       const greeting = customerName
         ? `Hi ${customerName},`
         : "Hi there,";
@@ -99,6 +102,17 @@ function buildTemplate(
             : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">${nextStep}</p>`;
 
       const subject = `Payment confirmed for ${itemTitle}`;
+      const hasAnswers = Boolean(
+        answerBuilding || answerStage || answerHelp
+      );
+      const answersBlock = hasAnswers
+        ? `<p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:0 0 8px;">Your session details</p>
+<table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;">
+${answerBuilding ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #f3efe8;">What are you building?</td><td style="padding:12px 20px;font-size:13px;font-weight:600;color:#11121d;text-align:right;border-bottom:1px solid #f3efe8;">${answerBuilding}</td></tr>` : ""}
+${answerStage ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #f3efe8;">Where are you today?</td><td style="padding:12px 20px;font-size:13px;font-weight:600;color:#11121d;text-align:right;border-bottom:1px solid #f3efe8;">${answerStage}</td></tr>` : ""}
+${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">What do you need help with?</td><td style="padding:12px 20px;font-size:13px;font-weight:600;color:#11121d;text-align:right;">${answerHelp}</td></tr>` : ""}
+</table>`
+        : "";
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   <div style="background:#141414;padding:26px 32px;">
@@ -114,11 +128,35 @@ function buildTemplate(
     </table>
     <p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:0 0 8px;">Your next step</p>
     ${bookingBlock}
+    ${answersBlock}
     <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
   </div>
 </div>
 </div>`;
-      const text = `Payment confirmed for ${itemTitle}\n\n${greeting}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}${scheduledAt ? `\n\nSession time: ${scheduledAt}` : ""}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}${bookingUrl ? `\nBooking link: ${bookingUrl}` : ""}\n\nQuestions? Reply to this email or contact our support team.`;
+      const text = `Payment confirmed for ${itemTitle}\n\n${greeting}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}${scheduledAt ? `\n\nSession time: ${scheduledAt}` : ""}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}${bookingUrl ? `\nBooking link: ${bookingUrl}` : ""}${hasAnswers ? `\n\nYour session details:\n${answerBuilding ? `\nWhat are you building? ${answerBuilding}` : ""}${answerStage ? `\nWhere are you today? ${answerStage}` : ""}${answerHelp ? `\nWhat do you need help with? ${answerHelp}` : ""}` : ""}\n\nQuestions? Reply to this email or contact our support team.`;
+      return { subject, html, text };
+    }
+    case "booking_request_received": {
+      const itemTitle = variables.itemTitle ?? "your session";
+      const customerName = variables.customerName ?? "";
+      const schedulingUrl = variables.schedulingUrl ?? "";
+      const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
+      const subject = `Next step: book your ${itemTitle}`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Book your session</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your payment for <strong style="color:#11121d;">${itemTitle}</strong> is confirmed. To complete your booking, please select a time that works for you.</p>
+    ${schedulingUrl ? `<a href="${schedulingUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Choose your session time</a>` : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">We will reach out shortly to confirm your session time.</p>`}
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
+  </div>
+</div>
+</div>`;
+      const text = `Book your ${itemTitle}\n\n${greeting}\n\nYour payment is confirmed. Please select a time that works for you.\n\n${schedulingUrl ? `Choose your session time: ${schedulingUrl}` : "We will reach out shortly to confirm your session time."}\n\nQuestions? Reply to this email or contact our support team.`;
       return { subject, html, text };
     }
     case "booking_reminder": {

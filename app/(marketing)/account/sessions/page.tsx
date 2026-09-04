@@ -27,6 +27,8 @@ function statusTone(status: string) {
     case "CANCELLED":
     case "EXPIRED":
       return "error";
+    case "ACTION_REQUIRED":
+      return "pending";
     default:
       return "neutral";
   }
@@ -75,7 +77,7 @@ function SessionList({
                   {session.orderReference}
                 </p>
                 <p className="mt-2 text-sm font-medium text-neutral-950">
-                  {typeof time === "string" ? formatDateTime(time) : "Time to be confirmed"}
+                  {time && time !== "Time to be confirmed" ? formatDateTime(time) : "Time to be confirmed"}
                 </p>
               </div>
               <Badge tone={statusTone(session.status)}>
@@ -109,8 +111,8 @@ export default async function AccountSessionsPage() {
     .filter((s) => s.isUpcoming)
     .sort(
       (a, b) =>
-        new Date(a.scheduledStartTime!).getTime() -
-        new Date(b.scheduledStartTime!).getTime()
+        new Date(a.scheduledStartTime || a.requestedStartTime || 0).getTime() -
+        new Date(b.scheduledStartTime || b.requestedStartTime || 0).getTime()
     );
 
   const past = sessions

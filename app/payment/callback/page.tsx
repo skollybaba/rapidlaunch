@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, CreditCard, Mail, ArrowRight, Clock } from "lucide-react";
 
+import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +41,7 @@ function getInitialReference(): string | null {
 }
 
 function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
+  const { user } = useAuth();
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:py-24">
@@ -163,16 +165,18 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/account/overview"
-              className={buttonStyles({
-                variant: "primary",
-                className: "inline-flex items-center gap-2",
-              })}
-            >
-              View my account
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
-            </Link>
+            {user ? (
+              <Link
+                href="/account/overview"
+                className={buttonStyles({
+                  variant: "primary",
+                  className: "inline-flex items-center gap-2",
+                })}
+              >
+                View my account
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </Link>
+            ) : null}
             <Link
               href="/"
               className={buttonStyles({ variant: "secondary" })}
@@ -218,21 +222,24 @@ function StaticPage({
 }
 
 export default function PaymentCallbackPage() {
-  const [reference] = useState(() => getInitialReference());
-  // Optimistically show success immediately (no full-page loader); the fast
-  // verify call reconciles the real state in the background.
-  const [renderState, setRenderState] = useState<RenderState>(
-    reference ? "success" : "no-reference"
-  );
+  // Render the success view optimistically (matches the previously working
+  // behavior) on both server and client so there is no hydration mismatch and
+  // the confirmation appears immediately; the fast verify call reconciles the
+  // real state in the background. If there is no URL reference we show the
+  // "missing reference" state after mount.
+  const [renderState, setRenderState] = useState<RenderState>("success");
   const [data, setData] = useState<VerifyResult["data"] | null>(null);
-  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!reference || fetchedRef.current) return;
-    fetchedRef.current = true;
+    const ref = getInitialReference();
+    if (!ref) {
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setRenderState("no-reference");
+      /* eslint-enable react-hooks/set-state-in-effect */
+      return;
+    }
 
     let cancelled = false;
-    const ref = reference;
 
     async function verify() {
       if (!ref) return;
@@ -276,7 +283,7 @@ export default function PaymentCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [reference]);
+  }, []);
 
   if (renderState === "no-reference") {
     return (

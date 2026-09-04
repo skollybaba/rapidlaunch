@@ -1,6 +1,7 @@
 export const BOOKING_STATUSES = [
   "PENDING",
   "CONFIRMED",
+  "ACTION_REQUIRED",
   "CANCELLED",
   "FAILED",
 ] as const;

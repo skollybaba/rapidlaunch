@@ -453,6 +453,9 @@ describe("verifyCheckoutPayment", () => {
 
     await verifyCheckoutPayment("QL-PAY-ABC");
 
+    // Fulfillment runs in the background; flush its microtasks before asserting.
+    await new Promise((r) => setTimeout(r, 0));
+
     const classroomAdapter = vi.mocked(createClassroomAdapter).mock.results[0]
       .value;
     expect(classroomAdapter.enrollStudent).toHaveBeenCalledWith({
@@ -526,6 +529,9 @@ describe("verifyCheckoutPayment", () => {
     } as never);
 
     await verifyCheckoutPayment("QL-PAY-ABC");
+
+    // Fulfillment runs in the background; flush its microtasks before asserting.
+    await new Promise((r) => setTimeout(r, 0));
 
     expect(vi.mocked(Fulfillment.updateOne)).toHaveBeenCalledWith(
       { _id: "FUL1" },

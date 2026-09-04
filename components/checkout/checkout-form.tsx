@@ -222,7 +222,7 @@ export function CheckoutForm({
               htmlFor="checkout-name"
               className="text-sm font-semibold text-neutral-950"
             >
-              Full name
+              Full name <span className="text-terracotta-600">*</span>
             </label>
             <input
               id="checkout-name"
@@ -244,7 +244,7 @@ export function CheckoutForm({
             htmlFor="checkout-email"
             className="text-sm font-semibold text-neutral-950"
           >
-            Email for this purchase
+            Email for this purchase <span className="text-terracotta-600">*</span>
           </label>
           <input
             id="checkout-email"
@@ -272,12 +272,13 @@ export function CheckoutForm({
                 htmlFor="checkout-building"
                 className="text-sm font-semibold text-neutral-950"
               >
-                What are you building?
+                What are you building? <span className="text-terracotta-600">*</span>
               </label>
               <input
                 id="checkout-building"
                 name="whatYouAreBuilding"
                 type="text"
+                required
                 disabled={disabled || state === "submitting" || state === "redirecting"}
                 value={whatYouAreBuilding}
                 onChange={(event) => setWhatYouAreBuilding(event.target.value)}
@@ -314,12 +315,13 @@ export function CheckoutForm({
                 htmlFor="checkout-help"
                 className="text-sm font-semibold text-neutral-950"
               >
-                What do you need help with?
+                What do you need help with? <span className="text-terracotta-600">*</span>
               </label>
               <textarea
                 id="checkout-help"
                 name="helpNeeded"
                 rows={3}
+                required
                 disabled={disabled || state === "submitting" || state === "redirecting"}
                 value={helpNeeded}
                 onChange={(event) => setHelpNeeded(event.target.value)}

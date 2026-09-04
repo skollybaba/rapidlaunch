@@ -566,11 +566,16 @@ async function settleVerifiedPayment(
 
   await createFulfillmentIfMissing(order);
 
-  await processCourseEnrollment(order);
-
-  await bookConsultationIfPending(order);
-
-  await sendPaymentConfirmationEmail(order);
+  // Return PAID to the client immediately; run fulfillment side effects
+  // (course enrollment, calendar booking, emails) in the background so the
+  // confirmation page does not block on slow external providers.
+  processFulfillmentAsync(order).catch((error) => {
+    console.error(
+      "Async fulfillment failed for order",
+      order.orderReference,
+      { error }
+    );
+  });
 
   return {
     id: String(order._id),
@@ -583,6 +588,38 @@ async function settleVerifiedPayment(
     discrepancy: false,
     paidAt: now.toISOString(),
   };
+}
+
+export async function processFulfillmentAsync(order: LeanDoc<OrderDoc>) {
+  try {
+    await processCourseEnrollment(order);
+  } catch (error) {
+    console.error(
+      "Course enrollment failed for order",
+      order.orderReference,
+      { error }
+    );
+  }
+
+  try {
+    await bookConsultationIfPending(order);
+  } catch (error) {
+    console.error(
+      "Consultation booking failed for order",
+      order.orderReference,
+      { error }
+    );
+  }
+
+  try {
+    await sendPaymentConfirmationEmail(order);
+  } catch (error) {
+    console.error(
+      "Payment confirmation email failed for order",
+      order.orderReference,
+      { error }
+    );
+  }
 }
 
 async function createFulfillmentIfMissing(order: LeanDoc<OrderDoc>) {
@@ -814,7 +851,49 @@ async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
     .lean()
     .exec();
   if (!booking || booking.status !== "PENDING") return;
-  if (!booking.requestedStartTime) return;
+
+  if (!booking.requestedStartTime) {
+    await Booking.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          status: "ACTION_REQUIRED",
+          lastError: "NO_TIME_SELECTED",
+          attempts: booking.attempts + 1,
+        },
+      }
+    );
+    await Fulfillment.findOneAndUpdate(
+      { orderId: order._id, type: "BOOKING" },
+      {
+        $set: {
+          status: "ACTION_REQUIRED",
+          lastError: "Customer has not selected a session time",
+          attempts: 1,
+          metadata: {
+            schedulingUrl: booking.schedulingUrl ?? "",
+            reason: "NO_TIME_SELECTED",
+          },
+        },
+      }
+    );
+    const adapter = createMailAdapter();
+    try {
+      await adapter.sendTemplateEmail({
+        templateKey: "booking_request_received",
+        to: booking.customerEmail,
+        variables: {
+          customerName: booking.customerName ?? "",
+          itemTitle: order.items[0]?.titleSnapshot ?? "your session",
+          bookingUrl: booking.schedulingUrl ?? `${env.NEXT_PUBLIC_APP_URL}/account/bookings`,
+          schedulingUrl: booking.schedulingUrl ?? "",
+        },
+      });
+    } catch {
+      // Best effort — don't fail the settlement for a missed email.
+    }
+    return;
+  }
 
   const calendarId = env.GOOGLE_CALENDAR_OWNER_EMAIL;
   if (
@@ -896,6 +975,24 @@ async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
         },
       }
     );
+    await Fulfillment.findOneAndUpdate(
+      { orderId: order._id, type: "BOOKING" },
+      {
+        $set: {
+          status: "FULFILLED",
+          fulfilledAt: new Date(),
+          lastError: null,
+          attempts: 1,
+          metadata: {
+            meetingUrl: event.hangoutLink ?? "",
+            calendarEventId: event.id,
+            calendarEventLink: event.htmlLink,
+            scheduledStartTime: new Date(event.startTime).toISOString(),
+            scheduledEndTime: new Date(event.endTime).toISOString(),
+          },
+        },
+      }
+    );
   } catch (error) {
     const message =
       error instanceof GoogleCalendarProviderError
@@ -911,6 +1008,16 @@ async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
           status: "FAILED",
           lastError: message,
           attempts: booking.attempts + 1,
+        },
+      }
+    );
+    await Fulfillment.findOneAndUpdate(
+      { orderId: order._id, type: "BOOKING" },
+      {
+        $set: {
+          status: "ACTION_REQUIRED",
+          lastError: message,
+          attempts: 1,
         },
       }
     );
@@ -972,6 +1079,9 @@ async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
           : "",
         timezone: booking?.timezone ?? "",
         bookingPending: booking && booking.status === "PENDING" ? "true" : "false",
+        answerBuilding: booking?.answers?.whatYouAreBuilding ?? "",
+        answerStage: booking?.answers?.currentStage ?? "",
+        answerHelp: booking?.answers?.helpNeeded ?? "",
       },
     });
   } catch (error) {

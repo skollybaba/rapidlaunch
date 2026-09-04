@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -47,12 +47,18 @@ export function SchedulerCalendar({
   disabled,
   durationMinutes,
 }: SchedulerCalendarProps) {
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const [viewMonth, setViewMonth] = useState(() => {
-    const d = new Date(today);
+  const [today, setToday] = useState<Date | null>(null);
+  const [viewMonth, setViewMonth] = useState<Date | null>(null);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const now = startOfDay(new Date());
+    setToday(now);
+    const d = new Date(now);
     d.setDate(1);
-    return d;
-  });
+    setViewMonth(d);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
 
   const slotsByDate = useMemo(() => {
     const map = new Map<string, SchedulerSlot[]>();
@@ -71,7 +77,13 @@ export function SchedulerCalendar({
     return map;
   }, [slots]);
 
-  const cells = useMemo(() => {
+  if (!today || !viewMonth) {
+    return (
+      <div className="rounded-[12px] border border-neutral-200 bg-white p-4 animate-pulse h-[320px]" />
+    );
+  }
+
+  const cells: Date[] = (() => {
     const firstWeekday = new Date(
       viewMonth.getFullYear(),
       viewMonth.getMonth(),
@@ -88,7 +100,7 @@ export function SchedulerCalendar({
       grid.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
     }
     return grid;
-  }, [viewMonth]);
+  })();
 
   const canGoPrevious =
     viewMonth.getFullYear() > today.getFullYear() ||
@@ -109,9 +121,10 @@ export function SchedulerCalendar({
     : [];
 
   function moveMonth(delta: number) {
-    setViewMonth(
-      (prev) =>
-        new Date(prev.getFullYear(), prev.getMonth() + delta, 1)
+    setViewMonth((prev) =>
+      prev
+        ? new Date(prev.getFullYear(), prev.getMonth() + delta, 1)
+        : prev
     );
   }
 
