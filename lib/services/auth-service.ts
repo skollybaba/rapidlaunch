@@ -7,7 +7,7 @@ import {
   signPasswordResetToken,
   verifyPasswordResetToken,
 } from "@/lib/auth/tokens";
-import { clearSessionCookie, createSessionCookie, toPublicUser } from "@/lib/auth/session";
+import { clearSessionCookie, createSessionToken, toPublicUser } from "@/lib/auth/session";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -34,11 +34,16 @@ export class AuthServiceError extends Error {
   }
 }
 
+export interface AuthResult {
+  user: PublicUser;
+  sessionToken: string;
+}
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export async function registerUser(input: unknown): Promise<PublicUser> {
+export async function registerUser(input: unknown): Promise<AuthResult> {
   const parsed = registerSchema.parse(input);
   await dbConnect();
 
@@ -61,7 +66,7 @@ export async function registerUser(input: unknown): Promise<PublicUser> {
     role,
   });
 
-  await createSessionCookie(user);
+  const sessionToken = await createSessionToken(user);
 
   const mail = createMailAdapter();
   try {
@@ -77,15 +82,18 @@ export async function registerUser(input: unknown): Promise<PublicUser> {
     // welcome email is best-effort; registration still succeeds
   }
 
-  return toPublicUser({
-    _id: user._id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  return {
+    user: toPublicUser({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }),
+    sessionToken,
+  };
 }
 
-export async function loginUser(input: unknown): Promise<PublicUser> {
+export async function loginUser(input: unknown): Promise<AuthResult> {
   const parsed = loginSchema.parse(input);
   await dbConnect();
 
@@ -108,14 +116,17 @@ export async function loginUser(input: unknown): Promise<PublicUser> {
     );
   }
 
-  await createSessionCookie(user);
+  const sessionToken = await createSessionToken(user);
 
-  return toPublicUser({
-    _id: user._id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  return {
+    user: toPublicUser({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }),
+    sessionToken,
+  };
 }
 
 export async function logoutUser(): Promise<void> {
@@ -124,7 +135,7 @@ export async function logoutUser(): Promise<void> {
 
 export async function loginWithGoogle(
   input: unknown
-): Promise<PublicUser> {
+): Promise<AuthResult> {
   const googleClientId = env.GOOGLE_CLIENT_ID;
   if (!googleClientId) {
     throw new AuthServiceError(
@@ -185,6 +196,7 @@ export async function loginWithGoogle(
     .lean()
     .exec();
 
+  let sessionToken = "";
   if (user) {
     const role = isAdminEmail(user.email)
       ? "admin"
@@ -203,7 +215,7 @@ export async function loginWithGoogle(
       );
     }
     user = { ...user, role };
-    await createSessionCookie(user);
+    sessionToken = await createSessionToken(user);
   } else {
     const role = isAdminEmail(normalizedEmail) ? "admin" : "customer";
     const created = await User.create({
@@ -213,7 +225,7 @@ export async function loginWithGoogle(
       googleId,
       role,
     });
-    await createSessionCookie(created);
+    sessionToken = await createSessionToken(created);
     user = { ...created.toObject(), _id: created._id, role };
 
     const mail = createMailAdapter();
@@ -231,12 +243,15 @@ export async function loginWithGoogle(
     }
   }
 
-  return toPublicUser({
-    _id: user._id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-  });
+  return {
+    user: toPublicUser({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }),
+    sessionToken,
+  };
 }
 
 export async function requestPasswordReset(input: unknown): Promise<void> {

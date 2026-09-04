@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cn, formatDuration, formatPrice, slugify } from "@/lib/utils";
+import { cn, estimateReadMinutes, formatDuration, formatPrice, slugify } from "@/lib/utils";
 
 describe("cn", () => {
   it("merges class names and resolves tailwind conflicts", () => {
@@ -64,5 +64,28 @@ describe("formatDuration", () => {
 
   it("formats hours and minutes", () => {
     expect(formatDuration(185)).toBe("3 hr 5 min");
+  });
+});
+
+describe("estimateReadMinutes", () => {
+  it("returns null for empty or missing content", () => {
+    expect(estimateReadMinutes()).toBeNull();
+    expect(estimateReadMinutes("")).toBeNull();
+    expect(estimateReadMinutes("<p></p>")).toBeNull();
+  });
+
+  it("estimates roughly one minute per 200 words", () => {
+    const words = Array.from({ length: 800 }, (_, i) => `w${i}`).join(" ");
+    expect(estimateReadMinutes(`<p>${words}</p>`)).toBe(4);
+  });
+
+  it("never returns zero for short content", () => {
+    expect(estimateReadMinutes("<p>A short note.</p>")).toBe(1);
+  });
+
+  it("strips tags and decodes common entities", () => {
+    const html =
+      "<h2>Heading</h2><p>Hello &amp; goodbye &nbsp; now</p>";
+    expect(estimateReadMinutes(html)).toBe(1);
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { apiOk, handleApiError, newRequestId } from "@/lib/api";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
 import { loginWithGoogle } from "@/lib/services/auth-service";
 
 export const runtime = "nodejs";
@@ -22,8 +23,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const user = await loginWithGoogle(body);
-    return apiOk({ user });
+    const { user, sessionToken } = await loginWithGoogle(body);
+    const response = apiOk({ user });
+    response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions);
+    return response;
   } catch (error) {
     return handleApiError(error, requestId);
   }

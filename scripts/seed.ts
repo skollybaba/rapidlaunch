@@ -2,10 +2,13 @@ import mongoose from "mongoose";
 import { z } from "zod";
 
 import { Product } from "../models/Product";
+import { Resource } from "../models/Resource";
 import { productInputSchema } from "../lib/validation/product";
+import { resourceInputSchema } from "../lib/validation/resource";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB_NAME ?? "quicklaunch";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 if (!MONGODB_URI) {
   throw new Error(
@@ -222,6 +225,80 @@ for (const product of products) {
   productInputSchema.parse(product);
 }
 
+type SeedResource = z.input<typeof resourceInputSchema>;
+
+const resources: SeedResource[] = [
+  {
+    type: "ARTICLE",
+    slug: "the-idea-audit-six-questions-before-you-build",
+    title: "The idea audit: six questions before you build",
+    summary:
+      "A repeatable checklist that pressure-tests a product idea before it costs engineering time.",
+    published: true,
+    contentHtml:
+      "<p>A repeatable checklist that pressure-tests a product idea before it costs engineering time.</p><h2>Why run an audit first</h2><p>The most expensive mistakes happen before code is written, when an idea is still mostly assumption. An audit forces those assumptions into the open where they can be tested cheaply.</p><h2>The six questions</h2><ul><li>Who exactly has this problem today, and how do they solve it now?</li><li>What does the first real answer look like — and who gets it first?</li><li>Which assumption would hurt most if it were wrong?</li><li>What is the smallest evidence that would change the plan?</li><li>What are we promising that we cannot yet back up?</li><li>What would we stop doing if we shipped this?</li></ul><blockquote><p>An idea worth building survives contact with six honest answers.</p></blockquote>",
+  },
+  {
+    type: "ARTICLE",
+    slug: "writing-requirements-ai-can-execute",
+    title: "Writing requirements that AI can execute",
+    summary:
+      "How to turn vague asks into scoped, testable work that models and engineers can both act on.",
+    published: true,
+    contentHtml:
+      "<p>Vague requirements produce vague results, whether the executor is a person or a model.</p><h2>Scoped, testable, traceable</h2><p>Write the outcome before the steps, the acceptance criteria before the details, and the constraints before the examples.</p><ul><li>State the user and the job in one sentence.</li><li>List the acceptance criteria as pass/fail checks.</li><li>Name the constraints: data, platform, permission, and time.</li><li>Add one concrete example so intent is unambiguous.</li></ul><p>When criteria are testable, “done” stops being a debate.</p>",
+  },
+  {
+    type: "ARTICLE",
+    slug: "roadmap-review-reading-a-plan-for-risk",
+    title: "Roadmap review: reading a plan for risk",
+    summary:
+      "The signals that reveal a roadmap built on assumptions rather than evidence.",
+    published: false,
+    contentHtml:
+      "<p>Most roadmap risk hides in the gaps between the items, not in the items themselves.</p><h2>Signals worth looking for</h2><ul><li>Dependencies that have no owner.</li><li>Dates attached to discovery, not just delivery.</li><li>Work sequenced before the answer it depends on.</li><li>No item that tests the riskiest assumption first.</li></ul><p>Reorder around evidence and the plan stops being a wish list.</p>",
+  },
+  {
+    type: "VIDEO",
+    slug: "from-idea-to-roadmap-in-one-session",
+    title: "From idea to roadmap in one session",
+    summary:
+      "A live strategy walkthrough with a real product problem (anonymised).",
+    youtubeUrl:
+      "https://www.youtube.com/results?search_query=idea+to+roadmap+product+session",
+    thumbnailUrl: `${APP_URL}/images/collab-meeting.jpg`,
+    published: true,
+    contentHtml:
+      "<p>A live strategy session where a raw idea is pressure-tested and turned into a buildable roadmap in under thirty minutes.</p><h2>What you'll understand</h2><ul><li>How to frame the problem before proposing a solution.</li><li>Where assumptions get sorted from evidence.</li><li>How a roadmap stays honest about its risks.</li></ul>",
+  },
+  {
+    type: "VIDEO",
+    slug: "ai-crash-course-the-first-working-slice",
+    title: "The first working slice with AI",
+    summary:
+      "The fastest honest path from a blank page to a demo worth showing a customer.",
+    youtubeUrl:
+      "https://www.youtube.com/results?search_query=build+a+working+app+with+ai+beginner",
+    thumbnailUrl: `${APP_URL}/images/vibecoding-ai.jpg`,
+    published: true,
+    contentHtml:
+      "<p>From a blank page to a demo worth showing a customer, without pretending it is production software.</p><h2>In this session</h2><ul><li>Choosing the smallest slice that proves the idea.</li><li>Prompting, reviewing, and testing what the model generates.</li><li>What to say to a customer when the demo is early.</li></ul>",
+  },
+  {
+    type: "VIDEO",
+    slug: "mvp-scoping-vs-feature-creep",
+    title: "MVP scoping vs feature creep",
+    summary:
+      "The framing that keeps a sprint small enough to ship and honest enough to learn from.",
+    youtubeUrl:
+      "https://www.youtube.com/results?search_query=mvp+scoping+product+manager",
+    thumbnailUrl: `${APP_URL}/images/vibecoding-code.jpg`,
+    published: false,
+    contentHtml:
+      "<p>Scope is a strategy. This draft session covers how to keep a sprint small enough to ship and honest enough to learn from.</p>",
+  },
+];
+
 async function seed() {
   await mongoose.connect(mongoUri, { dbName: DB_NAME });
   console.log(`Connected to MongoDB (${DB_NAME})`);
@@ -239,6 +316,18 @@ async function seed() {
       { upsert: true }
     );
     console.log(`Upserted ${product.type} / ${product.slug} (${product.status})`);
+  }
+
+  for (const resource of resources) {
+    resourceInputSchema.parse(resource);
+    await Resource.updateOne(
+      { slug: resource.slug },
+      { $set: resource },
+      { upsert: true }
+    );
+    console.log(
+      `Upserted resource ${resource.type} / ${resource.slug} (${resource.published ? "published" : "draft"})`
+    );
   }
 
   await mongoose.disconnect();

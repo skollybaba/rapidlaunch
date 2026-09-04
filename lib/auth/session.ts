@@ -28,24 +28,32 @@ export function toPublicUser(user: Pick<UserDoc, "_id" | "email" | "name" | "rol
   };
 }
 
-export async function createSessionCookie(
+export const sessionCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: env.isProduction,
+  path: "/",
+  maxAge: 60 * 60 * 24 * 30,
+} as const;
+
+export async function createSessionToken(
   user: Pick<UserDoc, "_id" | "email" | "name" | "role">
-): Promise<void> {
-  const token = await signSessionToken({
+): Promise<string> {
+  return signSessionToken({
     sub: String(user._id),
     email: user.email,
     name: user.name,
     role: user.role,
   });
+}
+
+export async function createSessionCookie(
+  user: Pick<UserDoc, "_id" | "email" | "name" | "role">
+): Promise<void> {
+  const token = await createSessionToken(user);
 
   const cookieStore = await cookies();
-  cookieStore.set(sessionCookieName(), token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: env.isProduction,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  cookieStore.set(sessionCookieName(), token, sessionCookieOptions);
 }
 
 export async function clearSessionCookie(): Promise<void> {

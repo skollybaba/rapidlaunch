@@ -72,7 +72,7 @@ export default async function AdminOrdersPage({
   const data = await getAdminOrders({ q, status, page, pageSize: 25 });
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="admin-enter flex flex-1 flex-col">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           Back office

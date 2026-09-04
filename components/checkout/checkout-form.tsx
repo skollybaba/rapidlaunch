@@ -10,6 +10,7 @@ import {
 import { AuthModal } from "@/components/auth/auth-modal";
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { readApiJson } from "@/lib/http";
 
 interface CheckoutFormProps {
   productId: string;
@@ -198,8 +199,8 @@ export function CheckoutForm({
       const response = await fetch("/api/auth/session", {
         headers: { "Content-Type": "application/json" },
       });
-      const json = await response.json();
-      authed = Boolean(json.ok && json.data?.user);
+      const json = await readApiJson<{ user: { id: string } | null }>(response);
+      authed = Boolean(json?.ok && json.data?.user);
       if (authed) break;
       attempts++;
       await new Promise((resolve) => setTimeout(resolve, 250));

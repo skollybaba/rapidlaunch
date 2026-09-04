@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  Package,
   ChartNoAxesCombined,
+  CalendarDays,
+  Users,
+  BookOpen,
+  FolderOpen,
+  LogOut,
   ExternalLink,
   type LucideIcon,
 } from "lucide-react";
@@ -19,13 +23,18 @@ interface NavLink {
 }
 
 const NAV_LINKS: NavLink[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/orders", label: "Orders", icon: Package },
+  { href: "/admin/dashboard", label: "Dashboard & Insights", icon: LayoutDashboard },
+  { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
+  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/courses", label: "Courses", icon: BookOpen },
+  { href: "/admin/enrollees", label: "Enrollees", icon: Users },
+  { href: "/admin/resources", label: "Resources", icon: FolderOpen },
 ];
 
 export function AdminNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
 
   return (
     <>
@@ -72,6 +81,17 @@ export function AdminNav() {
         <p className="mt-3 px-3 text-xs text-white/40">
           Signed in as {user?.email}
         </p>
+        <button
+          type="button"
+          onClick={async () => {
+            await logout();
+            router.replace("/");
+          }}
+          className="mt-2 flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-white/60 transition-colors duration-[var(--duration-fast)] hover:bg-red-500/10 hover:text-red-300"
+        >
+          <LogOut aria-hidden="true" className="h-4 w-4" />
+          Sign out
+        </button>
       </div>
     </>
   );

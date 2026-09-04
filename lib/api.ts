@@ -5,6 +5,10 @@ import { ZodError } from "zod";
 
 import { OrderServiceError } from "@/lib/services/order-service";
 import { AuthServiceError } from "@/lib/services/auth-service";
+import { ProfileServiceError } from "@/lib/services/profile-service";
+import { BroadcastServiceError } from "@/lib/services/broadcast-service";
+import { AdminServiceError } from "@/lib/services/admin-service";
+import { ResourceServiceError } from "@/lib/services/resource-service";
 
 export function newRequestId(): string {
   return randomUUID();
@@ -45,6 +49,22 @@ export function handleApiError(
   }
 
   if (error instanceof AuthServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof ProfileServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof BroadcastServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof AdminServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof ResourceServiceError) {
     return apiError(error.status, error.code, error.message, requestId);
   }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { readApiJson } from "@/lib/http";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -52,9 +53,9 @@ export function AuthCard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        const json = await response.json();
-        if (!json.ok) {
-          throw new Error(json.error?.message ?? "Could not send reset email");
+        const json = await readApiJson(response);
+        if (!json?.ok) {
+          throw new Error(json?.error?.message ?? "Could not send reset email");
         }
         setMessage(
           "If an account exists for this email, we've sent a reset link to your inbox."

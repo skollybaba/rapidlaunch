@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
 import { buttonStyles } from "@/components/ui/button";
+import { readApiJson } from "@/lib/http";
 
 const inputClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
@@ -37,9 +38,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      const json = await response.json();
-      if (!json.ok) {
-        throw new Error(json.error?.message ?? "Could not reset password");
+      const json = await readApiJson(response);
+      if (!json?.ok) {
+        throw new Error(json?.error?.message ?? "Could not reset password");
       }
       setMessage(
         "Your password was reset. You can now sign in with your new password."

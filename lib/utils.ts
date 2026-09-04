@@ -62,3 +62,21 @@ export function formatDateTime(
     ...options,
   }).format(date);
 }
+
+export function estimateReadMinutes(html?: string): number | null {
+  if (!html) return null;
+  const text = html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .trim();
+  const words = text.split(/\s+/).filter(Boolean).length;
+  if (words === 0) return null;
+  return Math.max(1, Math.round(words / 200));
+}

@@ -45,6 +45,7 @@ provider as not configured.
 - Node.js 20+ (developed on 24)
 - npm
 - MongoDB running locally (`mongodb://127.0.0.1:27017`) or a hosted instance
+  such as MongoDB Atlas (`mongodb+srv://...`) — any MongoDB 7+ instance works.
 
 ## Local setup
 
@@ -71,6 +72,33 @@ provider as not configured.
    ```
 
    Open http://localhost:3000
+
+### Using MongoDB Atlas
+
+The app connects purely through `MONGODB_URI`, so Atlas works without code
+changes:
+
+1. Create a free cluster in the MongoDB Atlas console and create a database
+   user.
+2. Under **Network Access**, allow your IP (or `0.0.0.0/0` while developing).
+3. Under **Database → Connect → Drivers**, copy the connection string
+   (`mongodb+srv://<dbUser>:<dbPassword>@<cluster>.mongodb.net/...`).
+4. Set it as `MONGODB_URI` in `.env.local`, e.g.:
+
+   ```bash
+   MONGODB_URI=mongodb+srv://quicklaunch-user:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/quicklaunch
+   MONGODB_DB_NAME=quicklaunch
+   ```
+
+5. Load sample data once the cluster is reachable:
+
+   ```bash
+   npx tsx --env-file-if-exists=.env.local scripts/seed.ts
+   ```
+
+6. Start the app with `npm run dev`. If connections time out, check the
+   network-access allowlist and confirm the SRV string is from the **Drivers**
+   tab (not a commas-separated replica set URI).
 
 ## Environment variables
 

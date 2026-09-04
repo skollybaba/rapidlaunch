@@ -1,9 +1,12 @@
-import { apiOk } from "@/lib/api";
-import { logoutUser } from "@/lib/services/auth-service";
+import { NextResponse } from "next/server";
+
+import { SESSION_COOKIE } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-  await logoutUser();
-  return apiOk({ ok: true });
+  const response = NextResponse.json({ ok: true, data: { ok: true } }, { status: 200 });
+  response.cookies.delete(SESSION_COOKIE);
+
+  return response;
 }

@@ -12,6 +12,16 @@ export const BOOKING_PROVIDERS = ["manual", "google_calendar"] as const;
 
 export type BookingProvider = (typeof BOOKING_PROVIDERS)[number];
 
+export const BOOKING_RANGES = [
+  "upcoming",
+  "past",
+  "next7",
+  "next30",
+  "next365",
+] as const;
+
+export type BookingRange = (typeof BOOKING_RANGES)[number];
+
 export const BOOKING_REMINDER_POINTS = ["24h", "1h"] as const;
 
 export type BookingReminderPoint = (typeof BOOKING_REMINDER_POINTS)[number];

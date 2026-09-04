@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { PublicUser } from "@/types/user";
+import { readApiJson } from "@/lib/http";
 
 interface AuthContextValue {
   user: PublicUser | null;
@@ -43,8 +44,8 @@ export function AuthProvider({
       const response = await fetch("/api/auth/session", {
         headers: { "Content-Type": "application/json" },
       });
-      const json = await response.json();
-      if (json.ok) setUser(json.data.user ?? null);
+      const json = await readApiJson<{ user: PublicUser | null }>(response);
+      if (json?.ok) setUser(json.data?.user ?? null);
     } catch {
       // keep current user on transient failures
     }
@@ -56,12 +57,16 @@ export function AuthProvider({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const json = await response.json();
-    if (!json.ok) {
-      throw new Error(json.error?.message ?? "Could not sign in");
+    const json = await readApiJson<{ user: PublicUser }>(response);
+    if (!json?.ok) {
+      throw new Error(json?.error?.message ?? "Could not sign in. Please try again.");
     }
-    setUser(json.data.user);
-    return json.data.user as PublicUser;
+    const user = json.data?.user;
+    if (!user) {
+      throw new Error("Could not sign in. Please try again.");
+    }
+    setUser(user);
+    return user;
   }, []);
 
   const register = useCallback(
@@ -71,12 +76,16 @@ export function AuthProvider({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const json = await response.json();
-      if (!json.ok) {
-        throw new Error(json.error?.message ?? "Could not create account");
+      const json = await readApiJson<{ user: PublicUser }>(response);
+      if (!json?.ok) {
+        throw new Error(json?.error?.message ?? "Could not create account. Please try again.");
       }
-      setUser(json.data.user);
-      return json.data.user as PublicUser;
+      const user = json.data?.user;
+      if (!user) {
+        throw new Error("Could not create account. Please try again.");
+      }
+      setUser(user);
+      return user;
     },
     []
   );
@@ -95,12 +104,16 @@ export function AuthProvider({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ credential }),
     });
-    const json = await response.json();
-    if (!json.ok) {
-      throw new Error(json.error?.message ?? "Could not sign in with Google");
+    const json = await readApiJson<{ user: PublicUser }>(response);
+    if (!json?.ok) {
+      throw new Error(json?.error?.message ?? "Could not sign in with Google. Please try again.");
     }
-    setUser(json.data.user);
-    return json.data.user as PublicUser;
+    const user = json.data?.user;
+    if (!user) {
+      throw new Error("Could not sign in with Google. Please try again.");
+    }
+    setUser(user);
+    return user;
   }, []);
 
   const value = useMemo<AuthContextValue>(

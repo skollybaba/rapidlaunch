@@ -20,12 +20,19 @@ export type EmailTemplateKey =
   | "refund_processed"
   | "support_acknowledgement";
 
+export interface EmailAttachmentInput {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface SendEmailInput {
   to: string;
   subject: string;
   html: string;
   text: string;
   replyTo?: string;
+  attachments?: EmailAttachmentInput[];
 }
 
 export interface SendEmailResult {
@@ -338,6 +345,11 @@ export class SmtpMailAdapter implements MailAdapter {
         html: input.html,
         text: input.text,
         replyTo: input.replyTo,
+        attachments: input.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
       });
       return {
         providerMessageId: info.messageId ?? null,

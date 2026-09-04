@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarClock, GraduationCap, LayoutDashboard, LogOut, Package } from "lucide-react";
+import { CalendarClock, GraduationCap, LayoutDashboard, LogOut, Package, Settings } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/account/orders", label: "Purchases", icon: Package },
   { href: "/account/courses", label: "Courses", icon: GraduationCap },
   { href: "/account/sessions", label: "Sessions", icon: CalendarClock },
+  { href: "/account/profile", label: "Profile", icon: Settings },
 ];
 
 export function AccountNav() {
@@ -32,7 +33,7 @@ export function AccountNav() {
   }
 
   return (
-    <aside className="flex h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4">
+    <aside className="flex h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4 lg:sticky lg:top-8 lg:self-start">
       <div className="border-b border-neutral-200 px-2 pb-4">
         <p className="text-sm font-bold text-neutral-950">
           {user?.name || "My account"}

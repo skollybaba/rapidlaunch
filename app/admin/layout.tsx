@@ -11,7 +11,7 @@ export default async function AdminLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
-      <aside className="flex w-full flex-col border-b border-ink-950 bg-ink-950 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
+      <aside className="sticky top-0 z-30 flex w-full flex-col overflow-y-auto border-b border-ink-950 bg-ink-950 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r lg:self-start lg:h-screen">
         <AdminNav />
       </aside>
       <div className="flex flex-1 flex-col">
