@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone CJS dev utility scripts aren't linted with TS rules.
+    "scripts/**/*.cjs",
   ]),
 ]);
 

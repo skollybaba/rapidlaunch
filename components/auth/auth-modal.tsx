@@ -94,11 +94,7 @@ export function AuthModal({
         </div>
 
         <div className="mt-6 space-y-3">
-          <GoogleAuthButton
-            onCredential={handleGoogleCredential}
-            oneTap
-            autoSelect
-          />
+          <GoogleAuthButton onCredential={handleGoogleCredential} />
 
           <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-neutral-400">
             <span className="h-px flex-1 bg-neutral-200" />

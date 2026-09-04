@@ -32,7 +32,7 @@ function resolveNext(raw: string | undefined): string | null {
 export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { next } = await searchParams;
   const user = await getCurrentPublicUser();
-  if (user) redirect(resolveNext(next) ?? "/account");
+  if (user) redirect(resolveNext(next) ?? "/account/overview");
 
   return (
     <div className="flex flex-1 flex-col bg-paper-50">

@@ -15,8 +15,8 @@ export function AccountSignIn({ next }: AccountSignInProps) {
   const { loginWithGoogle } = useAuth();
 
   function resolveNext() {
-    if (!next) return "/account";
-    if (!next.startsWith("/") || next.startsWith("//")) return "/account";
+    if (!next) return "/account/overview";
+    if (!next.startsWith("/") || next.startsWith("//")) return "/account/overview";
     return next;
   }
 
@@ -33,11 +33,7 @@ export function AccountSignIn({ next }: AccountSignInProps) {
   return (
     <div className="w-full">
       <div className="inline-flex w-full justify-center">
-        <GoogleAuthButton
-          onCredential={handleGoogleCredential}
-          oneTap
-          autoSelect
-        />
+        <GoogleAuthButton onCredential={handleGoogleCredential} />
       </div>
 
       <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-neutral-400">

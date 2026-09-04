@@ -70,6 +70,21 @@ export function SiteHeader() {
           >
             {user ? "Account" : "Sign in"}
           </Link>
+          {user?.role === "admin" ? (
+            <Link
+              href="/admin/dashboard"
+              aria-current={
+                pathname.startsWith("/admin") ? "page" : undefined
+              }
+              className={`text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
+                pathname.startsWith("/admin")
+                  ? "text-white"
+                  : "text-neutral-300 hover:text-white"
+              }`}
+            >
+              Back office
+            </Link>
+          ) : null}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -135,6 +150,24 @@ export function SiteHeader() {
                   {user ? "Account" : "Sign in"}
                 </Link>
               </li>
+              {user?.role === "admin" ? (
+                <li>
+                  <Link
+                    href="/admin/dashboard"
+                    onClick={closeMenu}
+                    aria-current={
+                      pathname.startsWith("/admin") ? "page" : undefined
+                    }
+                    className={`flex min-h-12 items-center border-b border-ink-800/70 py-3 text-base transition-colors duration-[var(--duration-fast)] ${
+                      pathname.startsWith("/admin")
+                        ? "text-white"
+                        : "text-neutral-300 hover:text-white"
+                    }`}
+                  >
+                    Back office
+                  </Link>
+                </li>
+              ) : null}
             </ul>
             <Link
               href="/book"

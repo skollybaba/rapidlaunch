@@ -8,6 +8,7 @@ import {
   verifyPasswordResetToken,
 } from "@/lib/auth/tokens";
 import { clearSessionCookie, createSessionCookie, toPublicUser } from "@/lib/auth/session";
+import { isAdminEmail } from "@/lib/auth/admin";
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
 import { hashPassword, verifyPassword } from "@/lib/password";
@@ -52,11 +53,12 @@ export async function registerUser(input: unknown): Promise<PublicUser> {
   }
 
   const passwordHash = await hashPassword(parsed.password);
+  const role = isAdminEmail(email) ? "admin" : "customer";
   const user = await User.create({
     email,
     name: parsed.name,
     passwordHash,
-    role: "customer",
+    role,
   });
 
   await createSessionCookie(user);
@@ -184,23 +186,35 @@ export async function loginWithGoogle(
     .exec();
 
   if (user) {
-    if (!user.googleId) {
+    const role = isAdminEmail(user.email)
+      ? "admin"
+      : user.role === "admin"
+        ? "admin"
+        : "customer";
+    if (!user.googleId || role !== user.role) {
       await User.updateOne(
         { _id: user._id },
-        { $set: { googleId, provider: "google" } }
+        {
+          $set: {
+            ...(user.googleId ? {} : { googleId, provider: "google" }),
+            ...(role !== user.role ? { role } : {}),
+          },
+        }
       );
     }
+    user = { ...user, role };
     await createSessionCookie(user);
   } else {
+    const role = isAdminEmail(normalizedEmail) ? "admin" : "customer";
     const created = await User.create({
       email: normalizedEmail,
       name: payload.name || undefined,
       provider: "google",
       googleId,
-      role: "customer",
+      role,
     });
     await createSessionCookie(created);
-    user = { ...created.toObject(), _id: created._id };
+    user = { ...created.toObject(), _id: created._id, role };
 
     const mail = createMailAdapter();
     try {

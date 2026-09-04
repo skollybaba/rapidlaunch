@@ -46,6 +46,7 @@ const envSchema = z.object({
   MAIL_FROM_NAME: z.string().default("Agile Minds Hub"),
   MAIL_FROM_EMAIL: z.string().email().optional(),
   REMINDER_CRON_SECRET: z.string().optional(),
+  ADMIN_EMAILS: z.string().optional(),
   AI_PROVIDER_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
 });

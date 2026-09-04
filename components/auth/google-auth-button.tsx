@@ -33,15 +33,11 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 interface GoogleAuthButtonProps {
   onCredential: (credential: string) => Promise<void> | void;
-  oneTap?: boolean;
-  autoSelect?: boolean;
   className?: string;
 }
 
 export function GoogleAuthButton({
   onCredential,
-  oneTap = true,
-  autoSelect = true,
   className,
 }: GoogleAuthButtonProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -69,7 +65,6 @@ export function GoogleAuthButton({
             void onCredentialRef.current(response.credential);
           }
         },
-        auto_select: autoSelect,
       });
 
       if (buttonRef.current && !renderedRef.current) {
@@ -83,9 +78,11 @@ export function GoogleAuthButton({
         });
       }
 
-      if (oneTap) {
-        window.google.accounts.id.prompt();
-      }
+      // Deliberately do not auto-invoke `google.accounts.id.prompt()` (One
+      // Tap). On Chromium this FedCM call is frequently aborted by the browser
+      // (e.g. `FedCM get() rejects with AbortError`) when third-party cookies
+      // are restricted, which spams the console. The rendered "Continue with
+      // Google" button is unaffected, so sign-in still works.
     }
 
     if (window.google?.accounts?.id) {
@@ -104,7 +101,7 @@ export function GoogleAuthButton({
     return () => {
       script.remove();
     };
-  }, [oneTap, autoSelect]);
+  }, []);
 
   if (!GOOGLE_CLIENT_ID) {
     return (
