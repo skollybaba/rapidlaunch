@@ -51,8 +51,8 @@ const TOPICS = [
     illustration: ApiIllustration,
   },
   {
-    title: "Authentication",
-    body: "How a system knows who you are and what you can access.",
+    title: "GitHub",
+    body: "How version control tracks your code so you can save work, collaborate, and roll back changes.",
     illustration: AuthIllustration,
   },
   {
