@@ -47,7 +47,7 @@ const SECTIONS = [
   },
   {
     title: "Third-party services",
-    body: "Courses may be delivered through Google Classroom and sessions may run over Google Meet. These services are governed by their own terms, and your use of them is subject to their providers' policies.",
+    body: "Courses may be delivered through an online classroom and sessions may run over a third-party video service. These services are governed by their own terms, and your use of them is subject to their providers' policies.",
   },
   {
     title: "Changes to these Terms",

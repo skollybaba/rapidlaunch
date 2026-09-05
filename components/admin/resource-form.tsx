@@ -193,6 +193,7 @@ export function ResourceForm({
                 value={thumbnailUrl}
                 onChange={setThumbnailUrl}
                 help="Poster shown on the video card."
+                expected="1280 × 720 pixels (16:9)"
               />
             </div>
           </div>

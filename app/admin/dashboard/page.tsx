@@ -325,7 +325,7 @@ export default async function AdminDashboardPage({
         />
         <TrendChart
           title="Enrollments"
-          hint="Google Classroom"
+          hint="Classroom enrollments"
           bars={trend.map((t) => ({ label: t.label, value: t.enrollments }))}
           formatValue={(v) => new Intl.NumberFormat("en-US").format(v)}
           color="lavender"

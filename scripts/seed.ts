@@ -37,7 +37,7 @@ const products: SeedProduct[] = [
     sortOrder: 1,
     seoTitle: "AI Product Craft: From Idea to Roadmap | Rapid Launch",
     seoDescription:
-      "A self-paced AI product course: problem framing, user mapping, and a buildable roadmap, delivered in Google Classroom.",
+      "A self-paced AI product course: problem framing, user mapping, and a buildable roadmap, delivered in the classroom.",
     courseDetails: {
       instructor: "Rapid Launch",
       durationMinutes: 180,
@@ -59,7 +59,7 @@ const products: SeedProduct[] = [
       classroomCourseId: "1234567890",
       enrollmentMode: "AUTOMATIC",
       accessInstructions:
-        "Enroll the Google account you want to use in Google Classroom.",
+        "Enroll the email account you want to use for the classroom.",
     },
   },
   {

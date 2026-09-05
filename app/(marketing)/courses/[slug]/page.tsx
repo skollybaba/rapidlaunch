@@ -47,7 +47,7 @@ export async function generateMetadata({
     description:
       product.seoDescription ??
       product.shortDescription ??
-      "A self-paced AI product course delivered in Google Classroom.",
+      "A self-paced AI product course delivered in the classroom.",
   };
 }
 
@@ -180,8 +180,8 @@ function CourseContent({ product }: { product: ProductDetail }) {
               <h2 className="text-[1.375rem] leading-snug">How access is granted</h2>
               <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                 Your purchase is verified before we grant course access. After a
-                successful payment you receive an email with a Google Classroom
-                invitation. Use the Google account you want enrolled. It can be
+                successful payment you receive an email with a classroom
+                invitation. Use the email account you want enrolled. It can be
                 different from the email you pay with.
               </p>
             </div>
@@ -207,7 +207,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
                 value={
                   product.fulfillmentMode === "MANUAL"
                     ? "Manual enrollment"
-                    : "Google Classroom"
+                    : "Classroom"
                 }
               />
             </dl>

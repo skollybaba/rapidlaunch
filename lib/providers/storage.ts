@@ -1,5 +1,7 @@
 import "server-only";
 
+import crypto from "crypto";
+
 import { v2 as cloudinary } from "cloudinary";
 
 import { env } from "@/lib/env";
@@ -36,8 +38,22 @@ function configure() {
   });
 }
 
+function extensionOf(key: string): string {
+  const dot = key.lastIndexOf(".");
+  return dot > 0 ? key.slice(dot + 1).toLowerCase() : "";
+}
+
+function stripExtension(key: string): string {
+  const ext = extensionOf(key);
+  return ext ? key.slice(0, -(ext.length + 1)) : key;
+}
+
 function publicId(key: string): string {
-  return `${FOLDER}/${key}`;
+  return `${FOLDER}/${stripExtension(key)}`;
+}
+
+function formatOf(key: string): string {
+  return extensionOf(key);
 }
 
 function resourceType(key: string): "image" | "raw" {
@@ -54,25 +70,65 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
-type UploadOptions = Record<string, unknown>;
+type UploadOptions = {
+  folder?: string;
+  public_id?: string;
+  resource_type?: "image" | "raw";
+  overwrite?: boolean;
+  content_type?: string;
+};
 
-function uploadBuffer(body: Buffer, options: UploadOptions): Promise<void> {
-  // Runtime signature is (callback, options) — the published types are reversed.
-  const uploadStream = cloudinary.uploader.upload_stream as (
-    callback: (error: unknown) => void,
-    options: UploadOptions
-  ) => { end: (chunk: Buffer) => void };
+function sha1(value: string): string {
+  return crypto.createHash("sha1").update(value).digest("hex");
+}
 
-  return new Promise((resolve, reject) => {
-    const stream = uploadStream(
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      },
-      options
-    );
-    stream.end(body);
+function signedUploadUrl(resourceType: "image" | "raw"): string {
+  return `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+}
+
+async function uploadBytes(body: Buffer, options: UploadOptions) {
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const bodyParams: Record<string, string> = {
+    folder: FOLDER,
+    overwrite: "true",
+    timestamp,
+  };
+  if (options.public_id) bodyParams.public_id = String(options.public_id);
+
+  const signatureSource = Object.keys(bodyParams)
+    .sort()
+    .map((key) => `${key}=${bodyParams[key]}`)
+    .join("&");
+  const signature = sha1(`${signatureSource}${env.CLOUDINARY_API_SECRET}`);
+
+  const mime = options.content_type ?? "application/octet-stream";
+  const fileData = `data:${mime};base64,${body.toString("base64")}`;
+
+  const form = new URLSearchParams({
+    file: fileData,
+    ...bodyParams,
+    api_key: env.CLOUDINARY_API_KEY!,
+    signature,
   });
+
+  const response = await fetch(signedUploadUrl(options.resource_type ?? "raw"), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
+  const result = (await response.json().catch(() => null)) as {
+    public_id?: string;
+    secure_url?: string;
+    error?: { message?: string };
+  } | null;
+
+  if (!response.ok || !result || result.error) {
+    const message = result?.error?.message ?? `Cloudinary upload failed (${response.status})`;
+    throw new Error(message);
+  }
+  if (!result.secure_url) {
+    throw new Error("Cloudinary upload returned no URL.");
+  }
 }
 
 export async function putObject(input: {
@@ -81,13 +137,13 @@ export async function putObject(input: {
   contentType?: string;
   metadata?: Record<string, string>;
 }): Promise<void> {
-  configure();
   const isImage = !input.contentType || input.contentType.startsWith("image/");
-  await uploadBuffer(input.body, {
+  await uploadBytes(input.body, {
     folder: FOLDER,
-    public_id: input.key,
+    public_id: stripExtension(input.key),
     resource_type: isImage ? "image" : "raw",
     overwrite: true,
+    content_type: isImage ? input.contentType : undefined,
   });
 }
 
@@ -148,8 +204,10 @@ export async function listObjects(): Promise<StoredObjectMeta[]> {
   const rows: StoredObjectMeta[] = [];
   for (const assembly of [images, files]) {
     for (const resource of assembly.resources ?? []) {
+      const base = (resource.public_id as string).replace(`${FOLDER}/`, "");
+      const key = resource.format ? `${base}.${resource.format}` : base;
       rows.push({
-        key: (resource.public_id as string).replace(`${FOLDER}/`, ""),
+        key,
         size: resource.bytes ?? 0,
       });
     }
@@ -160,9 +218,11 @@ export async function listObjects(): Promise<StoredObjectMeta[]> {
 export function publicUrl(key: string): string {
   configure();
   const type = resourceType(key);
+  const format = formatOf(key);
   return cloudinary.url(publicId(key), {
     secure: true,
     resource_type: type,
     type: "upload",
+    ...(format ? { format } : {}),
   });
 }

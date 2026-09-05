@@ -240,6 +240,7 @@ export function CourseForm({ initial }: CourseFormData) {
               value={thumbnailUrl}
               onChange={setThumbnailUrl}
               help="Used on the course card and detail page. Leave empty to use the generated artwork."
+              expected="1280 × 720 pixels (16:9)"
             />
           </div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "AI Courses | Rapid Launch",
   description:
-    "Self-paced crash courses that move you from product thinking to working software with AI. Access is delivered in Google Classroom after a verified payment.",
+    "Self-paced crash courses that move you from product thinking to working software with AI. Access is delivered in the classroom after a verified payment.",
 };
 
 async function CourseGrid() {
@@ -68,7 +68,7 @@ export default function CoursesPage() {
       <CatalogPageHeader
         eyebrow="Learning paths"
         title="Learn the workflow from product thinking to working software."
-        description="Self-paced crash courses on using AI inside product work. Every course is delivered through Google Classroom so you learn where the work actually happens."
+        description="Self-paced crash courses on using AI inside product work. Every course is delivered through our classroom so you learn where the work actually happens."
       />
       <div className="flex flex-1 flex-col bg-white">
         <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">

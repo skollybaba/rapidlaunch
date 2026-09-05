@@ -92,9 +92,10 @@ export function CheckoutForm({
   }, [isSession, sessionDurationMinutes]);
 
   function buildOrderBody() {
+    const customerEmail = user?.email ?? email;
     return JSON.stringify({
       productId,
-      customerEmail: email,
+      customerEmail,
       ...(isSession
         ? {
             session: {
@@ -245,24 +246,32 @@ export function CheckoutForm({
             htmlFor="checkout-email"
             className="text-sm font-semibold text-neutral-950"
           >
-            Email for this purchase <span className="text-terracotta-600">*</span>
+            Email for this purchase
+            {user ? null : <span className="text-terracotta-600">*</span>}
           </label>
           <input
             id="checkout-email"
             name="email"
             type="email"
             autoComplete="email"
-            required
-            disabled={disabled || state === "submitting" || state === "redirecting"}
-            value={email}
+            required={!user}
+            disabled={
+              disabled ||
+              Boolean(user) ||
+              state === "submitting" ||
+              state === "redirecting"
+            }
+            value={user?.email ?? email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@example.com"
             className={inputClasses}
           />
           <p className="mt-2 text-sm leading-relaxed text-neutral-500">
-            {isSession
-              ? "We send your receipt and the booking confirmation here."
-              : "Your payment is verified before access is granted. Google Classroom email can be different from this address."}
+            {user
+              ? `Signed in as ${user.email}. Your receipt and order details go to this email.`
+              : isSession
+                ? "We send your receipt and the booking confirmation here."
+                : "Your payment is verified before access is granted. The email used for the classroom can be different from this address."}
           </p>
         </div>
 

@@ -23,7 +23,7 @@ const TYPE_ICON: Record<ProductType, typeof BookOpen> = {
 };
 
 const TYPE_KICKER: Record<ProductType, string> = {
-  COURSE: "Course · Google Classroom",
+  COURSE: "Course · Classroom",
   BOOK: "Book · Practical reading",
   CONSULTATION: "Consultation · 1-on-1",
   MVP_SERVICE: "MVP build · Outcome-led",

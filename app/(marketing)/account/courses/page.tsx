@@ -82,7 +82,7 @@ export default async function AccountCoursesPage() {
                             className={buttonStyles({ variant: "primary" })}
                           >
                             <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                            Open in Google Classroom
+                            Open course
                           </a>
                         ) : null}
                       </div>

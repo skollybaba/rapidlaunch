@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { Frame, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { readApiJson } from "@/lib/http";
 
@@ -14,6 +14,7 @@ interface ThumbnailUploadProps {
   onChange: (url: string) => void;
   aspect?: "video" | "square";
   help?: string;
+  expected?: string;
 }
 
 export function ThumbnailUpload({
@@ -23,6 +24,7 @@ export function ThumbnailUpload({
   onChange,
   aspect = "video",
   help,
+  expected = "1280 × 720 pixels (16:9)",
 }: ThumbnailUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -31,8 +33,14 @@ export function ThumbnailUpload({
 
   async function handleFile(file: File) {
     setError("");
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file (PNG, JPG, WebP, …).");
+    const isImage =
+      file.type === "" ||
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|gif|avif|svgz?|bmp|tiff?|ico)$/i.test(file.name);
+    if (!isImage) {
+      setError(
+        "Please choose an image file (JPG, PNG, WebP, GIF, AVIF, SVG, …)."
+      );
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -115,10 +123,17 @@ export function ThumbnailUpload({
           </button>
         ) : null}
       </div>
-      {help || value ? (
+      {help ? (
+        <p className="mt-2 text-xs text-neutral-500">{help}</p>
+      ) : value ? (
         <p className="mt-2 text-xs text-neutral-500">
-          {help ??
-            "Stored on Cloudinary (free plan, max 10 MB per image)."}
+          Stored on Cloudinary (free plan, max 10 MB per image).
+        </p>
+      ) : null}
+      {expected ? (
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-500">
+          <Frame aria-hidden="true" className="h-3.5 w-3.5" />
+          Recommended: {expected}
         </p>
       ) : null}
 

@@ -124,35 +124,35 @@ function mapGoogleApiError(error: unknown): GoogleClassroomProviderError {
   if (status === 401) {
     return new GoogleClassroomProviderError(
       "UNAUTHORIZED",
-      "Google Classroom authorization failed",
+      "Classroom authorization failed",
       false
     );
   }
   if (status === 403) {
     return new GoogleClassroomProviderError(
       "FORBIDDEN",
-      "Google Classroom access is forbidden",
+      "Classroom access is forbidden",
       false
     );
   }
   if (status === 404) {
     return new GoogleClassroomProviderError(
       "COURSE_NOT_FOUND",
-      "Google Classroom course was not found",
+      "Classroom course was not found",
       false
     );
   }
   if (status === 429) {
     return new GoogleClassroomProviderError(
       "RATE_LIMITED",
-      "Google Classroom rate limit reached",
+      "Classroom rate limit reached",
       true
     );
   }
   const retryable = status === 0 || status >= 500;
   return new GoogleClassroomProviderError(
     retryable ? "UNKNOWN" : "UNKNOWN",
-    "Google Classroom could not complete the request",
+    "Classroom could not complete the request",
     retryable
   );
 }

@@ -111,12 +111,15 @@ function paystackPaymentFilter(extra: Record<string, unknown>) {
   } as PaystackFilter as unknown as Parameters<typeof Payment.findOne>[0];
 }
 
-async function resolveSessionUserId(): Promise<unknown> {
+async function resolveSessionUser(): Promise<{
+  id: string | null;
+  email?: string;
+}> {
   try {
     const user = await getSessionUser();
-    return user ? String(user._id) : null;
+    return user ? { id: String(user._id), email: user.email } : { id: null };
   } catch {
-    return null;
+    return { id: null };
   }
 }
 
@@ -160,11 +163,13 @@ export async function createCheckoutSession(
 
   const unitPriceMinor = product.priceMinor;
   const orderReference = generateOrderReference();
-  const userId = await resolveSessionUserId();
+  const sessionUser = await resolveSessionUser();
+  const customerEmail = sessionUser.email ?? parsed.customerEmail;
+  const userId = sessionUser.id;
 
   const order = await Order.create({
     orderReference,
-    customerEmail: parsed.customerEmail,
+    customerEmail,
     userId,
     items: [
       {
@@ -198,7 +203,7 @@ export async function createCheckoutSession(
     const booking = await Booking.create({
       orderId: order._id,
       productId: product._id,
-      customerEmail: parsed.customerEmail,
+      customerEmail,
       customerName: parsed.session.customerName,
       answers: {
         whatYouAreBuilding: parsed.session.whatYouAreBuilding,
@@ -1029,7 +1034,7 @@ function orderNextStepText(order: LeanDoc<OrderDoc>): string {
   const type = order.metadata?.productType;
 
   if (mode === "CLASSROOM") {
-    return "Your course enrollment is being processed. You will receive a separate email with access to your Google Classroom course.";
+    return "Your course enrollment is being processed. You will receive a separate email with access to your course.";
   }
   if (mode === "DOWNLOAD") {
     return "Your download links are being prepared and will be sent to you shortly.";

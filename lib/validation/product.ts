@@ -123,7 +123,7 @@ export const productInputSchema = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message:
-              "Published courses require a Google Classroom course ID unless enrollment is manual",
+              "Published courses require a classroom course ID unless enrollment is manual",
             path: ["courseDetails", "classroomCourseId"],
           });
         }

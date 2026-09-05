@@ -267,14 +267,14 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
   </div>
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi there,</p>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You now have access to <strong style="color:#11121d;">${courseTitle}</strong> in Google Classroom.</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You now have access to <strong style="color:#11121d;">${courseTitle}</strong> in the classroom.</p>
     ${courseButton}
     <p style="font-size:13px;line-height:1.6;margin:0 0 12px;color:#74778c;">${customerEmail ? `The invite was sent to <strong>${customerEmail}</strong>.` : ""}</p>
     <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
   </div>
 </div>
 </div>`;
-      const text = `You're enrolled: ${courseTitle}\n\nHi there,\n\nYou now have access to ${courseTitle} in Google Classroom.\n\nOpen your course: ${courseUrl || "Open your account and go to Courses."}\n\nQuestions? Reply to this email or contact our support team.`;
+      const text = `You're enrolled: ${courseTitle}\n\nHi there,\n\nYou now have access to ${courseTitle} in the classroom.\n\nOpen your course: ${courseUrl || "Open your account and go to Courses."}\n\nQuestions? Reply to this email or contact our support team.`;
       return { subject, html, text };
     }
     case "course_access_action_required": {
