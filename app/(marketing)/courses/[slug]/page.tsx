@@ -21,8 +21,9 @@ import {
 import { buttonStyles } from "@/components/ui/button";
 import { ProductCard } from "@/components/ui/product-card";
 import { ProductCover } from "@/components/ui/product-cover";
+import { Price } from "@/components/ui/price";
 import { Reveal } from "@/components/marketing/reveal";
-import { formatDuration, formatPrice } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 import type { ProductDetail } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -212,7 +213,10 @@ function CourseContent({ product }: { product: ProductDetail }) {
               />
             </dl>
             <p className="mt-5 text-3xl font-bold text-neutral-950">
-              {formatPrice(product.priceMinor, product.currency)}
+              <Price
+                amountMinor={product.priceMinor}
+                currency={product.currency}
+              />
             </p>
             <Link
               href={`/checkout/${product.id}`}

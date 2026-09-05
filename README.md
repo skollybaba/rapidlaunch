@@ -61,8 +61,8 @@ provider as not configured.
    cp .env.example .env.local
    ```
 
-3. Set `MONGODB_URI` (e.g. `mongodb://127.0.0.1:27017/quicklaunch`). At minimum
-   `MONGODB_URI` is required to run the app; provider keys can be added later as
+3. Set `MONGODB_URI_MONGODB_URI` (e.g. `mongodb://127.0.0.1:27017/quicklaunch`). At minimum
+   `MONGODB_URI_MONGODB_URI` is required to run the app; provider keys can be added later as
    each integration is implemented.
 
 4. Run the development server:
@@ -75,7 +75,7 @@ provider as not configured.
 
 ### Using MongoDB Atlas
 
-The app connects purely through `MONGODB_URI`, so Atlas works without code
+The app connects purely through `MONGODB_URI_MONGODB_URI`, so Atlas works without code
 changes:
 
 1. Create a free cluster in the MongoDB Atlas console and create a database
@@ -83,10 +83,10 @@ changes:
 2. Under **Network Access**, allow your IP (or `0.0.0.0/0` while developing).
 3. Under **Database → Connect → Drivers**, copy the connection string
    (`mongodb+srv://<dbUser>:<dbPassword>@<cluster>.mongodb.net/...`).
-4. Set it as `MONGODB_URI` in `.env.local`, e.g.:
+4. Set it as `MONGODB_URI_MONGODB_URI` in `.env.local`, e.g.:
 
    ```bash
-   MONGODB_URI=mongodb+srv://quicklaunch-user:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/quicklaunch
+   MONGODB_URI_MONGODB_URI=mongodb+srv://quicklaunch-user:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/quicklaunch
    MONGODB_DB_NAME=quicklaunch
    ```
 
@@ -123,7 +123,7 @@ Free-plan limits to keep in mind: ~500 MB storage and 25 monthly credits, a
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `MONGODB_URI` | Yes | MongoDB connection string |
+| `MONGODB_URI_MONGODB_URI` | Yes | MongoDB connection string |
 | `MONGODB_DB_NAME` | No | Database name (default `quicklaunch`) |
 | `MONGODB_SERVER_SELECTION_TIMEOUT_MS` | No | MongoDB server-selection timeout in ms (default `5000`) |
 | `NEXTAUTH_SECRET` / `AUTH_SECRET` | Yes (prod) | Long random string for sessions |
@@ -154,7 +154,7 @@ values in `NEXT_PUBLIC_` variables. Copy real values into `.env.local` only.
 
 ### Seed data
 
-`npm run seed` connects to `MONGODB_URI` and upserts sample products by slug:
+`npm run seed` connects to `MONGODB_URI_MONGODB_URI` and upserts sample products by slug:
 draft + published books and courses, a published consultation, and a published
 quote-based MVP build engagement. It is idempotent and safe to re-run.
 
@@ -224,8 +224,8 @@ action-required fulfillments.
 
 ## Troubleshooting
 
-- **`Invalid server environment configuration: MONGODB_URI ...`** — create
-  `.env.local` from `.env.example` and set `MONGODB_URI`.
+- **`Invalid server environment configuration: MONGODB_URI_MONGODB_URI ...`** — create
+  `.env.local` from `.env.example` and set `MONGODB_URI_MONGODB_URI`.
 - **Type errors after installing new packages** — run `npm run typecheck`.
 - **Dependency conflict messages** — the project pins `nodemailer@9` while
   `next-auth@4` declares an optional peer of `nodemailer@^7`. Installs are

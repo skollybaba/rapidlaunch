@@ -26,7 +26,7 @@ export async function dbConnect(): Promise<typeof mongoose> {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(env.MONGODB_URI, {
+    cached.promise = mongoose.connect(env.MONGODB_URI_MONGODB_URI, {
       dbName: env.MONGODB_DB_NAME,
       bufferCommands: false,
       serverSelectionTimeoutMS: env.MONGODB_SERVER_SELECTION_TIMEOUT_MS,

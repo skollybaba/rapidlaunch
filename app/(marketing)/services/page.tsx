@@ -10,7 +10,7 @@ import { ProductCover } from "@/components/ui/product-cover";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonStyles } from "@/components/ui/button";
 import { listPublishedProducts } from "@/lib/services/catalog-service";
-import { formatPrice } from "@/lib/utils";
+import { Price } from "@/components/ui/price";
 import type { ProductSummary } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -96,9 +96,14 @@ function ServiceCard({ product }: { product: ProductSummary }) {
         ) : null}
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
           <span className="text-sm font-bold text-neutral-950">
-            {isMvp
-              ? "Custom quote"
-              : formatPrice(product.priceMinor, product.currency)}
+            {isMvp ? (
+              "Custom quote"
+            ) : (
+              <Price
+                amountMinor={product.priceMinor}
+                currency={product.currency}
+              />
+            )}
           </span>
           <span className="inline-flex items-center gap-1 text-sm font-semibold text-terracotta-600 transition-colors duration-[var(--duration-fast)] group-hover:text-terracotta-500">
             {isMvp ? "Explore the sprint" : "See what it covers"}

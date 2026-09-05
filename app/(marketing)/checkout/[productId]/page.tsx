@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { getPublishedProductById } from "@/lib/services/catalog-service";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { buttonStyles } from "@/components/ui/button";
+import { env } from "@/lib/env";
+import { displayPrice, getDisplayCurrency } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +48,14 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
 
   if (!product) notFound();
 
+  const displayCurrency = await getDisplayCurrency();
+  const display = displayPrice(
+    product.priceMinor,
+    product.currency,
+    displayCurrency
+  );
+  const paymentSupportUrl = env.PAYMENT_SUPPORT_URL ?? "/contact";
+
   const isSession =
     product.type === "CONSULTATION" &&
     product.consultationDetails?.bookingMode === "EXTERNAL_SCHEDULER";
@@ -85,9 +95,17 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
                 <div className="flex items-start justify-between gap-4">
                   <dt className="text-sm text-neutral-500">Price</dt>
                   <dd className="text-sm font-bold text-neutral-950">
-                    {formatPrice(product.priceMinor, product.currency)}
+                    {formatPrice(display.amountMinor, display.currency)}
                   </dd>
                 </div>
+                {display.converted ? (
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-sm text-neutral-500">This is for reference</dt>
+                    <dd className="text-right text-sm leading-relaxed text-neutral-500">
+                      You pay in Nigerian naira via Paystack.
+                    </dd>
+                  </div>
+                ) : null}
                 {isSession ? (
                   <div className="flex items-start justify-between gap-4">
                     <dt className="text-sm text-neutral-500">Format</dt>
@@ -130,6 +148,26 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               sessionDurationMinutes={durationMinutes}
               disabled={product.priceMinor <= 0}
             />
+
+            <div className="mt-6 rounded-[12px] border border-neutral-300 bg-white p-5">
+              <p className="text-sm font-semibold text-neutral-950">
+                Having trouble making payment?
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                We can help you complete your purchase.
+              </p>
+              <a
+                href={paymentSupportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonStyles({
+                  variant: "secondary",
+                  className: "mt-4 w-full",
+                })}
+              >
+                Get payment help
+              </a>
+            </div>
 
             <Link
               href="/contact"

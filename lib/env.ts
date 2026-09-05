@@ -10,18 +10,20 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
-  NEXT_PUBLIC_APP_URL: z
-    .string()
-    .url()
-    .default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: z.preprocess(
+    (v) =>
+      typeof v === "string" && v.trim() === ""
+        ? "http://localhost:3000"
+        : v,
+    z.string().url()
+  ),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
-  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  MONGODB_URI_MONGODB_URI: z.string().min(1, "MONGODB_URI_MONGODB_URI is required"),
   MONGODB_DB_NAME: z.string().default("quicklaunch"),
-  MONGODB_SERVER_SELECTION_TIMEOUT_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(5000),
+  MONGODB_SERVER_SELECTION_TIMEOUT_MS: z.preprocess(
+    (v) => (v === "" || v === undefined ? 5000 : v),
+    z.coerce.number().int().positive()
+  ),
   AUTH_SECRET: z.string().optional(),
   NEXTAUTH_SECRET: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
@@ -30,7 +32,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REFRESH_TOKEN: z.string().optional(),
-  GOOGLE_CLASSROOM_OWNER_EMAIL: z.string().email().optional(),
+  GOOGLE_CLASSROOM_OWNER_EMAIL: z.preprocess(
+    emptyToUndefined,
+    z.string().email().optional()
+  ),
   GOOGLE_CALENDAR_OWNER_EMAIL: z.preprocess(
     emptyToUndefined,
     z.string().email().optional()
@@ -40,11 +45,17 @@ const envSchema = z.object({
   GOOGLE_CALENDAR_WORK_START: z.string().default("09:00"),
   GOOGLE_CALENDAR_WORK_END: z.string().default("17:00"),
   GOOGLE_SMTP_HOST: z.string().default("smtp.gmail.com"),
-  GOOGLE_SMTP_PORT: z.coerce.number().default(465),
+  GOOGLE_SMTP_PORT: z.preprocess(
+    (v) => (v === "" || v === undefined ? 465 : v),
+    z.coerce.number()
+  ).default(465),
   GOOGLE_SMTP_USER: z.string().optional(),
   GOOGLE_SMTP_PASSWORD: z.string().optional(),
   MAIL_FROM_NAME: z.string().default("Agile Minds Hub"),
-  MAIL_FROM_EMAIL: z.string().email().optional(),
+  MAIL_FROM_EMAIL: z.preprocess(
+    emptyToUndefined,
+    z.string().email().optional()
+  ),
   REMINDER_CRON_SECRET: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
@@ -52,6 +63,14 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
   AI_PROVIDER_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
+  PRICE_DISPLAY_NGN_PER_USD: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().positive().default(1600)
+  ),
+  PAYMENT_SUPPORT_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().url().optional()
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -67,7 +86,9 @@ const data = parsed.data;
 
 const authSecret = data.AUTH_SECRET ?? data.NEXTAUTH_SECRET;
 
-if (data.NODE_ENV === "production" && !authSecret) {
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+if (data.NODE_ENV === "production" && !isBuildPhase && !authSecret) {
   throw new Error(
     "Missing NEXTAUTH_SECRET (or AUTH_SECRET) in production environment"
   );

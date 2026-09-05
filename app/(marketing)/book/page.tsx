@@ -17,8 +17,8 @@ import type { ProductConsultationDetails } from "@/types/product";
 import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
 import { buttonStyles } from "@/components/ui/button";
+import { Price } from "@/components/ui/price";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
-import { formatPrice } from "@/lib/utils";
 import type { ProductDetail } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -166,7 +166,10 @@ function OptionCard({
             {option.duration} minutes
           </span>
           <span className="text-lg font-bold text-neutral-950">
-            {formatPrice(product.priceMinor, product.currency)}
+            <Price
+              amountMinor={product.priceMinor}
+              currency={product.currency}
+            />
           </span>
         </div>
 

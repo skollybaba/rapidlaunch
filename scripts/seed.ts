@@ -6,13 +6,13 @@ import { Resource } from "../models/Resource";
 import { productInputSchema } from "../lib/validation/product";
 import { resourceInputSchema } from "../lib/validation/resource";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI_MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB_NAME ?? "quicklaunch";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 if (!MONGODB_URI) {
   throw new Error(
-    "MONGODB_URI is required. Run with `tsx --env-file-if-exists=.env.local scripts/seed.ts`"
+    "MONGODB_URI_MONGODB_URI is required. Run with `tsx --env-file-if-exists=.env.local scripts/seed.ts`"
   );
 }
 

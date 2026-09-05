@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
 import { ProductCover } from "@/components/ui/product-cover";
+import { Price } from "@/components/ui/price";
 import { Reveal } from "@/components/marketing/reveal";
-import { formatPrice } from "@/lib/utils";
 import type { ProductDetail } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -134,7 +134,10 @@ function BookContent({ product }: { product: ProductDetail }) {
               />
             </dl>
             <p className="mt-5 text-3xl font-bold text-neutral-950">
-              {formatPrice(product.priceMinor, product.currency)}
+              <Price
+                amountMinor={product.priceMinor}
+                currency={product.currency}
+              />
             </p>
             {product.fulfillmentMode === "EXTERNAL" ? (
               <Link

@@ -9,7 +9,8 @@ import { DetailList } from "@/components/catalog/detail-list";
 import { ProductCover } from "@/components/ui/product-cover";
 import { Reveal } from "@/components/marketing/reveal";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
-import { formatDuration, formatPrice } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
+import { Price } from "@/components/ui/price";
 import type { ProductDetail } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -62,9 +63,19 @@ function ServiceContent({ product }: { product: ProductDetail }) {
 
   const priceLabel = isMvp
     ? mvp?.startingPriceMinor
-      ? `From ${formatPrice(mvp.startingPriceMinor, product.currency)}`
+      ? (
+          <>
+            From{" "}
+            <Price
+              amountMinor={mvp.startingPriceMinor}
+              currency={product.currency}
+            />
+          </>
+        )
       : "Custom quote"
-    : formatPrice(product.priceMinor, product.currency);
+    : (
+        <Price amountMinor={product.priceMinor} currency={product.currency} />
+      );
 
   return (
     <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
@@ -202,7 +213,12 @@ function ServiceContent({ product }: { product: ProductDetail }) {
                   {mvp?.startingPriceMinor ? (
                     <DetailList.Row
                       label="Starting price"
-                      value={formatPrice(mvp.startingPriceMinor, product.currency)}
+                      value={
+                        <Price
+                          amountMinor={mvp.startingPriceMinor}
+                          currency={product.currency}
+                        />
+                      }
                     />
                   ) : null}
                   {mvp?.quoteMode ? (

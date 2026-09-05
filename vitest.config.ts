@@ -15,7 +15,7 @@ export default defineConfig({
     environment: "node",
     env: {
       NODE_ENV: "test",
-      MONGODB_URI: "mongodb://127.0.0.1:27017/quicklaunch_test",
+      MONGODB_URI_MONGODB_URI: "mongodb://127.0.0.1:27017/quicklaunch_test",
       PAYSTACK_SECRET_KEY: "sk_test_unit_dummy",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       REMINDER_CRON_SECRET: "unit-test-reminder-secret",

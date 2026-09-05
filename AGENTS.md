@@ -156,7 +156,7 @@ Create a typed environment loader. Fail fast on the server when a required produ
 ```env
 NODE_ENV=development
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-MONGODB_URI=mongodb://127.0.0.1:27017/quicklaunch
+MONGODB_URI_MONGODB_URI=mongodb://127.0.0.1:27017/quicklaunch
 MONGODB_DB_NAME=quicklaunch
 AUTH_SECRET=replace_with_a_long_random_secret
 
@@ -190,10 +190,10 @@ Use one cached connection. The connection module must work with Next.js developm
 // lib/db.ts
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI_MONGODB_URI = process.env.MONGODB_URI_MONGODB_URI;
 
-if (!MONGODB_URI) {
-  throw new Error('MONGODB_URI is not configured');
+if (!MONGODB_URI_MONGODB_URI) {
+  throw new Error('MONGODB_URI_MONGODB_URI is not configured');
 }
 
 type MongooseCache = {
@@ -212,7 +212,7 @@ global.mongooseCache = cache;
 export async function connectToDatabase() {
   if (cache.conn) return cache.conn;
   if (!cache.promise) {
-    cache.promise = mongoose.connect(MONGODB_URI, {
+    cache.promise = mongoose.connect(MONGODB_URI_MONGODB_URI, {
       dbName: process.env.MONGODB_DB_NAME,
       bufferCommands: false,
     });

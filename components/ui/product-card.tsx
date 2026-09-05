@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { ProductCover } from "@/components/ui/product-cover";
-import { formatPrice } from "@/lib/utils";
+import { Price } from "@/components/ui/price";
 import type { ProductSummary, ProductType } from "@/types/product";
 import { cn } from "@/lib/utils";
 
@@ -75,9 +75,11 @@ export function ProductCard({ product, href, className }: ProductCardProps) {
           </p>
         ) : null}
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
-          <span className="text-sm font-bold text-neutral-950">
-            {formatPrice(product.priceMinor, product.currency)}
-          </span>
+          <Price
+            amountMinor={product.priceMinor}
+            currency={product.currency}
+            className="text-sm font-bold text-neutral-950"
+          />
           <span className="inline-flex items-center gap-1 text-sm font-semibold text-terracotta-600 transition-colors duration-[var(--duration-fast)] group-hover:text-terracotta-500">
             View details
             <ArrowRight
