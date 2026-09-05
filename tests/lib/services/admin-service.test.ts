@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/models/Booking", () => ({
   Booking: {
     find: vi.fn(),
+    findOne: vi.fn(),
     aggregate: vi.fn(),
     countDocuments: vi.fn(),
   },
@@ -24,15 +25,27 @@ vi.mock("@/models/User", () => ({}));
 
 import { Booking } from "@/models/Booking";
 import { Product } from "@/models/Product";
-import { getAdminBookings } from "@/lib/services/admin-service";
+import {
+  getAdminBookings,
+  getNextUpcomingSession,
+} from "@/lib/services/admin-service";
 
 const mockAggregate = vi.mocked(Booking.aggregate);
 const mockCount = vi.mocked(Booking.countDocuments);
+const mockFindOne = vi.mocked(Booking.findOne);
 const mockProductFind = vi.mocked(Product.find);
 
 function productChain(value: unknown) {
   return {
     select: vi.fn().mockReturnThis(),
+    lean: vi.fn().mockReturnThis(),
+    exec: vi.fn().mockResolvedValue(value),
+  } as never;
+}
+
+function findOneChain(value: unknown) {
+  return {
+    sort: vi.fn().mockReturnThis(),
     lean: vi.fn().mockReturnThis(),
     exec: vi.fn().mockResolvedValue(value),
   } as never;
@@ -67,6 +80,9 @@ beforeEach(() => {
   mockAggregate.mockResolvedValue([makeBooking()] as never);
   mockProductFind.mockImplementation(() =>
     productChain([{ _id: "PROD1", title: "90-Min Session" }])
+  );
+  mockFindOne.mockImplementation(() =>
+    findOneChain(makeBooking({ status: "CONFIRMED" }))
   );
 });
 
@@ -221,4 +237,30 @@ describe("getAdminBookings", () => {
       );
     }
   );
+});
+
+describe("getNextUpcomingSession", () => {
+  it("returns the next upcoming session with product and customer details", async () => {
+    const result = await getNextUpcomingSession();
+
+    expect(mockFindOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: { $in: ["CONFIRMED", "PENDING"] },
+      })
+    );
+    expect(result.session).toMatchObject({
+      id: "BK1",
+      productTitle: "90-Min Session",
+      customerEmail: "buyer@example.com",
+      customerName: "Buyer Person",
+      status: "CONFIRMED",
+    });
+    expect(result.session?.scheduledStartTime).toBe("2026-09-15T10:00:00.000Z");
+  });
+
+  it("returns no session when there are no upcoming bookings", async () => {
+    mockFindOne.mockImplementation(() => findOneChain(null));
+
+    await expect(getNextUpcomingSession()).resolves.toEqual({ session: null });
+  });
 });

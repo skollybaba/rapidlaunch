@@ -1,12 +1,16 @@
 import "server-only";
 
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 
-import { env } from "@/lib/env";
-
-const baseDir = () => env.UPLOADS_DIR;
+import {
+  deleteObject,
+  getObject,
+  headObject,
+  listObjects,
+  publicUrl,
+  putObject,
+} from "@/lib/providers/storage";
 
 export interface StoredFile {
   key: string;
@@ -17,70 +21,62 @@ export interface StoredFile {
 }
 
 function safeKey(originalName: string): string {
-  const ext = path.extname(originalName).toLowerCase().replace(/[^a-z0-9.]/g, "");
+  const ext = path
+    .extname(originalName)
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, "");
   const safeExt = ext && ext.length <= 10 ? ext : "";
   return `${randomBytes(16).toString("hex")}${safeExt}`;
 }
 
-export async function writeUpload(data: Buffer, originalName: string, type: string): Promise<StoredFile> {
-  const dir = baseDir();
-  await mkdir(dir, { recursive: true });
+function cleanKey(key: string): string {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(key)) return "";
+  if (key.includes("..")) return "";
+  return key;
+}
+
+export async function writeUpload(
+  data: Buffer,
+  originalName: string,
+  type: string
+): Promise<StoredFile> {
   const key = safeKey(originalName);
-  await writeFile(path.join(dir, key), data);
-  const size = data.byteLength;
+  await putObject({
+    key,
+    body: data,
+    contentType: type || "application/octet-stream",
+  });
   return {
     key,
     name: originalName,
-    size,
+    size: data.byteLength,
     type,
-    url: `/api/uploads/${key}`,
+    url: publicUrl(key),
   };
 }
 
 export async function readUpload(key: string): Promise<Buffer | null> {
-  const clean = key.replace(/[^a-zA-Z0-9._-]/g, "");
+  const clean = cleanKey(key);
   if (!clean) return null;
-  try {
-    return await readFile(path.join(baseDir(), clean));
-  } catch {
-    return null;
-  }
+  const object = await getObject(clean);
+  return object?.data ?? null;
 }
 
 export async function statUpload(key: string): Promise<{ size: number } | null> {
-  const clean = key.replace(/[^a-zA-Z0-9._-]/g, "");
+  const clean = cleanKey(key);
   if (!clean) return null;
-  try {
-    const s = await stat(path.join(baseDir(), clean));
-    if (!s.isFile()) return null;
-    return { size: s.size };
-  } catch {
-    return null;
-  }
+  const meta = await headObject(clean);
+  return meta ? { size: meta.size } : null;
 }
 
 export async function deleteUpload(key: string): Promise<void> {
-  const clean = key.replace(/[^a-zA-Z0-9._-]/g, "");
+  const clean = cleanKey(key);
   if (!clean) return;
-  try {
-    await rm(path.join(baseDir(), clean), { force: true });
-  } catch {
-    // best-effort
-  }
+  await deleteObject(clean);
 }
 
 export async function listUploads(): Promise<{ key: string; size: number }[]> {
-  try {
-    const entries = await readdir(baseDir());
-    const out: { key: string; size: number }[] = [];
-    for (const name of entries) {
-      const s = await stat(path.join(baseDir(), name));
-      if (s.isFile()) out.push({ key: name, size: s.size });
-    }
-    return out;
-  } catch {
-    return [];
-  }
+  return listObjects();
 }
 
 export function isImageMime(type: string): boolean {

@@ -100,6 +100,25 @@ changes:
    network-access allowlist and confirm the SRV string is from the **Drivers**
    tab (not a commas-separated replica set URI).
 
+### File/uploads storage (Cloudinary)
+
+Uploads (broadcast attachments today, product/resource images later) are stored
+on Cloudinary's free plan:
+
+1. Create a Cloudinary account at https://cloudinary.com (free, no card).
+2. Copy **Cloud name**, **API Key** and **API Secret** from
+   **Dashboard → Account → API Keys** into `CLOUDINARY_CLOUD_NAME`,
+   `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET`.
+
+`lib/providers/storage.ts` is the Cloudinary adapter; `lib/storage.ts`
+(`writeUpload` / `readUpload` / `deleteUpload` / `listUploads`) keeps the same
+API the routes and mail jobs rely on. Uploads return direct public Cloudinary
+delivery URLs, so no self-hosted `/api/uploads` serving route is needed.
+
+Free-plan limits to keep in mind: ~500 MB storage and 25 monthly credits, a
+10 MB per-file cap, and unused assets may be removed after 30 days. Keep images
+(like course covers) under 10 MB.
+
 ## Environment variables
 
 | Variable | Required | Purpose |

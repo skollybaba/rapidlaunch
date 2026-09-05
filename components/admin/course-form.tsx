@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
 import { PRODUCT_STATUSES } from "@/types/product";
 
 const fieldClasses =
@@ -233,14 +234,12 @@ export function CourseForm({ initial }: CourseFormData) {
             </select>
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="c-thumb" className="text-sm font-medium text-neutral-700">
-              Thumbnail URL
-            </label>
-            <input
+            <ThumbnailUpload
               id="c-thumb"
+              label="Cover image"
               value={thumbnailUrl}
-              onChange={(e) => setThumbnailUrl(e.target.value)}
-              className={fieldClasses}
+              onChange={setThumbnailUrl}
+              help="Used on the course card and detail page. Leave empty to use the generated artwork."
             />
           </div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">

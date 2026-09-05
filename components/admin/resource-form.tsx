@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
 import { readApiJson } from "@/lib/http";
 import type { ResourceType } from "@/types/resource";
 
@@ -186,24 +187,13 @@ export function ResourceForm({
               />
             </div>
             <div>
-              <label htmlFor="r-thumb" className="text-sm font-medium text-neutral-700">
-                Thumbnail URL
-              </label>
-              <input
+              <ThumbnailUpload
                 id="r-thumb"
-                type="url"
+                label="Thumbnail"
                 value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
-                className={fieldClasses}
+                onChange={setThumbnailUrl}
+                help="Poster shown on the video card."
               />
-              {thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumbnailUrl}
-                  alt="Thumbnail preview"
-                  className="mt-3 aspect-video w-full rounded-[12px] border border-neutral-300 object-cover"
-                />
-              ) : null}
             </div>
           </div>
         </section>

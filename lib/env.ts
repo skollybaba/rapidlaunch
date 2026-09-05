@@ -47,9 +47,9 @@ const envSchema = z.object({
   MAIL_FROM_EMAIL: z.string().email().optional(),
   REMINDER_CRON_SECRET: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
-  UPLOADS_DIR: z
-    .string()
-    .default("./uploads"),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
   AI_PROVIDER_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
 });

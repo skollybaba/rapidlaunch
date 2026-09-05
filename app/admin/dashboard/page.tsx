@@ -18,7 +18,7 @@ import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { requireAdmin } from "@/lib/auth/admin";
 import {
   getAdminOrders,
-  getSessionsNext24h,
+  getNextUpcomingSession,
 } from "@/lib/services/admin-service";
 import {
   getInsights,
@@ -121,15 +121,16 @@ export default async function AdminDashboardPage({
   await requireAdmin();
 
   const sp = await searchParams;
-  const [recentOrders, snapshot, nextSessions] = await Promise.all([
+  const [recentOrders, snapshot, nextSessionResult] = await Promise.all([
     getAdminOrders({ page: 1, pageSize: 8 }),
     getInsights(sp.period),
-    getSessionsNext24h(),
+    getNextUpcomingSession(),
   ]);
 
   const { kpis, trend, productsByRevenue, ordersByStatus, operations } =
     snapshot;
   const recentEnrollments = snapshot.recentEnrollments;
+  const nextSession = nextSessionResult.session;
 
   const attention: { label: string; count: number; href: string }[] = [];
   if (operations.pendingBookings > 0)
@@ -197,7 +198,7 @@ export default async function AdminDashboardPage({
         </div>
       </div>
 
-      {nextSessions.count > 0 ? (
+      {nextSession ? (
         <section className="admin-enter mt-6 overflow-hidden rounded-[16px] bg-ink-900 p-6 text-white sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -209,12 +210,10 @@ export default async function AdminDashboardPage({
               </span>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/50">
-                  Next 24 hours
+                  Next session
                 </p>
                 <p className="mt-1 text-2xl font-bold leading-snug">
-                  You have {nextSessions.count} session
-                  {nextSessions.count === 1 ? "" : "s"} booked in the next 24
-                  hours.
+                  {nextSession.productTitle}
                 </p>
               </div>
             </div>
@@ -227,33 +226,28 @@ export default async function AdminDashboardPage({
             </Link>
           </div>
 
-          <ul className="mt-6 divide-y divide-white/10">
-            {nextSessions.rows.map((session) => (
-              <li
-                key={session.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {session.productTitle}
-                  </p>
-                  <p className="mt-0.5 text-xs text-white/60">
-                    {session.customerName || session.customerEmail}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-white/80">
-                    {formatDateTime(session.scheduledStartTime)}
-                  </span>
-                  {session.status !== "CONFIRMED" ? (
-                    <span className="rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-600">
-                      Pending confirmation
-                    </span>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                {nextSession.customerName || nextSession.customerEmail}
+              </p>
+              {nextSession.customerName ? (
+                <p className="mt-0.5 text-xs text-white/60">
+                  {nextSession.customerEmail}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-white/80">
+                {formatDateTime(nextSession.scheduledStartTime)}
+              </span>
+              {nextSession.status !== "CONFIRMED" ? (
+                <span className="rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-600">
+                  Pending confirmation
+                </span>
+              ) : null}
+            </div>
+          </div>
         </section>
       ) : null}
 

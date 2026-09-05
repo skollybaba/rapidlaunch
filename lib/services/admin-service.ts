@@ -123,28 +123,24 @@ export interface NextSessionRow {
   status: string;
 }
 
-export interface SessionsNext24h {
-  count: number;
-  rows: NextSessionRow[];
+export interface NextUpcomingSession {
+  session: NextSessionRow | null;
 }
 
-export async function getSessionsNext24h(): Promise<SessionsNext24h> {
+export async function getNextUpcomingSession(): Promise<NextUpcomingSession> {
   await dbConnect();
 
   const now = new Date();
-  const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
   const filter: Record<string, unknown> = {
     status: { $in: ["CONFIRMED", "PENDING"] },
-    scheduledStartTime: { $gte: now, $lte: horizon },
+    scheduledStartTime: { $gte: now },
   };
 
-  const [count, bookings, products] = await Promise.all([
-    Booking.countDocuments(filter),
-    Booking.find(filter)
+  const [booking, products] = await Promise.all([
+    Booking.findOne(filter)
       .sort({ scheduledStartTime: 1 })
-      .limit(3)
-      .lean<BookingDoc[]>()
+      .lean<BookingDoc | null>()
       .exec(),
     Product.find({}).select("_id title").lean().exec(),
   ]);
@@ -152,18 +148,20 @@ export async function getSessionsNext24h(): Promise<SessionsNext24h> {
   const productTitleMap = new Map<string, string>();
   for (const p of products) productTitleMap.set(String(p._id), p.title);
 
-  const rows: NextSessionRow[] = bookings.map((b) => ({
-    id: String(b._id),
-    scheduledStartTime: b.scheduledStartTime!.toISOString(),
-    productTitle: b.productId
-      ? (productTitleMap.get(String(b.productId)) ?? "Session")
-      : "Session",
-    customerEmail: b.customerEmail,
-    customerName: b.customerName ?? undefined,
-    status: b.status,
-  }));
+  if (!booking || !booking.scheduledStartTime) return { session: null };
 
-  return { count, rows };
+  const session: NextSessionRow = {
+    id: String(booking._id),
+    scheduledStartTime: booking.scheduledStartTime.toISOString(),
+    productTitle: booking.productId
+      ? (productTitleMap.get(String(booking.productId)) ?? "Session")
+      : "Session",
+    customerEmail: booking.customerEmail,
+    customerName: booking.customerName ?? undefined,
+    status: booking.status,
+  };
+
+  return { session };
 }
 
 export async function getAdminOrders({

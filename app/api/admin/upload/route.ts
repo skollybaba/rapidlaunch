@@ -6,7 +6,7 @@ import { writeUpload } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
-const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024; // Cloudinary free plan upload cap
 
 export async function POST(request: NextRequest) {
   const requestId = newRequestId();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (file.size > MAX_BYTES) {
-    return apiError(413, "FILE_TOO_LARGE", "File must be under 20 MB.", requestId);
+    return apiError(413, "FILE_TOO_LARGE", "File must be under 10 MB.", requestId);
   }
 
   try {
