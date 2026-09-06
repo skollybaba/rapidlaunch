@@ -83,7 +83,10 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
       status: { $in: ["CONFIRMED", "PENDING"] },
       scheduledStartTime: { $gte: new Date() },
     }),
-    Booking.countDocuments({ status: "PENDING" }),
+    Booking.countDocuments({
+      status: "PENDING",
+      dismissedAt: null,
+    }),
   ]);
 
   const paidAgg = await Order.aggregate<{ totalMinor: number }>([
@@ -135,6 +138,7 @@ export async function getNextUpcomingSession(): Promise<NextUpcomingSession> {
   const filter: Record<string, unknown> = {
     status: { $in: ["CONFIRMED", "PENDING"] },
     scheduledStartTime: { $gte: now },
+    dismissedAt: null,
   };
 
   const [booking, products] = await Promise.all([
@@ -206,7 +210,7 @@ export async function getAdminOrders({
       .select("orderId status")
       .lean<PaymentDoc[]>()
       .exec(),
-    Booking.find({})
+    Booking.find({ dismissedAt: null })
       .select("orderId status customerName")
       .lean<BookingDoc[]>()
       .exec(),
@@ -344,6 +348,10 @@ export async function getAdminUsers({
 export interface AdminBookingRow {
   id: string;
   orderId: string;
+  orderReference?: string;
+  orderStatus?: string;
+  paymentReference?: string;
+  paymentStatus?: string;
   customerName?: string;
   customerEmail: string;
   productTitle?: string;
@@ -357,6 +365,18 @@ export interface AdminBookingRow {
   timezone?: string;
   answers?: BookingAnswers;
   createdAt: string;
+}
+
+interface LeanOrderRef {
+  _id: unknown;
+  status: string;
+  orderReference: string;
+}
+
+interface LeanPaymentRef {
+  orderId: unknown;
+  providerReference: string;
+  status: string;
 }
 
 export interface AdminBookingPage {
@@ -388,7 +408,9 @@ export async function getAdminBookings({
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const skip = (safePage - 1) * safePageSize;
 
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = {
+    dismissedAt: null,
+  };
   if (status) filter.status = status;
 
   const now = new Date();
@@ -453,35 +475,68 @@ export async function getAdminBookings({
   const productMap = new Map<string, string>();
   for (const p of products) productMap.set(String(p._id), p.title);
 
-  const rows: AdminBookingRow[] = bookings.map((b) => ({
-    id: String(b._id),
-    orderId: String(b.orderId),
-    customerName: b.customerName,
-    customerEmail: b.customerEmail,
-    productTitle: b.productId ? productMap.get(String(b.productId)) : undefined,
-    status: b.status,
-    scheduledStartTime: b.scheduledStartTime
-      ? b.scheduledStartTime.toISOString()
-      : null,
-    scheduledEndTime: b.scheduledEndTime
-      ? b.scheduledEndTime.toISOString()
-      : null,
-    requestedStartTime: b.requestedStartTime
-      ? b.requestedStartTime.toISOString()
-      : null,
-    meetingUrl: b.meetingUrl,
-    providerEventUri: b.providerEventUri,
-    schedulingUrl: b.schedulingUrl,
-    timezone: b.timezone,
-    answers: b.answers
-      ? {
-          whatYouAreBuilding: b.answers.whatYouAreBuilding,
-          currentStage: b.answers.currentStage,
-          helpNeeded: b.answers.helpNeeded,
-        }
-      : undefined,
-    createdAt: (b.createdAt ?? new Date()).toISOString(),
-  }));
+  const orderIds = bookings
+    .map((b) => b.orderId)
+    .filter((id): id is NonNullable<typeof id> => id != null);
+
+  const [orders, payments] = await Promise.all([
+    orderIds.length > 0
+      ? Order.find({ _id: { $in: orderIds } })
+          .select("_id status orderReference")
+          .lean<LeanOrderRef[]>()
+          .exec()
+      : [],
+    orderIds.length > 0
+      ? Payment.find({ orderId: { $in: orderIds } })
+          .select("orderId providerReference status")
+          .lean<LeanPaymentRef[]>()
+          .exec()
+      : [],
+  ]);
+
+  const orderMap = new Map<string, LeanOrderRef>();
+  for (const o of orders) orderMap.set(String(o._id), o);
+
+  const paymentByOrder = new Map<string, LeanPaymentRef>();
+  for (const p of payments) paymentByOrder.set(String(p.orderId), p);
+
+  const rows: AdminBookingRow[] = bookings.map((b) => {
+    const order = orderMap.get(String(b.orderId));
+    const payment = paymentByOrder.get(String(b.orderId));
+    return {
+      id: String(b._id),
+      orderId: String(b.orderId),
+      orderReference: order?.orderReference,
+      orderStatus: order?.status,
+      paymentReference: payment?.providerReference,
+      paymentStatus: payment?.status,
+      customerName: b.customerName,
+      customerEmail: b.customerEmail,
+      productTitle: b.productId ? productMap.get(String(b.productId)) : undefined,
+      status: b.status,
+      scheduledStartTime: b.scheduledStartTime
+        ? b.scheduledStartTime.toISOString()
+        : null,
+      scheduledEndTime: b.scheduledEndTime
+        ? b.scheduledEndTime.toISOString()
+        : null,
+      requestedStartTime: b.requestedStartTime
+        ? b.requestedStartTime.toISOString()
+        : null,
+      meetingUrl: b.meetingUrl,
+      providerEventUri: b.providerEventUri,
+      schedulingUrl: b.schedulingUrl,
+      timezone: b.timezone,
+      answers: b.answers
+        ? {
+            whatYouAreBuilding: b.answers.whatYouAreBuilding,
+            currentStage: b.answers.currentStage,
+            helpNeeded: b.answers.helpNeeded,
+          }
+        : undefined,
+      createdAt: (b.createdAt ?? new Date()).toISOString(),
+    };
+  });
 
   return {
     rows,
@@ -490,6 +545,25 @@ export async function getAdminBookings({
     pageSize: safePageSize,
     totalPages: Math.max(1, Math.ceil(total / safePageSize)),
   };
+}
+
+export async function dismissBooking(bookingId: string) {
+  await dbConnect();
+
+  const updated = await Booking.findOneAndUpdate(
+    { _id: bookingId },
+    { $set: { dismissedAt: new Date() } },
+    { new: true }
+  )
+    .select("_id orderId status dismissedAt")
+    .lean()
+    .exec();
+
+  if (!updated) {
+    throw new AdminServiceError("BOOKING_NOT_FOUND", "Booking not found.", 404);
+  }
+
+  return { id: String(updated._id) };
 }
 
 export interface AdminCourseRow {

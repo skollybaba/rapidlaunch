@@ -61,6 +61,7 @@ export interface BookingDoc {
   attempts: number;
   lastError?: string;
   bookedAt?: Date | null;
+  dismissedAt?: Date | null;
   reminders?: BookingReminderRecord[];
   createdAt?: Date;
   updatedAt?: Date;

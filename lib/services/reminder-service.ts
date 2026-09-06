@@ -34,6 +34,7 @@ export async function dispatchBookingReminders(): Promise<DispatchRemindersResul
   const bookings = await Booking.find({
     status: "CONFIRMED",
     scheduledStartTime: { $gt: new Date(now) },
+    dismissedAt: null,
   })
     .select({
       _id: 1,

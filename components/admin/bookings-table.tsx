@@ -5,6 +5,7 @@ import { ChevronDown, ExternalLink, Video } from "lucide-react";
 
 import { BookingCountdown } from "@/components/admin/booking-countdown";
 import { FulfillmentActionButton } from "@/components/admin/fulfillment-action-button";
+import { DismissBookingButton } from "@/components/admin/dismiss-booking-button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import type { AdminBookingRow } from "@/lib/services/admin-service";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -164,6 +165,7 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
 
   const canConfirm = booking.status !== "CONFIRMED";
   const isActionable = booking.status === "PENDING" || booking.status === "FAILED";
+  const isOrderPaid = booking.orderStatus === "PAID";
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -201,13 +203,20 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
           {booking.requestedStartTime ? (
             <div>
               <dt className="text-xs font-medium text-neutral-500">
-                Requested time
+                Requested date &amp; time
               </dt>
               <dd className="mt-0.5 text-neutral-900">
                 {formatDateTime(booking.requestedStartTime)}
               </dd>
             </div>
-          ) : null}
+          ) : (
+            <div>
+              <dt className="text-xs font-medium text-neutral-500">
+                Requested date &amp; time
+              </dt>
+              <dd className="mt-0.5 text-neutral-400">Not picked yet</dd>
+            </div>
+          )}
           {booking.timezone ? (
             <div>
               <dt className="text-xs font-medium text-neutral-500">
@@ -227,6 +236,16 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
               </dd>
             </div>
           ) : null}
+          {booking.createdAt ? (
+            <div>
+              <dt className="text-xs font-medium text-neutral-500">
+                Booked on
+              </dt>
+              <dd className="mt-0.5 text-neutral-900">
+                {formatDateTime(booking.createdAt)}
+              </dd>
+            </div>
+          ) : null}
         </dl>
         {booking.schedulingUrl ? (
           <a
@@ -240,7 +259,55 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
           </a>
         ) : null}
 
-        {canConfirm && booking.orderId ? (
+        <div className="mt-6 border-t border-neutral-200 pt-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Payment
+          </h4>
+          <dl className="mt-3 space-y-3 text-sm">
+            {booking.orderReference ? (
+              <div>
+                <dt className="text-xs font-medium text-neutral-500">
+                  Order reference
+                </dt>
+                <dd className="mt-0.5 font-mono text-xs text-neutral-900">
+                  {booking.orderReference}
+                </dd>
+              </div>
+            ) : null}
+            <div>
+              <dt className="text-xs font-medium text-neutral-500">
+                Payment reference
+              </dt>
+              <dd className="mt-0.5 font-mono text-xs text-neutral-900">
+                {booking.paymentReference ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-neutral-500">
+                Payment status
+              </dt>
+              <dd className="mt-0.5 text-neutral-900">
+                {booking.paymentStatus
+                  ? booking.paymentStatus.replace(/_/g, " ")
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-neutral-500">
+                Order paid
+              </dt>
+              <dd className="mt-0.5 text-neutral-900">
+                {isOrderPaid
+                  ? "Yes"
+                  : booking.orderStatus
+                    ? "No — unpaid"
+                    : "Unknown"}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {isOrderPaid && canConfirm && booking.orderId ? (
           <div className="mt-5 border-t border-neutral-200 pt-4">
             <p className="text-sm font-semibold text-neutral-900">
               Fulfillment
@@ -264,6 +331,19 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
                 {isActionable ? "Confirm session" : "Retry confirmation"}
               </FulfillmentActionButton>
             ) : null}
+          </div>
+        ) : null}
+
+        {!isOrderPaid ? (
+          <div className="mt-5 border-t border-neutral-200 pt-4">
+            <p className="text-sm font-semibold text-neutral-900">
+              Unpaid booking
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              This order has not been confirmed as paid. Clear it from the list
+              so it stops showing alongside confirmed sessions.
+            </p>
+            <DismissBookingButton bookingId={booking.id} className="mt-3" />
           </div>
         ) : null}
       </div>

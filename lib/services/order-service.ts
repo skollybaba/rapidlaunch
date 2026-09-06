@@ -869,7 +869,10 @@ async function sendCourseAccessEmail(
 export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   if (order.metadata?.productType !== "CONSULTATION") return;
 
-  const booking = await Booking.findOne({ orderId: order._id })
+  const booking = await Booking.findOne({
+    orderId: order._id,
+    dismissedAt: null,
+  })
     .lean()
     .exec();
   if (!booking) return;
@@ -1084,7 +1087,12 @@ export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
   );
   if (alreadySent) return;
 
-  const booking = await Booking.findOne({ orderId: order._id }).lean().exec();
+  const booking = await Booking.findOne({
+    orderId: order._id,
+    dismissedAt: null,
+  })
+    .lean()
+    .exec();
 
   try {
     await adapter.sendTemplateEmail({

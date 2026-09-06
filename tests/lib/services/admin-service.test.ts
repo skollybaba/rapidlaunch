@@ -8,14 +8,19 @@ vi.mock("@/models/Booking", () => ({
   Booking: {
     find: vi.fn(),
     findOne: vi.fn(),
+    findOneAndUpdate: vi.fn(),
     aggregate: vi.fn(),
     countDocuments: vi.fn(),
   },
 }));
 
 vi.mock("@/models/Fulfillment", () => ({}));
-vi.mock("@/models/Order", () => ({}));
-vi.mock("@/models/Payment", () => ({}));
+vi.mock("@/models/Order", () => ({
+  Order: { find: vi.fn() },
+}));
+vi.mock("@/models/Payment", () => ({
+  Payment: { find: vi.fn() },
+}));
 
 vi.mock("@/models/Product", () => ({
   Product: { find: vi.fn() },
@@ -24,8 +29,11 @@ vi.mock("@/models/Product", () => ({
 vi.mock("@/models/User", () => ({}));
 
 import { Booking } from "@/models/Booking";
+import { Order } from "@/models/Order";
+import { Payment } from "@/models/Payment";
 import { Product } from "@/models/Product";
 import {
+  dismissBooking,
   getAdminBookings,
   getNextUpcomingSession,
 } from "@/lib/services/admin-service";
@@ -33,7 +41,10 @@ import {
 const mockAggregate = vi.mocked(Booking.aggregate);
 const mockCount = vi.mocked(Booking.countDocuments);
 const mockFindOne = vi.mocked(Booking.findOne);
+const mockFindOneAndUpdate = vi.mocked(Booking.findOneAndUpdate);
 const mockProductFind = vi.mocked(Product.find);
+const mockOrderFind = vi.mocked(Order.find);
+const mockPaymentFind = vi.mocked(Payment.find);
 
 function productChain(value: unknown) {
   return {
@@ -54,6 +65,7 @@ function findOneChain(value: unknown) {
 function makeBooking(overrides: Record<string, unknown> = {}) {
   return {
     _id: "BK1",
+    orderId: "ORD1",
     customerEmail: "buyer@example.com",
     customerName: "Buyer Person",
     timezone: "Africa/Lagos",
@@ -83,6 +95,32 @@ beforeEach(() => {
   );
   mockFindOne.mockImplementation(() =>
     findOneChain(makeBooking({ status: "CONFIRMED" }))
+  );
+  mockOrderFind.mockImplementation(() =>
+    productChain([
+      {
+        _id: "ORD1",
+        status: "PAID",
+        orderReference: "QL-ORD1",
+      },
+    ])
+  );
+  mockPaymentFind.mockImplementation(() =>
+    productChain([
+      {
+        orderId: "ORD1",
+        providerReference: "PL-REF-001",
+        status: "PAID",
+      },
+    ])
+  );
+  mockFindOneAndUpdate.mockImplementation(() =>
+    productChain({
+      _id: "BK1",
+      orderId: "ORD1",
+      status: "PENDING",
+      dismissedAt: new Date("2026-09-06T10:00:00.000Z"),
+    })
   );
 });
 
@@ -115,6 +153,33 @@ describe("getAdminBookings", () => {
       "2026-09-14T09:00:00.000Z"
     );
     expect(result.rows[0].scheduledStartTime).toBe("2026-09-15T10:00:00.000Z");
+    expect(result.rows[0]).toMatchObject({
+      orderReference: "QL-ORD1",
+      orderStatus: "PAID",
+      paymentReference: "PL-REF-001",
+      paymentStatus: "PAID",
+    });
+  });
+
+  it("excludes dismissed bookings by default", async () => {
+    await getAdminBookings();
+
+    expect(mockCount).toHaveBeenCalledWith({ dismissedAt: null });
+    expect(mockAggregate.mock.calls[0][0][0]).toEqual({
+      $match: { dismissedAt: null },
+    });
+  });
+
+  it("applies status and range filters alongside the dismissed exclusion", async () => {
+    await getAdminBookings({ status: "PENDING", range: "next7" });
+
+    const filter = mockCount.mock.calls[0][0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(filter.dismissedAt).toBeNull();
+    expect(filter.status).toBe("PENDING");
+    expect(filter.scheduledStartTime).toBeDefined();
   });
 
   it("omits answers and requested times when the booking has none", async () => {
@@ -134,10 +199,14 @@ describe("getAdminBookings", () => {
     expect(result.rows[0].meetingUrl).toBeUndefined();
   });
 
-  it("applies no time filter by default", async () => {
+  it("applies no time filter by default beyond dismissed", async () => {
     await getAdminBookings();
 
-    expect(mockCount).toHaveBeenCalledWith({});
+    const filter = mockCount.mock.calls[0][0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(filter).toEqual({ dismissedAt: null });
   });
 
   it.each([
@@ -280,5 +349,24 @@ describe("getNextUpcomingSession", () => {
     mockFindOne.mockImplementation(() => findOneChain(null));
 
     await expect(getNextUpcomingSession()).resolves.toEqual({ session: null });
+  });
+});
+
+describe("dismissBooking", () => {
+  it("marks a booking as dismissed", async () => {
+    const result = await dismissBooking("BK1");
+
+    expect(Booking.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "BK1" },
+      { $set: { dismissedAt: expect.any(Date) } },
+      { new: true }
+    );
+    expect(result).toEqual({ id: "BK1" });
+  });
+
+  it("throws when the booking does not exist", async () => {
+    mockFindOneAndUpdate.mockImplementation(() => productChain(null));
+
+    await expect(dismissBooking("NOPE")).rejects.toThrow("Booking not found");
   });
 });

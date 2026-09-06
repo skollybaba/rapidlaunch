@@ -60,7 +60,10 @@ export async function retryOrderFulfillment(
 
   try {
     await bookConsultationIfPending(order);
-    const booking = await Booking.findOne({ orderId: order._id })
+    const booking = await Booking.findOne({
+      orderId: order._id,
+      dismissedAt: null,
+    })
       .lean()
       .exec();
     outcome.bookingConfirmed = booking?.status === "CONFIRMED";
