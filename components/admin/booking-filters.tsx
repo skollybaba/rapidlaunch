@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-import type { BookingRange } from "@/types/booking";
+import type { BookingRange, BookingSort } from "@/types/booking";
 import { BOOKING_STATUSES } from "@/types/booking";
 
 const RANGE_OPTIONS: { value: "" | BookingRange; label: string }[] = [
@@ -14,28 +14,36 @@ const RANGE_OPTIONS: { value: "" | BookingRange; label: string }[] = [
   { value: "next365", label: "Next 12 months" },
 ];
 
+const SORT_OPTIONS: { value: BookingSort; label: string }[] = [
+  { value: "schedule", label: "Session time" },
+  { value: "recent", label: "Recently booked" },
+];
+
 const selectClasses =
   "mt-1 rounded-[12px] border border-neutral-300 bg-white px-4 py-2.5 pr-8 text-sm text-neutral-950 focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
 export function BookingFilters({
   status,
   range,
+  sort,
 }: {
   status: string;
   range: BookingRange | undefined;
+  sort: BookingSort;
 }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  function apply(nextStatus: string, nextRange: string) {
+  function apply(nextStatus: string, nextRange: string, nextSort: BookingSort) {
     const params = new URLSearchParams();
     if (nextStatus) params.set("status", nextStatus);
     if (nextRange) params.set("range", nextRange);
+    if (nextSort !== "schedule") params.set("sort", nextSort);
     const qs = params.toString();
     router.push(`${pathname}${qs ? `?${qs}` : ""}`);
   }
 
-  const hasFilters = Boolean(status) || Boolean(range);
+  const hasFilters = Boolean(status) || Boolean(range) || sort !== "schedule";
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -49,7 +57,7 @@ export function BookingFilters({
         <select
           id="bk-range"
           value={range ?? ""}
-          onChange={(e) => apply(status, e.target.value)}
+          onChange={(e) => apply(status, e.target.value, sort)}
           className={selectClasses}
         >
           {RANGE_OPTIONS.map((option) => (
@@ -70,7 +78,7 @@ export function BookingFilters({
         <select
           id="bk-status"
           value={status}
-          onChange={(e) => apply(e.target.value, range ?? "")}
+          onChange={(e) => apply(e.target.value, range ?? "", sort)}
           className={selectClasses}
         >
           <option value="">All statuses</option>
@@ -82,10 +90,31 @@ export function BookingFilters({
         </select>
       </div>
 
+      <div>
+        <label
+          htmlFor="bk-sort"
+          className="block text-xs font-semibold text-neutral-500"
+        >
+          Sort by
+        </label>
+        <select
+          id="bk-sort"
+          value={sort}
+          onChange={(e) => apply(status, range ?? "", e.target.value as BookingSort)}
+          className={selectClasses}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {hasFilters ? (
         <button
           type="button"
-          onClick={() => apply("", "")}
+          onClick={() => apply("", "", "schedule")}
           className="h-[42px] rounded-pill border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-600 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-100"
         >
           Clear filters

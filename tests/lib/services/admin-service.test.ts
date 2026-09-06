@@ -190,6 +190,24 @@ describe("getAdminBookings", () => {
     expect(filter.scheduledStartTime).toEqual({ $lt: expect.any(Date) });
   });
 
+  it("sorts by most recently booked when sort is recent", async () => {
+    await getAdminBookings({ sort: "recent" });
+
+    const pipeline = mockAggregate.mock.calls[0][0] as unknown as Record<
+      string,
+      unknown
+    >[];
+    const addFields = pipeline.find(
+      (stage) => "$addFields" in stage
+    ) as { $addFields: Record<string, unknown> } | undefined;
+    const sortStage = pipeline.find((stage) => "$sort" in stage) as {
+      $sort: Record<string, unknown>;
+    };
+
+    expect(addFields).toBeUndefined();
+    expect(sortStage.$sort).toEqual({ createdAt: -1, _id: -1 });
+  });
+
   it("filters upcoming to future and undated bookings", async () => {
     await getAdminBookings({ range: "upcoming" });
 

@@ -22,6 +22,10 @@ export const BOOKING_RANGES = [
 
 export type BookingRange = (typeof BOOKING_RANGES)[number];
 
+export const BOOKING_SORTS = ["schedule", "recent"] as const;
+
+export type BookingSort = (typeof BOOKING_SORTS)[number];
+
 export const BOOKING_REMINDER_POINTS = ["24h", "1h"] as const;
 
 export type BookingReminderPoint = (typeof BOOKING_REMINDER_POINTS)[number];

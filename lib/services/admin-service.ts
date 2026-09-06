@@ -10,7 +10,7 @@ import { User } from "@/models/User";
 import { productInputSchema } from "@/lib/validation/product";
 import type { OrderDoc, OrderStatus } from "@/types/order";
 import type { BookingAnswers, BookingDoc } from "@/types/booking";
-import type { BookingRange } from "@/types/booking";
+import type { BookingRange, BookingSort } from "@/types/booking";
 
 export type { BookingRange } from "@/types/booking";
 import type { PaymentDoc } from "@/types/payment";
@@ -369,6 +369,7 @@ export interface AdminBookingPage {
 export interface AdminBookingQuery {
   status?: string;
   range?: BookingRange;
+  sort?: BookingSort;
   page?: number;
   pageSize?: number;
 }
@@ -376,6 +377,7 @@ export interface AdminBookingQuery {
 export async function getAdminBookings({
   status = "",
   range,
+  sort = "schedule",
   page = 1,
   pageSize = 25,
 }: AdminBookingQuery = {}): Promise<AdminBookingPage> {
@@ -410,33 +412,37 @@ export async function getAdminBookings({
     Booking.countDocuments(filter),
     Booking.aggregate<BookingDoc & { __sortKey: number }>([
       { $match: filter },
-      {
-        $addFields: {
-          __sortKey: {
-            $switch: {
-              branches: [
-                {
-                  case: {
-                    $and: [
-                      { $ne: ["$scheduledStartTime", null] },
-                      { $gte: ["$scheduledStartTime", now] },
+      ...(sort === "recent"
+        ? ([{ $sort: { createdAt: -1, _id: -1 } }] as const)
+        : ([
+            {
+              $addFields: {
+                __sortKey: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: {
+                          $and: [
+                            { $ne: ["$scheduledStartTime", null] },
+                            { $gte: ["$scheduledStartTime", now] },
+                          ],
+                        },
+                        then: { $toLong: "$scheduledStartTime" },
+                      },
+                      {
+                        case: {
+                          $eq: [{ $type: "$scheduledStartTime" }, "null"],
+                        },
+                        then: 9_007_199_254_740_991,
+                      },
                     ],
+                    default: { $multiply: [-1, { $toLong: "$scheduledStartTime" }] },
                   },
-                  then: { $toLong: "$scheduledStartTime" },
                 },
-                {
-                  case: {
-                    $eq: [{ $type: "$scheduledStartTime" }, "null"],
-                  },
-                  then: 9_007_199_254_740_991,
-                },
-              ],
-              default: { $multiply: [-1, { $toLong: "$scheduledStartTime" }] },
+              },
             },
-          },
-        },
-      },
-      { $sort: { __sortKey: 1, createdAt: -1 } },
+            { $sort: { __sortKey: 1, createdAt: -1 } },
+          ] as const)),
       { $skip: skip },
       { $limit: safePageSize },
     ]),
