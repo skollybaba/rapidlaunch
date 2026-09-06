@@ -78,7 +78,7 @@ export default async function ResourceDetailPage({
                 </span>
               ) : null}
             </div>
-            <h1 className="mt-4 text-[2.125rem] leading-[1.2] lg:text-[2.5rem] lg:leading-[1.2]">
+            <h1 className="mt-4 text-[38px] leading-[1.2] lg:text-[2.5rem] lg:leading-[1.2]">
               {resource.title}
             </h1>
             {resource.summary ? (
@@ -120,7 +120,7 @@ export default async function ResourceDetailPage({
             {resource.contentHtml ? (
               <div className="mt-10">
                 {isVideo ? (
-                  <h2 className="text-[1.375rem] leading-snug">
+                  <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
                     Session notes
                   </h2>
                 ) : null}
@@ -136,7 +136,7 @@ export default async function ResourceDetailPage({
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-ink-900">
                   <PenLine aria-hidden="true" className="h-4 w-4 text-lavender-200" />
                 </span>
-                <h2 className="text-[1.25rem] leading-snug">
+                <h2 className="text-[24px] leading-snug md:text-[1.25rem]">
                   Want to apply this to your product?
                 </h2>
               </div>
@@ -165,7 +165,7 @@ export default async function ResourceDetailPage({
 
         {related.length > 0 ? (
           <section className="mt-16">
-            <h2 className="text-[1.375rem] leading-snug">
+            <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
               Keep exploring
             </h2>
             <div className="mt-6 space-y-4">

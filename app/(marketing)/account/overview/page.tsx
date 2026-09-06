@@ -62,7 +62,7 @@ export default async function AccountOverviewPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>
-        <h1 className="mt-2 text-[1.75rem] leading-[1.286]">
+        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">
           Welcome back{user.name ? `, ${user.name}` : ""}
         </h1>
 
@@ -99,7 +99,7 @@ export default async function AccountOverviewPage() {
 
             <section>
               <div className="flex items-center justify-between">
-                <h2 className="text-[1.125rem] leading-snug">Upcoming sessions</h2>
+                <h2 className="text-[19px] leading-snug md:text-[1.125rem]">Upcoming sessions</h2>
                 <Link
                   href="/account/sessions"
                   className="text-sm font-medium text-terracotta-600 hover:text-terracotta-500"
@@ -151,7 +151,7 @@ export default async function AccountOverviewPage() {
 
             <section>
               <div className="flex items-center justify-between">
-                <h2 className="text-[1.125rem] leading-snug">Recent purchases</h2>
+                <h2 className="text-[19px] leading-snug md:text-[1.125rem]">Recent purchases</h2>
                 <Link
                   href="/account/orders"
                   className="text-sm font-medium text-terracotta-600 hover:text-terracotta-500"

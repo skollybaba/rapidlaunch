@@ -99,7 +99,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
             />
           )}
           <Badge>Course</Badge>
-          <h1 className="mt-4 text-[1.875rem] leading-[1.16] md:text-[2.25rem]">
+          <h1 className="mt-4 text-[38px] leading-[1.16] md:text-[2.25rem]">
             {product.title}
           </h1>
           {product.shortDescription ? (
@@ -119,7 +119,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
 
           {details?.outcomes?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
                 What you&apos;ll be able to do
               </h2>
               <ul className="mt-4 space-y-3">
@@ -140,7 +140,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
 
           {details?.syllabus?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">Syllabus</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Syllabus</h2>
               <ol className="mt-4 space-y-3">
                 {details.syllabus.map((module, index) => (
                   <li
@@ -162,7 +162,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
 
           {details?.audience?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">Who it&apos;s for</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Who it&apos;s for</h2>
               <ul className="mt-4 flex flex-wrap gap-2">
                 {details.audience.map((item) => (
                   <li
@@ -178,7 +178,7 @@ function CourseContent({ product }: { product: ProductDetail }) {
 
           <Reveal as="section" className="mt-10">
             <div className="rounded-md border border-neutral-300 bg-neutral-100 p-6">
-              <h2 className="text-[1.375rem] leading-snug">How access is granted</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">How access is granted</h2>
               <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                 Your purchase is verified before we grant course access. After a
                 successful payment you receive an email with a classroom
@@ -255,7 +255,7 @@ async function RelatedCourses({ product }: { product: ProductDetail }) {
   return (
     <section className="bg-neutral-100">
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-12 lg:px-8 lg:py-16">
-        <h2 className="text-[1.375rem] leading-snug">You might also take</h2>
+        <h2 className="text-[24px] leading-snug md:text-[1.375rem]">You might also take</h2>
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {related.map((item) => (
             <ProductCard

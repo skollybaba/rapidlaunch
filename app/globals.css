@@ -326,6 +326,23 @@
 }
 
 /* Reduced motion */
+/* Mobile-specific motion (DESIGN §Motion): smaller reveal travel and a
+   faster settling transition so content is readable sooner on small screens.
+   Desktop motion is untouched. */
+@media (max-width: 767px) {
+  :root {
+    --reveal-offset: 8px;
+  }
+
+  .reveal {
+    transition-duration: var(--motion-standard);
+  }
+
+  .fade-up {
+    transition-duration: var(--motion-fast);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -54,7 +54,7 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
                 className="relative h-16 w-16 text-terracotta-600"
               />
             </div>
-            <h1 className="mt-5 text-[2rem] font-bold leading-[1.2]">
+            <h1 className="mt-5 text-[38px] font-bold leading-[1.2] md:text-[2rem]">
               You&apos;re all set!
             </h1>
             <p className="mt-3 text-base leading-relaxed text-neutral-500">
@@ -208,7 +208,7 @@ function StaticPage({
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:py-24">
         <div className="mx-auto max-w-[540px]">
           <Badge tone={tone}>{badge}</Badge>
-          <h1 className="mt-4 text-[1.75rem] leading-[1.286]">{title}</h1>
+          <h1 className="mt-4 text-[38px] leading-[1.286] md:text-[1.75rem]">{title}</h1>
           <p className="mt-4 text-base leading-relaxed text-neutral-500">
             {message}
           </p>

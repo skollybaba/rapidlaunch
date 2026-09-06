@@ -93,7 +93,7 @@ function BookContent({ product }: { product: ProductDetail }) {
             />
           )}
           <Badge>Book</Badge>
-          <h1 className="mt-4 text-[1.875rem] leading-[1.16] md:text-[2.25rem]">
+          <h1 className="mt-4 text-[38px] leading-[1.16] md:text-[2.25rem]">
             {product.title}
           </h1>
           {details?.author ? (

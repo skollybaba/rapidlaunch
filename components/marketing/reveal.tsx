@@ -37,6 +37,7 @@ export function Reveal({
       return () => window.clearTimeout(timer);
     }
 
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -46,7 +47,9 @@ export function Reveal({
           }
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      isMobile
+        ? { threshold: 0.05, rootMargin: "0px 0px -4% 0px" }
+        : { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
     );
 
     observer.observe(node);

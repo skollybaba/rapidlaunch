@@ -22,7 +22,7 @@ export default async function AccountProfilePage() {
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>
-        <h1 className="mt-2 text-[1.75rem] leading-[1.286]">
+        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">
           Profile &amp; security
         </h1>
         <p className="mt-2 text-sm text-neutral-500">

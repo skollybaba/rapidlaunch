@@ -129,14 +129,14 @@ export default async function AccountSessionsPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>
-        <h1 className="mt-2 text-[1.75rem] leading-[1.286]">Sessions</h1>
+        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">Sessions</h1>
 
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
           <AccountNav />
 
           <div className="space-y-10">
             <section>
-              <h2 className="text-[1.125rem] leading-snug">Upcoming</h2>
+              <h2 className="text-[19px] leading-snug md:text-[1.125rem]">Upcoming</h2>
               <SessionList
                 items={upcoming}
                 empty="No upcoming sessions. Book one and it will appear here."
@@ -144,7 +144,7 @@ export default async function AccountSessionsPage() {
             </section>
 
             <section>
-              <h2 className="text-[1.125rem] leading-snug">Past</h2>
+              <h2 className="text-[19px] leading-snug md:text-[1.125rem]">Past</h2>
               <SessionList
                 items={past}
                 empty="No past sessions yet."

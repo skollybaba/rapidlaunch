@@ -165,7 +165,7 @@ export default async function AdminDashboardPage({
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             Back office
           </p>
-          <h1 className="mt-1 text-[1.75rem] leading-[1.286]">
+          <h1 className="mt-1 text-[32px] leading-[1.286] md:text-[1.75rem]">
             Dashboard &amp; Insights
           </h1>
           <p className="mt-1 text-sm text-neutral-500">

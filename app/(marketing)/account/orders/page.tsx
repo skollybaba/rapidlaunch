@@ -42,7 +42,7 @@ export default async function AccountOrdersPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>
-        <h1 className="mt-2 text-[1.75rem] leading-[1.286]">Purchases</h1>
+        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">Purchases</h1>
 
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
           <AccountNav />

@@ -76,7 +76,7 @@ function TopicNavigator() {
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             Learn how to build with AI
           </p>
-          <h2 className="mt-3 max-w-3xl text-[1.75rem] leading-[1.286]">
+          <h2 className="mt-3 max-w-3xl text-[32px] leading-[1.286] md:text-[1.75rem]">
             The building blocks, one visual at a time.
           </h2>
           <p className="mt-4 max-w-2xl text-lg leading-[1.55] text-neutral-500">
@@ -98,7 +98,7 @@ function TopicNavigator() {
                     <Art className="h-44 w-full rounded-sm object-cover" />
                   </div>
                   <div className="flex flex-1 flex-col p-6 pt-2">
-                    <h3 className="text-[1.25rem] leading-snug">
+                    <h3 className="text-[24px] leading-snug md:text-[1.25rem]">
                       {topic.title}
                     </h3>
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-500">
@@ -131,7 +131,7 @@ function BuildWithAISection() {
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
               Build with AI
             </p>
-            <h2 className="mt-3 text-[1.75rem] leading-[1.286] text-white">
+            <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem] text-white">
               Building has taken a new trajectory: you can build with a team
               and build with AI.
             </h2>
@@ -239,7 +239,7 @@ export default function HomePage() {
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
                   For founders &amp; product managers
                 </p>
-                <h1 className="mt-4 text-[2.5rem] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
+                <h1 className="mt-4 text-[42px] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
                   Launch and test your ideas faster.
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
@@ -318,7 +318,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 Who this is for
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
+              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
                 Built for founders, built for the builders
               </h2>
               <p className="mt-4 text-lg leading-[1.55] text-neutral-500">
@@ -332,7 +332,7 @@ export default function HomePage() {
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
                       <Rocket aria-hidden="true" className="h-5 w-5 text-lavender-200" />
                     </span>
-                    <h3 className="text-[1.25rem] leading-snug">Founders</h3>
+                    <h3 className="text-[24px] leading-snug md:text-[1.25rem]">Founders</h3>
                   </div>
                   <p className="mt-4 text-sm leading-relaxed text-neutral-500">
                     Launch and test your idea faster. In a clarity session you
@@ -353,7 +353,7 @@ export default function HomePage() {
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
                       <Users aria-hidden="true" className="h-5 w-5 text-lavender-200" />
                     </span>
-                    <h3 className="text-[1.25rem] leading-snug">Product managers</h3>
+                    <h3 className="text-[24px] leading-snug md:text-[1.25rem]">Product managers</h3>
                   </div>
                   <p className="mt-4 text-sm leading-relaxed text-neutral-500">
                     Learn to build your product yourself for almost zero cost, using
@@ -394,7 +394,7 @@ export default function HomePage() {
       <section className="bg-ink-950">
         <div className="relative mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-20 text-center lg:px-8 lg:py-28">
           <Reveal>
-            <h2 className="text-[1.75rem] leading-[1.286] text-white">
+            <h2 className="text-[32px] leading-[1.286] md:text-[1.75rem] text-white">
               Get clarity on your product before you spend on code.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-[1.55] text-neutral-300">

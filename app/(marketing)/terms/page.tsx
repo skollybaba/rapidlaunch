@@ -76,7 +76,7 @@ export default function TermsPage() {
             {SECTIONS.map((section, index) => (
               <Reveal key={section.title} delay={index * 60}>
                 <section>
-                  <h2 className="text-[1.375rem] leading-snug">
+                  <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
                     {section.title}
                   </h2>
                   <p className="mt-3 text-base leading-relaxed text-neutral-500">

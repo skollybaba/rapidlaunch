@@ -56,7 +56,7 @@ export default function ContactPage() {
                           className="h-4 w-4 text-lavender-200"
                         />
                       </span>
-                      <h2 className="text-[1.125rem] leading-snug">
+                      <h2 className="text-[19px] leading-snug md:text-[1.125rem]">
                         {fact.title}
                       </h2>
                     </div>
