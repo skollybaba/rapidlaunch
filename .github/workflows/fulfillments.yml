@@ -1,0 +1,28 @@
+name: Fulfillment Cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-fulfillments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      CRON_SECRET: ${{ secrets.REMINDER_CRON_SECRET }}
+    steps:
+      - name: Trigger fulfillment retry sweeper
+        shell: bash
+        run: |
+          URL="${APP_URL:-https://rapidlaunch.vercel.app}"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::REMINDER_CRON_SECRET is missing. Add it under Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+          curl -fsS --max-time 60 "${URL}/api/cron/fulfillments?secret=${CRON_SECRET}"
+          echo
