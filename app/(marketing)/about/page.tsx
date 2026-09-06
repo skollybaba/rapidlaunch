@@ -68,7 +68,7 @@ export default function AboutPage() {
                 <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                   The founder&apos;s view
                 </p>
-                <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
+                <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
                   Product instinct is learnable, and AI makes it go further.
                 </h2>
                 <div className="mt-6 space-y-4 text-base leading-relaxed text-neutral-700">
@@ -143,7 +143,7 @@ export default function AboutPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 The journey
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
+              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
                 How this practice came together
               </h2>
             </Reveal>
@@ -168,7 +168,7 @@ export default function AboutPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 How we work
               </p>
-              <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
+              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
                 Four principles behind every engagement
               </h2>
             </Reveal>
@@ -180,7 +180,7 @@ export default function AboutPage() {
                       aria-hidden="true"
                       className="h-6 w-6 text-terracotta-600"
                     />
-                    <h3 className="mt-4 text-[1.25rem] leading-snug">
+                    <h3 className="mt-4 text-[24px] leading-snug md:text-[1.25rem]">
                       {pillar.title}
                     </h3>
                     <p className="mt-3 text-sm leading-relaxed text-neutral-500">
@@ -196,7 +196,7 @@ export default function AboutPage() {
         <section className="bg-ink-900">
           <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center lg:px-8 lg:py-24">
             <Reveal>
-              <h2 className="text-[1.75rem] leading-[1.286] text-white">
+              <h2 className="text-[32px] leading-[1.286] md:text-[1.75rem] text-white">
                 Start with the offer that matches where you are.
               </h2>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">

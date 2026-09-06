@@ -105,7 +105,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
             )}
           </div>
           <Badge>{isMvp ? "MVP build" : "Consultation"}</Badge>
-          <h1 className="mt-4 text-[1.875rem] leading-[1.16] md:text-[2.25rem]">
+          <h1 className="mt-4 text-[38px] leading-[1.16] md:text-[2.25rem]">
             {product.title}
           </h1>
           {product.shortDescription ? (
@@ -125,7 +125,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
 
           {!isMvp && consultation?.sessionTypes?.length ? (
             <section className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">Session types</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Session types</h2>
               <ul className="mt-4 flex flex-wrap gap-2">
                 {consultation.sessionTypes.map((item) => (
                   <li
@@ -141,7 +141,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
 
           {isMvp && mvp?.deliverables?.length ? (
             <section className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
                 What you take away
               </h2>
               <ul className="mt-4 space-y-3">
@@ -163,7 +163,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
 
           {isMvp && mvp?.scope ? (
             <section className="mt-10">
-              <h2 className="text-[1.375rem] leading-snug">Scope</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Scope</h2>
               <p className="mt-3 text-base leading-relaxed text-neutral-700">
                 {mvp.scope}
               </p>
@@ -172,7 +172,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
 
           {!isMvp && consultation?.preparationInstructions ? (
             <section className="mt-10 rounded-md border border-neutral-300 bg-neutral-100 p-6">
-              <h2 className="text-[1.25rem] leading-snug">Before the session</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.25rem]">Before the session</h2>
               <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                 {consultation.preparationInstructions}
               </p>
@@ -180,7 +180,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
           ) : null}
 
           <section className="mt-10">
-            <h2 className="text-[1.375rem] leading-snug">
+            <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
               What happens after you buy
             </h2>
             <div className="mt-4 space-y-4">

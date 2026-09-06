@@ -69,7 +69,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
               Checkout
             </p>
-            <h1 className="mt-3 text-[1.75rem] leading-[1.286]">
+            <h1 className="mt-3 text-[38px] leading-[1.286] md:text-[1.75rem]">
               {product.title}
             </h1>
             {product.shortDescription ? (
@@ -80,7 +80,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
 
             <div className="mt-8 rounded-[12px] border border-neutral-300 bg-white p-6">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-[1.125rem] leading-snug">Order summary</h2>
+                <h2 className="text-[19px] leading-snug md:text-[1.125rem]">Order summary</h2>
                 <span className="font-sans text-sm font-medium text-neutral-500">
                   {isSession && durationMinutes
                     ? `${durationMinutes} min`
@@ -118,7 +118,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             </div>
 
             <div className="mt-6 rounded-[12px] border border-neutral-300 bg-white p-6">
-              <h2 className="text-[1.125rem] leading-snug">
+              <h2 className="text-[19px] leading-snug md:text-[1.125rem]">
                 What happens next
               </h2>
               <ol className="mt-5 space-y-5">

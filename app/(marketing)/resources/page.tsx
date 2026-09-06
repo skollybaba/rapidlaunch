@@ -52,7 +52,7 @@ async function ResourceContent() {
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
                 <PenLine aria-hidden="true" className="h-5 w-5 text-lavender-200" />
               </span>
-              <h2 className="text-[1.375rem] leading-snug">Guides</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Guides</h2>
             </div>
           </Reveal>
           <div className="mt-6 space-y-4">
@@ -77,7 +77,7 @@ async function ResourceContent() {
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
                 <ListVideo aria-hidden="true" className="h-5 w-5 text-lavender-200" />
               </span>
-              <h2 className="text-[1.375rem] leading-snug">Watch</h2>
+              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Watch</h2>
             </div>
           </Reveal>
           <div className="mt-6 space-y-4">
@@ -148,7 +148,7 @@ export default function ResourcesPage() {
                       Go deeper
                     </p>
                   </div>
-                  <h2 className="mt-3 text-[1.75rem] leading-[1.286]">
+                  <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
                     Turn the reading into a working method.
                   </h2>
                   <p className="mt-3 text-base leading-relaxed text-neutral-500">

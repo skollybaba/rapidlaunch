@@ -145,7 +145,7 @@ function OptionCard({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-terracotta-600">
             {option.label}
           </p>
-          <h2 className="mt-0.5 text-[1.25rem] leading-snug">
+          <h2 className="mt-0.5 text-[24px] leading-snug md:text-[1.25rem]">
             {product.title}
           </h2>
         </div>
@@ -264,7 +264,7 @@ export default function BookPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 What happens next
               </p>
-              <h2 className="mt-3 max-w-xl text-[1.75rem] leading-[1.286]">
+              <h2 className="mt-3 max-w-xl text-[32px] leading-[1.286] md:text-[1.75rem]">
                 From booking to the live call
               </h2>
             </Reveal>
@@ -277,7 +277,7 @@ export default function BookPage() {
                         {index + 1}
                       </span>
                     </span>
-                    <h3 className="mt-4 text-[1.25rem] leading-snug">
+                    <h3 className="mt-4 text-[24px] leading-snug md:text-[1.25rem]">
                       {step.title}
                     </h3>
                     <p className="mt-3 text-sm leading-relaxed text-neutral-500">

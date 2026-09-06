@@ -88,7 +88,7 @@ function ServiceCard({ product }: { product: ProductSummary }) {
             {isMvp ? "MVP build" : "Consultation"}
           </span>
         </div>
-        <h2 className="mt-3 text-[1.375rem] leading-snug">{product.title}</h2>
+        <h2 className="mt-3 text-[24px] leading-snug md:text-[1.375rem]">{product.title}</h2>
         {product.shortDescription ? (
           <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-500">
             {product.shortDescription}
@@ -150,7 +150,7 @@ export default function ServicesPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
               Choose the engagement
             </p>
-            <h2 className="mt-3 max-w-xl text-[1.75rem] leading-[1.286]">
+            <h2 className="mt-3 max-w-xl text-[32px] leading-[1.286] md:text-[1.75rem]">
               Two kinds of high-touch help, one honest workflow.
             </h2>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-neutral-500">
@@ -196,7 +196,7 @@ export default function ServicesPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
                 The engagement
               </p>
-              <h2 className="mt-3 max-w-xl text-[1.75rem] leading-[1.286]">
+              <h2 className="mt-3 max-w-xl text-[32px] leading-[1.286] md:text-[1.75rem]">
                 A short process that ends with a clear next decision
               </h2>
             </Reveal>
@@ -213,7 +213,7 @@ export default function ServicesPage() {
                     <p className="mt-4 text-xs font-bold text-terracotta-600">
                       Step {index + 1}
                     </p>
-                    <h3 className="mt-1 text-[1.25rem] leading-snug">
+                    <h3 className="mt-1 text-[24px] leading-snug md:text-[1.25rem]">
                       {step.title}
                     </h3>
                     <p className="mt-3 text-sm leading-relaxed text-neutral-500">
@@ -229,7 +229,7 @@ export default function ServicesPage() {
         <section className="bg-ink-900">
           <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center lg:px-8 lg:py-24">
             <Reveal>
-              <h2 className="text-[1.75rem] leading-[1.286] text-white">
+              <h2 className="text-[32px] leading-[1.286] md:text-[1.75rem] text-white">
                 Not sure which engagement fits?
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-neutral-300">
