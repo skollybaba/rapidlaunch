@@ -343,6 +343,7 @@ export async function getAdminUsers({
 
 export interface AdminBookingRow {
   id: string;
+  orderId: string;
   customerName?: string;
   customerEmail: string;
   productTitle?: string;
@@ -454,6 +455,7 @@ export async function getAdminBookings({
 
   const rows: AdminBookingRow[] = bookings.map((b) => ({
     id: String(b._id),
+    orderId: String(b.orderId),
     customerName: b.customerName,
     customerEmail: b.customerEmail,
     productTitle: b.productId ? productMap.get(String(b.productId)) : undefined,

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 
+import { FulfillmentActionButton } from "@/components/admin/fulfillment-action-button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { cn, formatDateTime } from "@/lib/utils";
 
 export interface EnrolleeViewRow {
   id: string;
+  orderId: string;
   courseTitle: string;
   customerEmail: string;
   orderReference: string;
@@ -89,6 +91,7 @@ export function EnrolleesTable({ rows }: { rows: EnrolleeViewRow[] }) {
                 <th className="px-5 py-3 font-semibold">Order</th>
                 <th className="px-5 py-3 font-semibold">Enrolled</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -135,6 +138,19 @@ export function EnrolleesTable({ rows }: { rows: EnrolleeViewRow[] }) {
                       <Badge tone={statusTone(row.status)}>
                         {row.status.replace(/_/g, " ")}
                       </Badge>
+                    </td>
+                    <td className="px-5 py-4">
+                      {row.status !== "FULFILLED" && row.orderId ? (
+                        <FulfillmentActionButton
+                          orderId={row.orderId}
+                          loadingLabel="Retrying…"
+                          variant="ghost"
+                        >
+                          Retry enrollment
+                        </FulfillmentActionButton>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );

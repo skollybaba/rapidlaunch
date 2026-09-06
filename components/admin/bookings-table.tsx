@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { ChevronDown, ExternalLink, Video } from "lucide-react";
 
 import { BookingCountdown } from "@/components/admin/booking-countdown";
+import { FulfillmentActionButton } from "@/components/admin/fulfillment-action-button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import type { AdminBookingRow } from "@/lib/services/admin-service";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -161,6 +162,9 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
     answers &&
     ANSWER_FIELDS.some((field) => Boolean(answers[field.key]?.trim()));
 
+  const canConfirm = booking.status !== "CONFIRMED";
+  const isActionable = booking.status === "PENDING" || booking.status === "FAILED";
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div>
@@ -234,6 +238,33 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
             Open scheduling link
             <ExternalLink className="size-3.5" aria-hidden="true" />
           </a>
+        ) : null}
+
+        {canConfirm && booking.orderId ? (
+          <div className="mt-5 border-t border-neutral-200 pt-4">
+            <p className="text-sm font-semibold text-neutral-900">
+              Fulfillment
+            </p>
+            {booking.requestedStartTime ? (
+              <p className="mt-1 text-xs text-neutral-500">
+                Create the calendar invite and send the confirmation email for
+                this session.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-neutral-500">
+                The customer has not picked a time yet. Confirm once they do.
+              </p>
+            )}
+            {booking.requestedStartTime ? (
+              <FulfillmentActionButton
+                orderId={booking.orderId}
+                loadingLabel="Confirming…"
+                className="mt-3"
+              >
+                {isActionable ? "Confirm session" : "Retry confirmation"}
+              </FulfillmentActionButton>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

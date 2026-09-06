@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Search } from "lucide-react";
 
+import { FulfillmentActionButton } from "@/components/admin/fulfillment-action-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonStyles } from "@/components/ui/button";
 import {
@@ -170,6 +171,9 @@ export default async function AdminOrdersPage({
                   <th scope="col" className="px-5 py-3 font-semibold">
                     Status
                   </th>
+                  <th scope="col" className="px-5 py-3 font-semibold">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
@@ -218,6 +222,19 @@ export default async function AdminOrdersPage({
                         >
                           {statusLabel(order.status)}
                         </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        {order.status === "PAID" ? (
+                          <FulfillmentActionButton
+                            orderId={order.id}
+                            loadingLabel="Sending…"
+                            variant="ghost"
+                          >
+                            Resend confirmation
+                          </FulfillmentActionButton>
+                        ) : (
+                          <span className="text-neutral-300">—</span>
+                        )}
                       </td>
                     </tr>
                   );

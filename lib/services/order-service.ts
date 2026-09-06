@@ -660,7 +660,7 @@ async function findFulfillment(order: LeanDoc<OrderDoc>) {
     .exec();
 }
 
-async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
+export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
   if (fulfillmentTypeForOrder(order) !== "CLASSROOM_ENROLLMENT") return;
 
   const email = order.customerEmail;
@@ -823,6 +823,13 @@ async function sendCourseAccessEmail(
   order: LeanDoc<OrderDoc>,
   input: { courseName: string; courseLink: string; enrolled: boolean }
 ) {
+  const fulfillment = await findFulfillment(order);
+  const alreadySent = Boolean(
+    (fulfillment?.metadata as Record<string, unknown> | undefined)
+      ?.accessEmailSentAt
+  );
+  if (alreadySent) return;
+
   const adapter = createMailAdapter();
   const email = order.customerEmail;
   if (!email) return;
@@ -843,19 +850,33 @@ async function sendCourseAccessEmail(
         appUrl: env.NEXT_PUBLIC_APP_URL,
       },
     });
+    if (fulfillment) {
+      await Fulfillment.updateOne(
+        { _id: fulfillment._id },
+        {
+          $set: {
+            "metadata.accessEmailSentAt": new Date(),
+          },
+        }
+      );
+    }
   } catch (error) {
     console.error("Course access email failed to send", email, { error });
   }
 }
 
 
-async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
+export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   if (order.metadata?.productType !== "CONSULTATION") return;
 
   const booking = await Booking.findOne({ orderId: order._id })
     .lean()
     .exec();
-  if (!booking || booking.status !== "PENDING") return;
+  if (!booking) return;
+  // A booking is actionable when not yet confirmed; the 3-min retry sweeper
+  // and the admin "Confirm session" action both rely on this to recover
+  // FAILED / ACTION_REQUIRED bookings once a time is selected.
+  if (booking.status === "CONFIRMED" || booking.status === "CANCELLED") return;
 
   if (!booking.requestedStartTime) {
     await Booking.updateOne(
@@ -1051,12 +1072,17 @@ function orderNextStepText(order: LeanDoc<OrderDoc>): string {
   return "We are preparing the next steps for your purchase and will email you shortly.";
 }
 
-async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
+export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
   const adapter = createMailAdapter();
   const itemTitle = order.items[0]?.titleSnapshot ?? "your purchase";
   const email = order.customerEmail;
 
   if (!email) return;
+
+  const alreadySent = Boolean(
+    (order.metadata as Record<string, unknown>)?.confirmationEmailSentAt
+  );
+  if (alreadySent) return;
 
   const booking = await Booking.findOne({ orderId: order._id }).lean().exec();
 
@@ -1089,6 +1115,14 @@ async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
         answerHelp: booking?.answers?.helpNeeded ?? "",
       },
     });
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "metadata.confirmationEmailSentAt": new Date(),
+        },
+      }
+    );
   } catch (error) {
     // Email failure must not undo a verified payment.
     console.error("Payment confirmation email failed to send", email, {

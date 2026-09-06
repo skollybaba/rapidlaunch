@@ -35,6 +35,7 @@ export default async function AdminEnrolleesPage({
   const rows = groupsToShow.flatMap((group) =>
     group.enrollees.map((enrollee) => ({
       id: enrollee.enrollmentId,
+      orderId: enrollee.orderId,
       courseTitle:
         group.productId === "unknown"
           ? "Unknown course"
