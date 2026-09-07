@@ -1,6 +1,8 @@
 import "server-only";
 
 import { dbConnect } from "@/lib/db";
+import { env } from "@/lib/env";
+import { createMailAdapter } from "@/lib/providers/mail";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
@@ -46,6 +48,7 @@ export interface DashboardSummary {
 export interface AdminOrderQuery {
   q?: string;
   status?: string;
+  range?: OrderRange;
   page?: number;
   pageSize?: number;
 }
@@ -56,6 +59,135 @@ export interface AdminOrderPage {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export type OrderRange = "today" | "week";
+
+export interface AdminOrderRangeStats {
+  range: OrderRange;
+  totalOrders: number;
+  revenueMinor: number;
+  paidOrders: number;
+  pendingPayments: number;
+  failedPayments: number;
+  currency: string;
+}
+
+const BUSINESS_TIME_ZONE = "Africa/Lagos";
+
+function startOfBusinessDay(now: Date): Date {
+  const format = new Intl.DateTimeFormat("en-GB", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const read = (parts: Intl.DateTimeFormatPart[]) =>
+    new Map(parts.map((p) => [p.type, p.value]));
+  const parts = format.formatToParts(now);
+  const { year, month, day } = Object.fromEntries(
+    Array.from(read(parts).entries()).filter(([k]) =>
+      ["year", "month", "day"].includes(k)
+    )
+  );
+  const guess = Date.UTC(Number(year), Number(month) - 1, Number(day));
+  for (
+    let offsetMs = -36 * 3_600_000;
+    offsetMs <= 36 * 3_600_000;
+    offsetMs += 3_600_000
+  ) {
+    const candidate = new Date(guess + offsetMs);
+    const close = format.formatToParts(candidate);
+    const v = read(close);
+    if (
+      v.get("year") === year &&
+      v.get("month") === month &&
+      v.get("day") === day &&
+      v.get("hour") === "00" &&
+      v.get("minute") === "00" &&
+      v.get("second") === "00"
+    ) {
+      return candidate;
+    }
+  }
+  return new Date(guess);
+}
+
+function startOfBusinessWeek(now: Date): Date {
+  const todayStart = startOfBusinessDay(now);
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    weekday: "short",
+  }).format(todayStart);
+  const index =
+    { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[weekday] ?? 1;
+  return new Date(todayStart.getTime() - (index - 1) * 86_400_000);
+}
+
+export async function getOrderRangeStats(
+  range: OrderRange
+): Promise<AdminOrderRangeStats> {
+  await dbConnect();
+
+  const now = new Date();
+  const from =
+    range === "today" ? startOfBusinessDay(now) : startOfBusinessWeek(now);
+
+  const [result] = await Order.aggregate<{
+    totalOrders: number;
+    revenueMinor: number;
+    paidOrders: number;
+    pendingPayments: number;
+    failedPayments: number;
+    currency: string;
+  }>([
+    { $match: { createdAt: { $gte: from } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        revenueMinor: {
+          $sum: { $cond: [{ $eq: ["$status", "PAID"] }, "$totalMinor", 0] },
+        },
+        paidOrders: {
+          $sum: { $cond: [{ $eq: ["$status", "PAID"] }, 1, 0] },
+        },
+        pendingPayments: {
+          $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] },
+        },
+        failedPayments: {
+          $sum: {
+            $cond: [
+              {
+                $in: [
+                  "$status",
+                  ["FAILED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"],
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        currency: { $first: "$currency" },
+      },
+    },
+  ]);
+
+  return {
+    range,
+    totalOrders: result?.totalOrders ?? 0,
+    revenueMinor: result?.revenueMinor ?? 0,
+    paidOrders: result?.paidOrders ?? 0,
+    pendingPayments: result?.pendingPayments ?? 0,
+    failedPayments: result?.failedPayments ?? 0,
+    currency: result?.currency ?? CURRENCY,
+  };
 }
 
 const CURRENCY = "NGN";
@@ -171,6 +303,7 @@ export async function getNextUpcomingSession(): Promise<NextUpcomingSession> {
 export async function getAdminOrders({
   q = "",
   status = "",
+  range,
   page = 1,
   pageSize = 25,
 }: AdminOrderQuery = {}): Promise<AdminOrderPage> {
@@ -181,6 +314,14 @@ export async function getAdminOrders({
   const skip = (safePage - 1) * safePageSize;
 
   const filter: Record<string, unknown> = {};
+
+  if (range === "today" || range === "week") {
+    const now = new Date();
+    filter.createdAt = {
+      $gte:
+        range === "today" ? startOfBusinessDay(now) : startOfBusinessWeek(now),
+    };
+  }
 
   const trimmed = q.trim();
   if (trimmed) {
@@ -566,6 +707,84 @@ export async function dismissBooking(bookingId: string) {
   return { id: String(updated._id) };
 }
 
+export async function sendBookingPaymentReminder(bookingId: string) {
+  await dbConnect();
+
+  const booking = await Booking.findById(bookingId).lean().exec();
+  if (!booking) {
+    throw new AdminServiceError("BOOKING_NOT_FOUND", "Booking not found.", 404);
+  }
+  if (!booking.orderId) {
+    throw new AdminServiceError(
+      "BOOKING_HAS_NO_ORDER",
+      "This booking has no linked order.",
+      400
+    );
+  }
+
+  const order = await Order.findById(booking.orderId)
+    .select("_id status orderReference customerEmail items")
+    .lean()
+    .exec();
+  if (!order) {
+    throw new AdminServiceError("ORDER_NOT_FOUND", "Order not found.", 404);
+  }
+  if (order.status === "PAID") {
+    throw new AdminServiceError(
+      "ORDER_ALREADY_PAID",
+      "This order has already been paid — no reminder needed.",
+      409
+    );
+  }
+
+  const email = order.customerEmail || booking.customerEmail;
+  if (!email) {
+    throw new AdminServiceError(
+      "NO_CUSTOMER_EMAIL",
+      "No customer email is available for this booking.",
+      400
+    );
+  }
+
+  const itemTitle = order.items?.[0]?.titleSnapshot || "your purchase";
+  const productId = booking.productId ?? order.items?.[0]?.productId;
+  const checkoutUrl = productId
+    ? `${env.NEXT_PUBLIC_APP_URL}/checkout/${String(productId)}`
+    : "";
+
+  const adapter = createMailAdapter();
+  try {
+    await adapter.sendTemplateEmail({
+      templateKey: "payment_reminder",
+      to: email,
+      variables: {
+        itemTitle,
+        customerName: booking.customerName ?? "",
+        checkoutUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Payment reminder email failed to send", email, { error });
+    throw new AdminServiceError(
+      "MAIL_SEND_FAILED",
+      "The reminder email could not be sent. Try again shortly.",
+      500
+    );
+  }
+
+  await Booking.updateOne(
+    { _id: booking._id },
+    { $set: { lastReminderSentAt: new Date() } }
+  );
+
+  return {
+    id: String(booking._id),
+    sentAt: new Date().toISOString(),
+    to: email,
+    checkoutUrl,
+  };
+}
+
 export interface AdminCourseRow {
   id: string;
   slug: string;
@@ -623,9 +842,57 @@ export async function getAdminCourses({
 export async function getCourseById(id: string) {
   await dbConnect();
   return Product.findById(id)
-    .select("_id slug title shortDescription description status priceMinor currency fulfillmentMode thumbnailUrl featured sortOrder courseDetails")
+    .select("_id slug title shortDescription description status priceMinor currency fulfillmentMode thumbnailUrl featured sortOrder courseDetails bundleCourseIds")
     .lean()
     .exec();
+}
+
+export interface CourseBundleChoice {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+}
+
+export async function getCourseBundleChoices(): Promise<CourseBundleChoice[]> {
+  await dbConnect();
+  const courses = await Product.find({
+    type: "COURSE",
+    status: { $ne: "ARCHIVED" },
+  })
+    .sort({ title: 1 })
+    .select("_id title slug status")
+    .lean()
+    .exec();
+
+  return courses.map((c) => ({
+    id: String(c._id),
+    title: c.title,
+    slug: c.slug,
+    status: c.status,
+  }));
+}
+
+async function resolveBundleCourseIds(
+  courseIds: string[],
+  excludeId?: string
+): Promise<string[]> {
+  const unique = [...new Set(courseIds.map((id) => id.trim()).filter(Boolean))];
+  if (!unique.length) return [];
+
+  const docs = await Product.find({
+    _id: { $in: unique },
+    type: "COURSE",
+    status: { $ne: "ARCHIVED" },
+  })
+    .select("_id")
+    .lean()
+    .exec();
+
+  const valid = new Set(docs.map((d) => String(d._id)));
+  return unique.filter(
+    (id) => valid.has(id) && (excludeId ? id !== String(excludeId) : true)
+  );
 }
 
 export async function createCourse(input: unknown) {
@@ -642,6 +909,7 @@ export async function createCourse(input: unknown) {
       409
     );
   }
+  parsed.bundleCourseIds = await resolveBundleCourseIds(parsed.bundleCourseIds);
   return Product.create(parsed);
 }
 
@@ -665,6 +933,10 @@ export async function updateCourse(id: string, input: unknown) {
       409
     );
   }
+  parsed.bundleCourseIds = await resolveBundleCourseIds(
+    parsed.bundleCourseIds,
+    id
+  );
   const updated = await Product.findByIdAndUpdate(id, { $set: parsed }, { new: true })
     .select("_id slug title status")
     .lean()
@@ -715,7 +987,7 @@ export async function getCourseEnrollees(): Promise<CourseEnrolleesGroup[]> {
       .exec(),
     Fulfillment.find({ type: "CLASSROOM_ENROLLMENT" })
       .sort({ fulfilledAt: -1 })
-      .select("orderId status fulfilledAt lastError metadata")
+      .select("orderId status fulfilledAt lastError metadata orderItemId")
       .lean()
       .exec(),
     Order.find({})
@@ -736,15 +1008,26 @@ export async function getCourseEnrollees(): Promise<CourseEnrolleesGroup[]> {
     const order = orderById.get(String(f.orderId));
     if (!order) continue;
 
-    const productId = order.items[0]?.productId
-      ? String(order.items[0].productId)
-      : (f.metadata as { productId?: string } | null)?.productId;
+    const meta = (f.metadata ?? {}) as Record<string, unknown>;
+    const isBonus = meta.bonusCourse === true;
 
-    const courseTitle = productId
-      ? courseTitleMap.get(productId)
-      : (f.metadata as { courseTitle?: string } | null)?.courseTitle;
+    const productId = f.orderItemId
+      ? String(f.orderItemId)
+      : order.items[0]?.productId
+        ? String(order.items[0].productId)
+        : meta.productId
+          ? String(meta.productId)
+          : "";
 
-    const key = productId ?? "unknown";
+    const courseTitle = isBonus && typeof meta.courseName === "string"
+      ? meta.courseName
+      : productId
+        ? courseTitleMap.get(productId)
+        : typeof meta.courseTitle === "string"
+          ? meta.courseTitle
+          : undefined;
+
+    const key = productId || "unknown";
     if (!groupsMap.has(key)) {
       groupsMap.set(key, {
         productId: key,

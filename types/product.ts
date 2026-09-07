@@ -86,6 +86,7 @@ export interface ProductDoc {
   bookDetails?: ProductBookDetails | null;
   consultationDetails?: ProductConsultationDetails | null;
   mvpServiceDetails?: ProductMvpServiceDetails | null;
+  bundleCourseIds?: unknown[];
   publishedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;

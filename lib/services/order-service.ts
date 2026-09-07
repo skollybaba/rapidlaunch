@@ -25,6 +25,7 @@ import {
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
 import { createClassroomAdapter } from "@/lib/providers/classroom";
+import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -167,6 +168,27 @@ export async function createCheckoutSession(
   const customerEmail = sessionUser.email ?? parsed.customerEmail;
   const userId = sessionUser.id;
 
+  let bundleCourseIds: string[] = [];
+  let bundleCourseTitles: string[] = [];
+  if (
+    product.type === "COURSE" &&
+    Array.isArray(product.bundleCourseIds) &&
+    product.bundleCourseIds.length > 0
+  ) {
+    const requestedIds = product.bundleCourseIds.map(String);
+    const docs = await Product.find({
+      _id: { $in: requestedIds },
+      type: "COURSE",
+      status: "PUBLISHED",
+    } as unknown as Parameters<typeof Product.find>[0])
+      .select("_id title")
+      .lean()
+      .exec();
+    const byId = new Map(docs.map((d) => [String(d._id), d.title]));
+    bundleCourseIds = requestedIds.filter((id) => byId.has(id));
+    bundleCourseTitles = bundleCourseIds.map((id) => byId.get(id)!);
+  }
+
   const order = await Order.create({
     orderReference,
     customerEmail,
@@ -192,6 +214,8 @@ export async function createCheckoutSession(
       productSlug: product.slug,
       classroomCourseId: product.courseDetails?.classroomCourseId,
       courseJoinUrl: product.courseDetails?.courseJoinUrl,
+      bundleCourseIds,
+      bundleCourseTitles,
       productDurationMinutes:
         product.type === "CONSULTATION"
           ? product.consultationDetails?.durationMinutes ?? 90
@@ -571,6 +595,16 @@ async function settleVerifiedPayment(
 
   await createFulfillmentIfMissing(order);
 
+  // Notify the back office on WhatsApp the moment an order is paid. Best
+  // effort: never block the confirmation page on the WhatsApp provider.
+  notifyAdminsOrderPaid(order, payment).catch((error) => {
+    console.error(
+      "WhatsApp notification failed for order",
+      order.orderReference,
+      { error }
+    );
+  });
+
   // Return PAID to the client immediately; run fulfillment side effects
   // (course enrollment, calendar booking, emails) in the background so the
   // confirmation page does not block on slow external providers.
@@ -627,22 +661,29 @@ export async function processFulfillmentAsync(order: LeanDoc<OrderDoc>) {
   }
 }
 
-async function createFulfillmentIfMissing(order: LeanDoc<OrderDoc>) {
+async function createFulfillmentIfMissing(
+  order: LeanDoc<OrderDoc>,
+  orderItemId: unknown = null,
+  opts: { bonusCourse?: boolean } = {}
+) {
   const type = fulfillmentTypeForOrder(order);
   const firstItemId = order.items[0]?.productId
     ? String(order.items[0].productId)
     : null;
+  const resolvedItemId = orderItemId
+    ? String(orderItemId)
+    : firstItemId;
 
-  await Fulfillment.findOneAndUpdate(
-    { orderId: order._id, orderItemId: firstItemId, type },
+  return Fulfillment.findOneAndUpdate(
+    { orderId: order._id, orderItemId: resolvedItemId, type },
     {
       $setOnInsert: {
         status: "PENDING",
         type,
         orderId: order._id,
-        orderItemId: firstItemId,
+        orderItemId: resolvedItemId,
         attempts: 0,
-        metadata: {},
+        metadata: opts.bonusCourse ? { bonusCourse: true } : {},
         lastError: null,
         fulfilledAt: null,
       },
@@ -651,13 +692,80 @@ async function createFulfillmentIfMissing(order: LeanDoc<OrderDoc>) {
   ).exec();
 }
 
-async function findFulfillment(order: LeanDoc<OrderDoc>) {
+async function findFulfillment(
+  order: LeanDoc<OrderDoc>,
+  orderItemId?: unknown
+) {
+  if (orderItemId !== undefined) {
+    return Fulfillment.findOne({
+      orderId: order._id,
+      orderItemId: String(orderItemId),
+      type: "CLASSROOM_ENROLLMENT",
+    })
+      .lean()
+      .exec();
+  }
+  const firstItemId = order.items[0]?.productId
+    ? String(order.items[0].productId)
+    : null;
   return Fulfillment.findOne({
     orderId: order._id,
+    orderItemId: firstItemId,
     type: "CLASSROOM_ENROLLMENT",
   })
     .lean()
     .exec();
+}
+
+interface EnrollmentTarget {
+  productId: string;
+  courseTitle: string;
+  classroomCourseId?: string;
+  courseJoinUrl?: string;
+  isBonus: boolean;
+}
+
+async function enrollmentTargetsForOrder(
+  order: LeanDoc<OrderDoc>
+): Promise<EnrollmentTarget[]> {
+  const parent = order.items[0];
+  const targets: EnrollmentTarget[] = [
+    {
+      productId: parent?.productId ? String(parent.productId) : "",
+      courseTitle: parent?.titleSnapshot ?? "",
+      classroomCourseId: order.metadata?.classroomCourseId as
+        | string
+        | undefined,
+      courseJoinUrl: order.metadata?.courseJoinUrl as string | undefined,
+      isBonus: false,
+    },
+  ];
+
+  const bundleIds = Array.isArray(order.metadata?.bundleCourseIds)
+    ? order.metadata.bundleCourseIds.map(String).filter(Boolean)
+    : [];
+  if (!bundleIds.length) return targets;
+
+  const docs = await Product.find({
+    _id: { $in: bundleIds },
+    type: "COURSE",
+    status: { $in: ["PUBLISHED", "DRAFT"] },
+  } as unknown as Parameters<typeof Product.find>[0])
+    .select("_id title courseDetails")
+    .lean()
+    .exec();
+
+  for (const doc of docs) {
+    targets.push({
+      productId: String(doc._id),
+      courseTitle: doc.title,
+      classroomCourseId: doc.courseDetails?.classroomCourseId,
+      courseJoinUrl: doc.courseDetails?.courseJoinUrl,
+      isBonus: true,
+    });
+  }
+
+  return targets;
 }
 
 export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
@@ -666,29 +774,49 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
   const email = order.customerEmail;
   if (!email) return;
 
-  const classroomCourseId = order.metadata?.classroomCourseId as
-    | string
-    | undefined;
-  if (!classroomCourseId) {
-    await markCourseEnrollmentFailed(order, "CLASSROOM_COURSE_NOT_CONFIGURED");
+  const targets = await enrollmentTargetsForOrder(order);
+
+  for (const target of targets) {
+    if (!target.productId) continue;
+    await enrollInCourseTarget(order, target);
+  }
+}
+
+async function enrollInCourseTarget(
+  order: LeanDoc<OrderDoc>,
+  target: EnrollmentTarget
+) {
+  const existing = await findFulfillment(order, target.productId);
+  if (existing && existing.status === "FULFILLED") return;
+
+  let enrollment = existing;
+  if (!enrollment) {
+    enrollment = await createFulfillmentIfMissing(order, target.productId, {
+      bonusCourse: target.isBonus,
+    });
+  }
+  if (!enrollment || enrollment.status === "FULFILLED") return;
+
+  if (!target.classroomCourseId) {
+    await markCourseEnrollmentFailed(
+      order,
+      "CLASSROOM_COURSE_NOT_CONFIGURED",
+      enrollment,
+      target.courseTitle
+    );
     return;
   }
 
-  const enrollment = await findFulfillment(order);
-  if (!enrollment || enrollment.status === "FULFILLED") return;
-
-  const courseJoinUrl = order.metadata?.courseJoinUrl as
-    | string
-    | undefined;
-
-  if (courseJoinUrl) {
+  if (target.courseJoinUrl) {
     const metadata: Record<string, unknown> = {
-      courseId: classroomCourseId,
-      courseName: order.items[0]?.titleSnapshot || "",
-      courseAltLink: courseJoinUrl,
+      courseId: target.classroomCourseId,
+      courseName: target.courseTitle,
+      courseAltLink: target.courseJoinUrl,
       studentId: null,
+      bonusCourse: true,
       ...(enrollment.metadata ?? {}),
     };
+    if (!target.isBonus) delete metadata.bonusCourse;
     await Fulfillment.updateOne(
       { _id: enrollment._id },
       {
@@ -701,9 +829,9 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
         },
       }
     );
-    await sendCourseAccessEmail(order, {
+    await sendCourseAccessEmail(order, target, {
       courseName: metadata.courseName as string,
-      courseLink: courseJoinUrl,
+      courseLink: target.courseJoinUrl,
       enrolled: true,
     });
     return;
@@ -717,7 +845,8 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
     await markCourseEnrollmentFailed(
       order,
       "GOOGLE_CLASSROOM_NOT_CONFIGURED",
-      enrollment
+      enrollment,
+      target.courseTitle
     );
     return;
   }
@@ -731,7 +860,7 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
   let courseName = "";
   let courseLink = "";
   try {
-    const course = await adapter.getCourse(classroomCourseId);
+    const course = await adapter.getCourse(target.classroomCourseId);
     courseName = course.name;
     courseLink = course.alternateLink ?? "";
   } catch {
@@ -739,8 +868,8 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
   }
 
   const result = await adapter.enrollStudent({
-    courseId: classroomCourseId,
-    studentEmail: email,
+    courseId: target.classroomCourseId,
+    studentEmail: order.customerEmail!,
   });
 
   if (!result.errorCategory) {
@@ -748,14 +877,16 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
     const name =
       (loaded && typeof loaded === "object"
         ? (loaded as { name?: { fullName?: string } }).name?.fullName
-        : undefined) || courseName || order.items[0]?.titleSnapshot || "";
+        : undefined) || courseName || target.courseTitle;
     const metadata: Record<string, unknown> = {
-      courseId: classroomCourseId,
+      courseId: target.classroomCourseId,
       courseName: name,
       courseAltLink: courseLink,
       studentId: result.studentId ?? null,
+      bonusCourse: true,
       ...(enrollment.metadata ?? {}),
     };
+    if (!target.isBonus) delete metadata.bonusCourse;
     await Fulfillment.updateOne(
       { _id: enrollment._id },
       {
@@ -768,7 +899,7 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
         },
       }
     );
-    await sendCourseAccessEmail(order, {
+    await sendCourseAccessEmail(order, target, {
       courseName: metadata.courseName as string,
       courseLink,
       enrolled: true,
@@ -776,21 +907,27 @@ export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
     return;
   }
 
-  await markCourseEnrollmentFailed(order, result.errorCategory, enrollment);
+  await markCourseEnrollmentFailed(
+    order,
+    result.errorCategory,
+    enrollment,
+    target.courseTitle
+  );
 }
 
 async function markCourseEnrollmentFailed(
   order: LeanDoc<OrderDoc>,
   reason: string | null,
-  fulfillment?: { _id: unknown; attempts?: number } | null
+  fulfillment?: { _id: unknown; attempts?: number; metadata?: unknown } | null,
+  courseTitle?: string
 ) {
   const id = fulfillment?._id ?? (await findFulfillment(order))?._id;
-  const attempts =
-    (fulfillment?.attempts ?? 0) + 1;
+  const attempts = (fulfillment?.attempts ?? 0) + 1;
+  const displayTitle = courseTitle || order.items[0]?.titleSnapshot || "";
 
   if (!id) {
-    await sendCourseAccessEmail(order, {
-      courseName: order.items[0]?.titleSnapshot ?? "",
+    await sendCourseAccessEmail(order, null, {
+      courseName: displayTitle,
       courseLink: "",
       enrolled: false,
     });
@@ -805,15 +942,16 @@ async function markCourseEnrollmentFailed(
         attempts,
         lastError: String(reason ?? "UNKNOWN"),
         metadata: {
-          ...((fulfillment as { metadata?: Record<string, unknown> })
-            ?.metadata ?? {}),
+          ...(fulfillment?.metadata
+            ? (fulfillment.metadata as Record<string, unknown>)
+            : {}),
         },
       },
     }
   );
 
-  await sendCourseAccessEmail(order, {
-    courseName: order.items[0]?.titleSnapshot ?? "",
+  await sendCourseAccessEmail(order, null, {
+    courseName: displayTitle,
     courseLink: "",
     enrolled: false,
   });
@@ -821,9 +959,12 @@ async function markCourseEnrollmentFailed(
 
 async function sendCourseAccessEmail(
   order: LeanDoc<OrderDoc>,
+  target: EnrollmentTarget | null,
   input: { courseName: string; courseLink: string; enrolled: boolean }
 ) {
-  const fulfillment = await findFulfillment(order);
+  const fulfillment = target
+    ? await findFulfillment(order, target.productId)
+    : await findFulfillment(order);
   const alreadySent = Boolean(
     (fulfillment?.metadata as Record<string, unknown> | undefined)
       ?.accessEmailSentAt
@@ -1087,6 +1228,14 @@ export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
   );
   if (alreadySent) return;
 
+  const bundleIds = Array.isArray(order.metadata?.bundleCourseIds)
+    ? order.metadata.bundleCourseIds.map(String).filter((id) => Boolean(id))
+    : [];
+  const bundleTitles = Array.isArray(order.metadata?.bundleCourseTitles)
+    ? order.metadata.bundleCourseTitles.map(String).filter((t) => Boolean(t))
+    : [];
+  const bonusCourses = [...new Set(bundleTitles)].join(", ");
+
   const booking = await Booking.findOne({
     orderId: order._id,
     dismissedAt: null,
@@ -1104,6 +1253,8 @@ export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
         amount: formatPrice(order.totalMinor, order.currency),
         customerName: booking?.customerName ?? "",
         nextStep: orderNextStepText(order),
+        bonusCourses: bonusCourses || "",
+        onlineCourseCount: bundleIds.length ? String(bundleIds.length + 1) : "",
         meetingUrl: booking?.meetingUrl ?? "",
         bookingUrl:
           booking?.providerBookingUri ??
@@ -1174,6 +1325,12 @@ export interface WebhookProcessingResult {
   duplicate?: boolean;
   reason?: string;
   requestId: string;
+  /** Reserved for the background processor. */
+  event?: string;
+  /** Reserved for the background processor. */
+  eventKey?: string;
+  /** Reserved for the background processor. */
+  data?: unknown;
 }
 
 export async function processPaystackWebhook(
@@ -1240,9 +1397,27 @@ export async function processPaystackWebhook(
     processingStatus: "PROCESSING",
   });
 
+  return {
+    accepted: true,
+    duplicate: false,
+    requestId,
+    event,
+    eventKey,
+    data: parsed.data.data,
+  };
+}
+
+export async function processPaystackWebhookEvent(
+  result: WebhookProcessingResult
+): Promise<void> {
+  if (!result.accepted || !result.event || !result.eventKey) return;
+
+  const { event, eventKey, data } = result;
+  await dbConnect();
+
   try {
     if (event === "charge.success") {
-      const charge = paystackChargeDataSchema.safeParse(parsed.data.data);
+      const charge = paystackChargeDataSchema.safeParse(data);
       if (charge.success) {
         const payment = await Payment.findOne(
           paystackPaymentFilter({ providerReference: charge.data.reference })
@@ -1257,7 +1432,7 @@ export async function processPaystackWebhook(
             amountMinor: charge.data.amount,
             currency: charge.data.currency,
             reference: charge.data.reference,
-            raw: parsed.data.data,
+            raw: data,
           });
         }
       }
@@ -1283,6 +1458,4 @@ export async function processPaystackWebhook(
       }
     );
   }
-
-  return { accepted: true, duplicate: false, requestId };
 }

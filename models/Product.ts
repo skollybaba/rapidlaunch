@@ -101,6 +101,10 @@ const ProductSchema = new Schema<ProductDoc>(
     bookDetails: bookDetailsSchema,
     consultationDetails: consultationDetailsSchema,
     mvpServiceDetails: mvpServiceDetailsSchema,
+    bundleCourseIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Product" }],
+      default: [],
+    },
     publishedAt: Date,
   },
   { timestamps: true }

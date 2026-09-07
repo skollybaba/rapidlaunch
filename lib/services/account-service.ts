@@ -46,6 +46,34 @@ export interface AccountCourse {
   enrollmentStatus: string;
   courseUrl?: string;
   courseId?: string;
+  isBonus: boolean;
+}
+
+function toAccountCourse(
+  order: OrderDoc,
+  fulfillment: FulfillmentDoc | null | undefined,
+  title: string,
+  priceMinor: number,
+  isBonus: boolean
+): AccountCourse {
+  const meta = (fulfillment?.metadata ?? {}) as Record<string, unknown>;
+  return {
+    id: String(order._id),
+    orderReference: order.orderReference,
+    title,
+    priceMinor,
+    currency: order.currency,
+    purchasedAt: order.createdAt
+      ? new Date(order.createdAt).toISOString()
+      : new Date().toISOString(),
+    enrollmentId:
+      typeof meta.studentId === "string" ? meta.studentId : undefined,
+    enrollmentStatus: fulfillment?.status ?? "PENDING",
+    courseUrl:
+      typeof meta.courseAltLink === "string" ? meta.courseAltLink : undefined,
+    courseId: typeof meta.courseId === "string" ? meta.courseId : undefined,
+    isBonus,
+  };
 }
 
 export async function getCoursesForUser(
@@ -72,30 +100,62 @@ export async function getCoursesForUser(
     .lean()
     .exec();
 
-  const fulfillmentByOrder = new Map<string, FulfillmentDoc>(
-    fulfillments.map((f) => [String(f.orderId), f])
-  );
+  const fulfillmentsByOrder = new Map<string, FulfillmentDoc[]>();
+  for (const f of fulfillments) {
+    const key = String(f.orderId);
+    const list = fulfillmentsByOrder.get(key) ?? [];
+    list.push(f);
+    fulfillmentsByOrder.set(key, list);
+  }
 
-  return orders.map((order: OrderDoc) => {
-    const fulfillment = fulfillmentByOrder.get(String(order._id));
-    const meta = (fulfillment?.metadata ?? {}) as Record<string, unknown>;
-    return {
-      id: String(order._id),
-      orderReference: order.orderReference,
-      title: order.items[0]?.titleSnapshot ?? "Course",
-      priceMinor: order.totalMinor,
-      currency: order.currency,
-      purchasedAt: order.createdAt
-        ? new Date(order.createdAt).toISOString()
-        : new Date().toISOString(),
-      enrollmentId:
-        typeof meta.studentId === "string" ? meta.studentId : undefined,
-      enrollmentStatus: fulfillment?.status ?? "PENDING",
-      courseUrl:
-        typeof meta.courseAltLink === "string" ? meta.courseAltLink : undefined,
-      courseId: typeof meta.courseId === "string" ? meta.courseId : undefined,
-    };
-  });
+  const rows: AccountCourse[] = [];
+
+  for (const order of orders as OrderDoc[]) {
+    const orderFulfillments =
+      fulfillmentsByOrder.get(String(order._id)) ?? [];
+
+    const parentItemId = order.items[0]?.productId
+      ? String(order.items[0].productId)
+      : null;
+
+    const parent =
+      orderFulfillments.find(
+        (f) => f.orderItemId && String(f.orderItemId) === parentItemId
+      ) ??
+      orderFulfillments.find(
+        (f) => (f.metadata as Record<string, unknown>)?.bonusCourse !== true
+      );
+
+    rows.push(
+      toAccountCourse(
+        order,
+        parent,
+        order.items[0]?.titleSnapshot ?? "Course",
+        order.totalMinor,
+        false
+      )
+    );
+
+    for (const f of orderFulfillments) {
+      if ((f.metadata as Record<string, unknown>)?.bonusCourse !== true) {
+        continue;
+      }
+      const meta = f.metadata as Record<string, unknown>;
+      rows.push(
+        toAccountCourse(
+          order,
+          f,
+          typeof meta.courseName === "string"
+            ? meta.courseName
+            : "Bonus course",
+          0,
+          true
+        )
+      );
+    }
+  }
+
+  return rows;
 }
 
 export async function getPurchasesForUser(userId: string): Promise<AccountPurchase[]> {

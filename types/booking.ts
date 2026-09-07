@@ -60,6 +60,7 @@ export interface BookingDoc {
   status: BookingStatus;
   attempts: number;
   lastError?: string;
+  lastReminderSentAt?: Date | null;
   bookedAt?: Date | null;
   dismissedAt?: Date | null;
   reminders?: BookingReminderRecord[];

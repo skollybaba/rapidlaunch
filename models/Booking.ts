@@ -48,6 +48,7 @@ const BookingSchema = new Schema<BookingDoc>(
     },
     attempts: { type: Number, required: true, min: 0, default: 0 },
     lastError: String,
+    lastReminderSentAt: { type: Date, default: null },
     bookedAt: { type: Date, default: null },
     dismissedAt: { type: Date, default: null },
     reminders: {

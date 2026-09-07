@@ -64,6 +64,10 @@ vi.mock("@/lib/providers/classroom", () => ({
   })),
 }));
 
+vi.mock("@/lib/services/whatsapp-service", () => ({
+  notifyAdminsOrderPaid: vi.fn().mockResolvedValue({ sent: 1, skipped: 0 }),
+}));
+
 import axios from "axios";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -78,6 +82,7 @@ import {
   initializeCheckoutPayment,
   OrderServiceError,
   processPaystackWebhook,
+  processPaystackWebhookEvent,
   verifyCheckoutPayment,
 } from "@/lib/services/order-service";
 
@@ -662,7 +667,7 @@ describe("processPaystackWebhook", () => {
     expect(vi.mocked(PaymentEvent.create)).not.toHaveBeenCalled();
   });
 
-  it("settles a valid charge.success webhook and records processing", async () => {
+  it("acknowledges a valid charge.success immediately, then settles in the background step", async () => {
     const payload = {
       event: "charge.success",
       data: {
@@ -695,6 +700,13 @@ describe("processPaystackWebhook", () => {
         processingStatus: "PROCESSING",
       })
     );
+    // Nothing heavy runs in the request path: the order stays untouched until
+    // the background processor is invoked.
+    expect(vi.mocked(Order.updateOne)).not.toHaveBeenCalled();
+    expect(vi.mocked(PaymentEvent.updateOne)).not.toHaveBeenCalled();
+
+    await processPaystackWebhookEvent(result);
+
     expect(vi.mocked(Order.updateOne)).toHaveBeenCalledWith(
       { _id: "ORD1" },
       expect.objectContaining({
@@ -731,6 +743,10 @@ describe("processPaystackWebhook", () => {
     const result = await processPaystackWebhook(body, signature);
 
     expect(result.accepted).toBe(true);
+    expect(vi.mocked(Payment.updateOne)).not.toHaveBeenCalled();
+
+    await processPaystackWebhookEvent(result);
+
     expect(vi.mocked(Payment.updateOne)).toHaveBeenCalledWith(
       { _id: "PAY1" },
       expect.objectContaining({
@@ -752,6 +768,10 @@ describe("processPaystackWebhook", () => {
     const result = await processPaystackWebhook(body, signature);
 
     expect(result.accepted).toBe(true);
+    expect(vi.mocked(Payment.updateOne)).not.toHaveBeenCalled();
+
+    await processPaystackWebhookEvent(result);
+
     expect(vi.mocked(PaymentEvent.updateOne)).toHaveBeenCalledWith(
       { provider: "paystack", providerEventKey: "transfer.success:99" },
       expect.objectContaining({
@@ -759,6 +779,42 @@ describe("processPaystackWebhook", () => {
       })
     );
     expect(vi.mocked(Payment.findOne)).not.toHaveBeenCalled();
+  });
+
+  it("marks the event FAILED when the background processor throws, without rethrowing", async () => {
+    const payload = {
+      event: "charge.success",
+      data: {
+        id: 111,
+        reference: "QL-PAY-ABC",
+        status: "success",
+        amount: 5_000_000,
+        currency: "NGN",
+      },
+    };
+    const body = JSON.stringify(payload);
+    const signature = sign(body);
+
+    vi.mocked(PaymentEvent.findOne).mockReturnValue(lean(null));
+    vi.mocked(PaymentEvent.create).mockResolvedValue({ _id: "EV1" } as never);
+    vi.mocked(Payment.findOne).mockReturnValue({
+      lean: vi.fn().mockReturnThis(),
+      exec: vi.fn().mockRejectedValue(new Error("mongo down")),
+    } as never);
+
+    const result = await processPaystackWebhook(body, signature);
+
+    await expect(processPaystackWebhookEvent(result)).resolves.toBeUndefined();
+
+    expect(vi.mocked(PaymentEvent.updateOne)).toHaveBeenCalledWith(
+      { provider: "paystack", providerEventKey: "charge.success:111" },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          processingStatus: "FAILED",
+          errorMessage: "mongo down",
+        }),
+      })
+    );
   });
 });
 

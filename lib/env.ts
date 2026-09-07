@@ -63,6 +63,9 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
   AI_PROVIDER_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
+  WHATSAPP_ADMIN_NUMBERS: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   PRICE_DISPLAY_NGN_PER_USD: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.coerce.number().positive().default(1600)

@@ -6,7 +6,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { buttonStyles } from "@/components/ui/button";
 import {
   getAdminOrders,
+  getOrderRangeStats,
   type AdminOrderRow,
+  type OrderRange,
 } from "@/lib/services/admin-service";
 import { requireAdmin } from "@/lib/auth/admin";
 import { formatDateTime, formatPrice } from "@/lib/utils";
@@ -30,11 +32,13 @@ function parseParam(value: string | string[] | undefined): string {
 function pageHref(
   page: number,
   q: string,
-  status: string
+  status: string,
+  range: OrderRange | ""
 ): string {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (status) params.set("status", status);
+  if (range) params.set("range", range);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
   return `/admin/orders${qs ? `?${qs}` : ""}`;
@@ -68,9 +72,21 @@ export default async function AdminOrdersPage({
   const sp = await searchParams;
   const q = parseParam(sp?.q);
   const status = parseParam(sp?.status);
+  const rangeParam = parseParam(sp?.range);
+  const range: OrderRange | "" =
+    rangeParam === "today" || rangeParam === "week" ? rangeParam : "";
   const page = Math.max(1, Number(parseParam(sp?.page)) || 1);
 
-  const data = await getAdminOrders({ q, status, page, pageSize: 25 });
+  const [data, stats] = await Promise.all([
+    getAdminOrders({ q, status, range: range || undefined, page, pageSize: 25 }),
+    range ? getOrderRangeStats(range) : null,
+  ]);
+
+  const rangeTabs: { value: OrderRange | ""; label: string }[] = [
+    { value: "today", label: "Today" },
+    { value: "week", label: "This week" },
+    { value: "", label: "All time" },
+  ];
 
   return (
     <div className="admin-enter flex flex-1 flex-col">
@@ -83,6 +99,64 @@ export default async function AdminOrdersPage({
           {data.total} order{data.total === 1 ? "" : "s"}
         </p>
       </div>
+
+      <div className="mt-6 inline-flex items-center gap-1 rounded-pill border border-neutral-300 bg-white p-1">
+        {rangeTabs.map((tab) => {
+          const active = range === tab.value;
+          return (
+            <a
+              key={tab.value || "all"}
+              href={pageHref(1, q, status, tab.value)}
+              aria-current={active ? "page" : undefined}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
+                active
+                  ? "bg-neutral-950 text-white"
+                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"
+              }`}
+            >
+              {tab.label}
+            </a>
+          );
+        })}
+      </div>
+
+      {stats ? (
+        <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-[16px] border border-neutral-300 bg-white p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">
+              Revenue ({stats.range === "today" ? "today" : "this week"})
+            </dt>
+            <dd className="mt-1 text-xl font-bold text-neutral-950">
+              {formatPrice(stats.revenueMinor, stats.currency)}
+            </dd>
+          </div>
+          <div className="rounded-[16px] border border-neutral-300 bg-white p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">
+              Paid orders
+            </dt>
+            <dd className="mt-1 text-xl font-bold text-neutral-950">
+              {stats.paidOrders}
+            </dd>
+          </div>
+          <div className="rounded-[16px] border border-neutral-300 bg-white p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">
+              Pending payment
+            </dt>
+            <dd className="mt-1 text-xl font-bold text-warning-600">
+              {stats.pendingPayments}
+            </dd>
+            <dd className="text-xs text-neutral-500">Total orders: {stats.totalOrders}</dd>
+          </div>
+          <div className="rounded-[16px] border border-neutral-300 bg-white p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">
+              Failed or cancelled
+            </dt>
+            <dd className="mt-1 text-xl font-bold text-danger-600">
+              {stats.failedPayments}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
 
       <form
         method="GET"
@@ -253,7 +327,7 @@ export default async function AdminOrdersPage({
           <div className="flex gap-2">
             {data.page > 1 ? (
               <a
-                href={pageHref(data.page - 1, q, status)}
+                href={pageHref(data.page - 1, q, status, range)}
                 className={buttonStyles({ variant: "secondary" })}
               >
                 Previous
@@ -261,7 +335,7 @@ export default async function AdminOrdersPage({
             ) : null}
             {data.page < data.totalPages ? (
               <a
-                href={pageHref(data.page + 1, q, status)}
+                href={pageHref(data.page + 1, q, status, range)}
                 className={buttonStyles({ variant: "secondary" })}
               >
                 Next

@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink, Video } from "lucide-react";
 import { BookingCountdown } from "@/components/admin/booking-countdown";
 import { FulfillmentActionButton } from "@/components/admin/fulfillment-action-button";
 import { DismissBookingButton } from "@/components/admin/dismiss-booking-button";
+import { SendBookingReminderButton } from "@/components/admin/send-booking-reminder-button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import type { AdminBookingRow } from "@/lib/services/admin-service";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -340,10 +341,14 @@ function BookingDetails({ booking }: { booking: AdminBookingRow }) {
               Unpaid booking
             </p>
             <p className="mt-1 text-xs text-neutral-500">
-              This order has not been confirmed as paid. Clear it from the list
-              so it stops showing alongside confirmed sessions.
+              This order has not been confirmed as paid. Send the customer a
+              gentle reminder to complete their purchase, or clear the booking
+              from the list so it stops showing alongside confirmed sessions.
             </p>
-            <DismissBookingButton bookingId={booking.id} className="mt-3" />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <SendBookingReminderButton bookingId={booking.id} />
+              <DismissBookingButton bookingId={booking.id} />
+            </div>
           </div>
         ) : null}
       </div>

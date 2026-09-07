@@ -9,6 +9,7 @@ import {
   Users,
   BookOpen,
   FolderOpen,
+  ReceiptText,
   LogOut,
   ExternalLink,
   type LucideIcon,
@@ -24,6 +25,7 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { href: "/admin/dashboard", label: "Dashboard & Insights", icon: LayoutDashboard },
+  { href: "/admin/orders", label: "Orders", icon: ReceiptText },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: BookOpen },

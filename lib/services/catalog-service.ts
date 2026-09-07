@@ -76,10 +76,54 @@ export async function listPublishedProducts(
   return docs.map(toSummary);
 }
 
+export interface BundleCourseSummary {
+  id: string;
+  slug: string;
+  title: string;
+  shortDescription?: string;
+  thumbnailUrl?: string;
+  durationMinutes?: number;
+}
+
+export type CourseDetail = ProductDetail & {
+  bundleCourses: BundleCourseSummary[];
+};
+
+async function loadBundleCourses(
+  doc: LeanProduct
+): Promise<BundleCourseSummary[]> {
+  const ids = Array.isArray(doc.bundleCourseIds)
+    ? doc.bundleCourseIds.map(String).filter(Boolean)
+    : [];
+  if (ids.length === 0) return [];
+
+  const courses = await Product.find(
+    toFindFilter({
+      _id: { $in: ids },
+      type: "COURSE",
+      status: "PUBLISHED",
+    })
+  )
+    .select(
+      "_id slug title shortDescription thumbnailUrl courseDetails.durationMinutes"
+    )
+    .lean()
+    .exec();
+
+  return courses.map((c) => ({
+    id: String(c._id),
+    slug: c.slug,
+    title: c.title,
+    shortDescription: c.shortDescription,
+    thumbnailUrl: c.thumbnailUrl,
+    durationMinutes: c.courseDetails?.durationMinutes,
+  }));
+}
+
 export async function getPublishedProductBySlug(
   slug: string,
   type?: ProductType
-): Promise<ProductDetail | null> {
+): Promise<CourseDetail | null> {
   await dbConnect();
 
   const filter = publishedFilter(type);
@@ -87,7 +131,8 @@ export async function getPublishedProductBySlug(
 
   const doc = await Product.findOne(toFindOneFilter(filter)).lean().exec();
 
-  return doc ? toDetail(doc) : null;
+  if (!doc) return null;
+  return { ...toDetail(doc), bundleCourses: await loadBundleCourses(doc) };
 }
 
 export async function getPublishedProductById(

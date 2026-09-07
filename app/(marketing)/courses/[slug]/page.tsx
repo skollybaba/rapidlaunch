@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   getPublishedProductBySlug,
   getRelatedProducts,
+  type CourseDetail,
 } from "@/lib/services/catalog-service";
 import { buttonStyles } from "@/components/ui/button";
 import { ProductCard } from "@/components/ui/product-card";
@@ -74,7 +75,7 @@ function DetailRow({ label, value, icon: Icon }: DetailRowProps) {
   );
 }
 
-function CourseContent({ product }: { product: ProductDetail }) {
+function CourseContent({ product }: { product: CourseDetail }) {
   const details = product.courseDetails;
   const duration = formatDuration(details?.durationMinutes);
 
@@ -187,6 +188,55 @@ function CourseContent({ product }: { product: ProductDetail }) {
               </p>
             </div>
           </Reveal>
+
+          {product.bundleCourses.length > 0 ? (
+            <Reveal as="section" className="mt-10">
+              <div className="rounded-md border border-lavender-300 bg-lavender-50 p-6">
+                <Badge tone="info">Bonus courses included</Badge>
+                <h2 className="mt-3 text-[24px] leading-snug md:text-[1.375rem]">
+                  Get these free when you buy this course
+                </h2>
+                <ul className="mt-4 space-y-4">
+                  {product.bundleCourses.map((bonus) => (
+                    <li
+                      key={bonus.id}
+                      className="rounded-md border border-lavender-200 bg-white p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-neutral-950">
+                            {bonus.title}
+                          </p>
+                          {bonus.shortDescription ? (
+                            <p className="mt-1 line-clamp-2 text-sm text-neutral-500">
+                              {bonus.shortDescription}
+                            </p>
+                          ) : null}
+                        </div>
+                        {bonus.durationMinutes ? (
+                          <span className="shrink-0 text-xs font-medium text-neutral-400">
+                            {formatDuration(bonus.durationMinutes)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <Link
+                        href={`/courses/${bonus.slug}`}
+                        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta-600 hover:text-terracotta-500"
+                      >
+                        View course
+                        <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs leading-relaxed text-neutral-500">
+                  Bonus courses are granted with your purchase — you are not
+                  charged for them, and they appear in your confirmation email
+                  and course library once the order is confirmed.
+                </p>
+              </div>
+            </Reveal>
+          ) : null}
         </article>
 
         <aside className="lg:sticky lg:top-8 lg:self-start">

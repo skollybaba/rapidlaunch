@@ -100,8 +100,12 @@ export async function retryOrderFulfillment(
 }
 
 async function findFulfillment(order: LeanDoc<OrderDoc>) {
+  const firstItemId = order.items[0]?.productId
+    ? String(order.items[0].productId)
+    : null;
   return Fulfillment.findOne({
     orderId: order._id,
+    orderItemId: firstItemId,
     type: "CLASSROOM_ENROLLMENT",
   })
     .lean()

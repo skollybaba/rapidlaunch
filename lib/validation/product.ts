@@ -88,6 +88,7 @@ export const productInputSchema = z
     bookDetails: bookDetailsInputSchema.optional(),
     consultationDetails: consultationDetailsInputSchema.optional(),
     mvpServiceDetails: mvpServiceDetailsInputSchema.optional(),
+    bundleCourseIds: z.array(z.string().min(1)).max(25).default([]),
   })
   .strict()
   .superRefine((data, ctx) => {

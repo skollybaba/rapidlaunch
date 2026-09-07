@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { CourseForm } from "@/components/admin/course-form";
 import { requireAdmin } from "@/lib/auth/admin";
-import { getCourseById } from "@/lib/services/admin-service";
+import {
+  getCourseBundleChoices,
+  getCourseById,
+} from "@/lib/services/admin-service";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +26,15 @@ export default async function AdminEditCoursePage({
   const course = await getCourseById(id);
   if (!course) notFound();
 
+  const choices = await getCourseBundleChoices();
+
   const initial = {
     ...course,
     id: String(course._id),
     courseDetails: course.courseDetails ?? null,
+    bundleCourseIds: (course.bundleCourseIds ?? []).map((bundleId) =>
+      String(bundleId)
+    ),
   };
 
   return (
@@ -44,7 +52,7 @@ export default async function AdminEditCoursePage({
           </h1>
         </div>
       </div>
-      <CourseForm initial={initial} />
+      <CourseForm initial={initial} bundleChoices={choices} />
     </div>
   );
 }

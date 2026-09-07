@@ -54,7 +54,7 @@ export default async function AccountCoursesPage() {
                   const meta = enrollmentMeta(course.enrollmentStatus);
                   return (
                     <li
-                      key={course.id}
+                      key={`${course.id}-${course.orderReference}-${course.title}`}
                       className="flex flex-col gap-4 rounded-[12px] border border-neutral-300 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex min-w-0 items-start gap-3">
@@ -62,12 +62,21 @@ export default async function AccountCoursesPage() {
                           <GraduationCap aria-hidden="true" className="h-5 w-5" />
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-neutral-950">
-                            {course.title}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate font-semibold text-neutral-950">
+                              {course.title}
+                            </p>
+                            {course.isBonus ? (
+                              <Badge tone="info">Bonus</Badge>
+                            ) : null}
+                          </div>
                           <p className="mt-1 text-sm text-neutral-500">
-                            Purchased {formatDate(course.purchasedAt)} ·{" "}
-                            {formatPrice(course.priceMinor, course.currency)}
+                            {course.isBonus
+                              ? `Free bonus · included with order ${course.orderReference}`
+                              : `Purchased ${formatDate(course.purchasedAt)} · ${formatPrice(
+                                  course.priceMinor,
+                                  course.currency
+                                )}`}
                           </p>
                         </div>
                       </div>

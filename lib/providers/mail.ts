@@ -14,6 +14,7 @@ export type EmailTemplateKey =
   | "booking_request_received"
   | "booking_confirmed"
   | "booking_reminder"
+  | "payment_reminder"
   | "mvp_inquiry_received"
   | "new_lead_notification"
   | "fulfillment_failure_alert"
@@ -94,6 +95,8 @@ function buildTemplate(
       const answerBuilding = variables.answerBuilding ?? "";
       const answerStage = variables.answerStage ?? "";
       const answerHelp = variables.answerHelp ?? "";
+      const bonusCourses = variables.bonusCourses ?? "";
+      const onlineCourseCount = variables.onlineCourseCount ?? "";
       const greeting = customerName
         ? `Hi ${customerName},`
         : "Hi there,";
@@ -136,11 +139,17 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
     <p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:0 0 8px;">Your next step</p>
     ${bookingBlock}
     ${answersBlock}
+    ${bonusCourses ? `<p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:22px 0 6px;">Courses included in this purchase${onlineCourseCount ? ` (${onlineCourseCount})` : ""}</p>
+<table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 6px;overflow:hidden;">
+  <tr><td style="padding:12px 20px;font-size:13px;color:#35374a;border-bottom:1px solid #f3efe8;"><strong style="color:#11121d;">${itemTitle}</strong></td><td style="padding:12px 20px;font-size:12px;color:#74778c;text-align:right;border-bottom:1px solid #f3efe8;">Purchased</td></tr>
+  <tr><td style="padding:12px 20px;font-size:13px;color:#35374a;"><strong style="color:#11121d;">${bonusCourses}</strong></td><td style="padding:12px 20px;font-size:12px;font-weight:700;color:#c75d3c;text-align:right;">Free bonus</td></tr>
+</table>
+<p style="font-size:12px;line-height:1.6;margin:0 0 4px;color:#74778c;">Your bonus courses are included at no extra cost. Access invitations land in your inbox shortly.</p>` : ""}
     <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions? Reply to this email or contact our support team.</p>
   </div>
 </div>
 </div>`;
-      const text = `Payment confirmed for ${itemTitle}\n\n${greeting}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}${scheduledAt ? `\n\nSession time: ${scheduledAt}` : ""}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}${bookingUrl ? `\nBooking link: ${bookingUrl}` : ""}${hasAnswers ? `\n\nYour session details:\n${answerBuilding ? `\nWhat are you building? ${answerBuilding}` : ""}${answerStage ? `\nWhere are you today? ${answerStage}` : ""}${answerHelp ? `\nWhat do you need help with? ${answerHelp}` : ""}` : ""}\n\nQuestions? Reply to this email or contact our support team.`;
+      const text = `Payment confirmed for ${itemTitle}\n\n${greeting}\n\nThank you! Your payment was successful.\n\nOrder reference: ${orderReference}\nAmount paid: ${amount}\n\n${nextStep}${bonusCourses ? `\n\nCourses included in this purchase:\n- ${itemTitle} (purchased)\n- ${bonusCourses} (free bonus)\n` : ""}${scheduledAt ? `\n\nSession time: ${scheduledAt}` : ""}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}${bookingUrl ? `\nBooking link: ${bookingUrl}` : ""}${hasAnswers ? `\n\nYour session details:\n${answerBuilding ? `\nWhat are you building? ${answerBuilding}` : ""}${answerStage ? `\nWhere are you today? ${answerStage}` : ""}${answerHelp ? `\nWhat do you need help with? ${answerHelp}` : ""}` : ""}\n\nQuestions? Reply to this email or contact our support team.`;
       return { subject, html, text };
     }
     case "booking_request_received": {
@@ -205,6 +214,29 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
 </div>
 </div>`;
       const text = `${timingLabel}\n\n${greeting}\n\nThis is a quick reminder about your one-on-one session with Rapid Launch.\n\n${timingLabel}.\n\nSession time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nRunning late or need to reschedule? Reply to this email and we will help.`;
+      return { subject, html, text };
+    }
+    case "payment_reminder": {
+      const itemTitle = variables.itemTitle ?? "your purchase";
+      const customerName = variables.customerName ?? "";
+      const checkoutUrl = variables.checkoutUrl ?? "";
+      const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
+      const subject = `You can still complete your purchase — ${itemTitle}`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  <div style="background:#141414;padding:26px 32px;">
+    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
+    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Your purchase is waiting</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You started an order for <strong style="color:#11121d;">${itemTitle}</strong> but the payment was not completed. Your place is saved — you can finish checkout whenever you are ready.</p>
+    ${checkoutUrl ? `<a href="${checkoutUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Complete your purchase</a>` : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Return to the site and pick this course again when you are ready to continue.</p>`}
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Questions or a better time to purchase? Reply to this email and we will help.</p>
+  </div>
+</div>
+</div>`;
+      const text = `Complete your purchase\n\n${greeting}\n\nYou started an order for ${itemTitle} but the payment was not completed. Your place is saved.\n\n${checkoutUrl ? `Finish checkout here: ${checkoutUrl}` : "Return to the site and pick this course again when you are ready."}\n\nQuestions? Reply to this email and we will help.`;
       return { subject, html, text };
     }
     case "account_welcome": {

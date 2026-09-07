@@ -10,6 +10,13 @@ import { PRODUCT_STATUSES } from "@/types/product";
 const fieldClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
+interface BundleChoice {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+}
+
 interface CourseFormData {
   initial?: {
     id?: string;
@@ -23,6 +30,7 @@ interface CourseFormData {
     fulfillmentMode?: string;
     thumbnailUrl?: string;
     featured?: boolean;
+    bundleCourseIds?: string[];
     courseDetails?: {
       instructor?: string;
       durationMinutes?: number;
@@ -48,7 +56,10 @@ const textToList = (value: string) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-export function CourseForm({ initial }: CourseFormData) {
+export function CourseForm({
+  initial,
+  bundleChoices = [],
+}: CourseFormData & { bundleChoices?: BundleChoice[] }) {
   const router = useRouter();
   const editing = Boolean(initial?.id);
   const [saving, setSaving] = useState(false);
@@ -89,6 +100,24 @@ export function CourseForm({ initial }: CourseFormData) {
   const [accessInstructions, setAccessInstructions] = useState(
     cd?.accessInstructions ?? ""
   );
+  const [bundleCourseIds, setBundleCourseIds] = useState<string[]>(
+    initial?.bundleCourseIds ?? []
+  );
+
+  function toggleBundleCourse(id: string, checked: boolean) {
+    setBundleCourseIds((current) =>
+      checked
+        ? [...new Set([...current, id])]
+        : current.filter((courseId) => courseId !== id)
+    );
+  }
+
+  const bundleOptions = bundleChoices.filter(
+    (course) => course.id !== initial?.id
+  );
+  const bundleCheckedChoices = bundleOptions.filter((course) =>
+    bundleCourseIds.includes(course.id)
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,6 +153,7 @@ export function CourseForm({ initial }: CourseFormData) {
         enrollmentMode,
         accessInstructions: accessInstructions || undefined,
       },
+      bundleCourseIds,
     };
 
     setSaving(true);
@@ -393,6 +423,74 @@ export function CourseForm({ initial }: CourseFormData) {
             />
           </div>
         </div>
+      </section>
+
+      <section className="rounded-[16px] border border-neutral-300 bg-white p-6">
+        <h2 className="text-lg font-bold text-neutral-950">Relational bundle</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Tick the courses you want to give away as a bonus. When a customer
+          pays for this course they are automatically enrolled into every
+          course selected here — at no extra cost. They will see these listed
+          as bonus courses on the course page and in their confirmation email.
+          The bonus courses are never counted as a separate purchase.
+        </p>
+        {bundleCheckedChoices.length === 0 ? (
+          <p className="mt-4 text-sm text-neutral-400">
+            No courses selected. Buyers only get this course.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {bundleCheckedChoices.map((choice) => (
+              <li key={choice.id} className="text-sm text-neutral-700">
+                {choice.title}
+              </li>
+            ))}
+          </ul>
+        )}
+        <fieldset className="mt-5">
+          <legend className="sr-only">Bonus courses to include in this bundle</legend>
+          <div className="max-h-72 space-y-2 overflow-y-auto rounded-[12px] border border-neutral-200 p-3">
+            {bundleOptions.length === 0 ? (
+              <p className="px-1 py-2 text-sm text-neutral-400">
+                No other courses available to bundle yet.
+              </p>
+            ) : (
+              bundleOptions.map((course) => {
+                const checked = bundleCourseIds.includes(course.id);
+                return (
+                  <label
+                    key={course.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-[10px] border border-neutral-200 bg-neutral-50 px-3 py-2.5 transition-colors hover:bg-neutral-100"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => toggleBundleCourse(course.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-300 text-terracotta-600 focus:ring-terracotta-600"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-neutral-950">
+                        {course.title}
+                      </span>
+                      <span className="block truncate text-xs text-neutral-400">
+                        /{course.slug}
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        course.status === "PUBLISHED"
+                          ? "bg-success-100 text-success-600"
+                          : "bg-warning-100 text-warning-600"
+                      }`}
+                    >
+                      {course.status === "PUBLISHED" ? "Published" : "Draft"}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </fieldset>
       </section>
 
       {error ? (
