@@ -300,7 +300,7 @@ describe("processCourseEnrollment with relational bundles", () => {
     expect(enrollStates.get("PROD2")).toBeUndefined();
   });
 
-  it("skips bundle courses no longer in the catalog", async () => {
+  it("flags a bonus course that can no longer be resolved in the catalog as action required", async () => {
     mockProductFind.mockImplementation(() => chain([]) as never);
 
     await processCourseEnrollment(makeOrder() as never);
@@ -310,6 +310,40 @@ describe("processCourseEnrollment with relational bundles", () => {
       courseId: "CRS_PARENT",
       studentEmail: "buyer@example.com",
     });
+
+    const bonusRecord = enrollStates.get("PROD2");
+    expect(bonusRecord?.status).toBe("ACTION_REQUIRED");
+    expect(bonusRecord?.lastError).toBe("BONUS_COURSE_UNAVAILABLE");
+
+    const actionEmail = mockSendTemplateEmail.mock.calls.some(
+      ([input]) =>
+        input.templateKey === "course_access_action_required" &&
+        input.variables.courseTitle === "Bonus course"
+    );
+    expect(actionEmail).toBe(true);
+  });
+
+  it("treats an already-enrolled student response as a successful enrollment", async () => {
+    mockEnrollStudent.mockResolvedValue({
+      studentId: null,
+      alreadyEnrolled: true,
+      errorCategory: "ALREADY_ENROLLED",
+      providerResponse: null,
+    });
+
+    await processCourseEnrollment(makeOrder() as never);
+
+    const bonusRecord = enrollStates.get("PROD2");
+    expect(bonusRecord?.status).toBe("FULFILLED");
+    expect(bonusRecord?.metadata.courseId).toBe("CRS_BONUS");
+
+    const parentRecord = enrollStates.get("PROD1");
+    expect(parentRecord?.status).toBe("FULFILLED");
+
+    const accessEmails = mockSendTemplateEmail.mock.calls.filter(
+      ([input]) => input.templateKey === "course_access_fulfilled"
+    );
+    expect(accessEmails).toHaveLength(2);
   });
 
   it("flags a bonus course as needing action when its classroom is not configured", async () => {

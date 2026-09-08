@@ -117,14 +117,29 @@ export async function dispatchFulfillmentRetries(): Promise<FulfillmentDispatchR
 
   const throttleCutoff = new Date(Date.now() - RETRY_THROTTLE_MS);
 
+  // Orders with fulfillment/booking rows that never reached a terminal state.
+  // Without this the silent PENDING rows (e.g. bonus enrollments the async
+  // worker was frozen before finishing) would only self-heal via a manual
+  // admin retry.
+  const stuckOrderIds = [
+    ...(await Fulfillment.distinct("orderId", {
+      status: { $in: ["PENDING", "RETRY_PENDING"] },
+    })),
+    ...(await Booking.distinct("orderId", {
+      dismissedAt: null,
+      status: { $in: ["PENDING", "PROCESSING"] },
+    })),
+  ];
+
   const orders = await Order.find({
     status: "PAID",
     $or: [
       { "metadata.confirmationEmailSentAt": { $exists: false } },
       { "metadata.lastFulfillmentRetryAt": { $exists: false } },
       { "metadata.lastFulfillmentRetryAt": { $lt: throttleCutoff } },
+      { _id: { $in: stuckOrderIds } },
     ],
-  })
+  } as unknown as Parameters<typeof Order.find>[0])
     .sort({ paidAt: -1 })
     .limit(50)
     .lean<LeanDoc<OrderDoc>[]>()

@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import { USER_ROLES, type UserDoc } from "@/types/user";
 
@@ -29,7 +29,11 @@ const UserSchema = new Schema<UserDoc>(
   { timestamps: true }
 );
 
-export const User: Model<UserDoc> =
-  (models.User as Model<UserDoc>) || model<UserDoc>("User", UserSchema);
+export const User: Model<UserDoc> = model<UserDoc>(
+  "User",
+  UserSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default User;

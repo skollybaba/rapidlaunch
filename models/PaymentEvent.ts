@@ -1,4 +1,4 @@
-import { Schema, models, model, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import {
   PAYMENT_EVENT_PROCESSING_STATUSES,
@@ -30,8 +30,11 @@ PaymentEventSchema.index(
   { unique: true }
 );
 
-export const PaymentEvent: Model<PaymentEventDoc> =
-  (models.PaymentEvent as Model<PaymentEventDoc>) ||
-  model<PaymentEventDoc>("PaymentEvent", PaymentEventSchema);
+export const PaymentEvent: Model<PaymentEventDoc> = model<PaymentEventDoc>(
+  "PaymentEvent",
+  PaymentEventSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default PaymentEvent;

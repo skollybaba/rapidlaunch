@@ -1,4 +1,4 @@
-import { Schema, models, model, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import { ORDER_STATUSES, type OrderDoc, type OrderItemDoc } from "@/types/order";
 import { PRODUCT_TYPES } from "@/types/product";
@@ -59,7 +59,11 @@ const OrderSchema = new Schema<OrderDoc>(
 OrderSchema.index({ customerEmail: 1, createdAt: -1 });
 OrderSchema.index({ status: 1, createdAt: -1 });
 
-export const Order: Model<OrderDoc> =
-  (models.Order as Model<OrderDoc>) || model<OrderDoc>("Order", OrderSchema);
+export const Order: Model<OrderDoc> = model<OrderDoc>(
+  "Order",
+  OrderSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default Order;

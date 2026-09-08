@@ -16,6 +16,7 @@ function statusTone(status: string): BadgeTone {
     case "CONFIRMED":
       return "success";
     case "PENDING":
+    case "PROCESSING":
       return "pending";
     case "ACTION_REQUIRED":
       return "info";

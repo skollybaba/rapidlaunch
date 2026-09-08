@@ -9,11 +9,11 @@ vi.mock("@/models/Order", () => ({
 }));
 
 vi.mock("@/models/Booking", () => ({
-  Booking: { findOne: vi.fn() },
+  Booking: { findOne: vi.fn(), distinct: vi.fn() },
 }));
 
 vi.mock("@/models/Fulfillment", () => ({
-  Fulfillment: { findOne: vi.fn(), updateOne: vi.fn() },
+  Fulfillment: { findOne: vi.fn(), updateOne: vi.fn(), distinct: vi.fn() },
 }));
 
 vi.mock("@/lib/services/order-service", async (importOriginal) => {
@@ -76,6 +76,8 @@ function lean(value: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(Fulfillment.distinct).mockResolvedValue([]);
+  vi.mocked(Booking.distinct).mockResolvedValue([]);
   vi.mocked(Booking.findOne).mockReturnValue(
     lean({ _id: "BOOK1", orderId: "ORD1", status: "CONFIRMED" })
   );

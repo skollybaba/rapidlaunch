@@ -22,6 +22,7 @@ export default defineConfig({
       GOOGLE_CLIENT_ID: "unit-client-id",
       GOOGLE_CLIENT_SECRET: "unit-client-secret",
       GOOGLE_REFRESH_TOKEN: "unit-refresh-token",
+      GOOGLE_CALENDAR_OWNER_EMAIL: "owner@example.com",
     },
   },
 });

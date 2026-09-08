@@ -1,4 +1,4 @@
-import { Schema, models, model, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import {
   FULFILLMENT_STATUSES,
@@ -37,8 +37,11 @@ const FulfillmentSchema = new Schema<FulfillmentDoc>(
 FulfillmentSchema.index({ orderId: 1, type: 1, orderItemId: 1 });
 FulfillmentSchema.index({ status: 1, createdAt: 1 });
 
-export const Fulfillment: Model<FulfillmentDoc> =
-  (models.Fulfillment as Model<FulfillmentDoc>) ||
-  model<FulfillmentDoc>("Fulfillment", FulfillmentSchema);
+export const Fulfillment: Model<FulfillmentDoc> = model<FulfillmentDoc>(
+  "Fulfillment",
+  FulfillmentSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default Fulfillment;

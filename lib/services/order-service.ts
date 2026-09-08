@@ -516,7 +516,8 @@ export async function verifyCheckoutPayment(
 
 async function settleVerifiedPayment(
   payment: LeanDoc<PaymentDoc>,
-  verified: VerifyTransactionResult | null
+  verified: VerifyTransactionResult | null,
+  opts: { awaitFulfillment?: boolean } = {}
 ): Promise<OrderPublicSummary & { paymentStatus: string; discrepancy: boolean }> {
   const order = await Order.findById(payment.orderId).lean().exec();
 
@@ -607,14 +608,21 @@ async function settleVerifiedPayment(
 
   // Return PAID to the client immediately; run fulfillment side effects
   // (course enrollment, calendar booking, emails) in the background so the
-  // confirmation page does not block on slow external providers.
-  processFulfillmentAsync(order).catch((error) => {
-    console.error(
-      "Async fulfillment failed for order",
-      order.orderReference,
-      { error }
-    );
-  });
+  // confirmation page does not block on slow external providers. The webhook
+  // background step awaits the full chain so it completes inside the
+  // invocation (`after()` keeps it alive) and the confirmation email is
+  // reliably sent rather than relying on a later sweep.
+  if (opts.awaitFulfillment) {
+    await processFulfillmentAsync(order);
+  } else {
+    processFulfillmentAsync(order).catch((error) => {
+      console.error(
+        "Async fulfillment failed for order",
+        order.orderReference,
+        { error }
+      );
+    });
+  }
 
   return {
     id: String(order._id),
@@ -688,7 +696,11 @@ async function createFulfillmentIfMissing(
         fulfilledAt: null,
       },
     },
-    { upsert: true, setDefaultsOnInsert: true }
+    {
+      upsert: true,
+      setDefaultsOnInsert: true,
+      returnDocument: "after",
+    }
   ).exec();
 }
 
@@ -723,6 +735,8 @@ interface EnrollmentTarget {
   classroomCourseId?: string;
   courseJoinUrl?: string;
   isBonus: boolean;
+  /** The bonus product no longer resolves in the catalog. */
+  missingProduct?: boolean;
 }
 
 async function enrollmentTargetsForOrder(
@@ -755,9 +769,24 @@ async function enrollmentTargetsForOrder(
     .lean()
     .exec();
 
+  const byId = new Map<string, (typeof docs)[number]>();
   for (const doc of docs) {
+    byId.set(String(doc._id), doc);
+  }
+
+  for (const id of bundleIds) {
+    const doc = byId.get(id);
+    if (!doc) {
+      targets.push({
+        productId: id,
+        courseTitle: "Bonus course",
+        isBonus: true,
+        missingProduct: true,
+      });
+      continue;
+    }
     targets.push({
-      productId: String(doc._id),
+      productId: id,
       courseTitle: doc.title,
       classroomCourseId: doc.courseDetails?.classroomCourseId,
       courseJoinUrl: doc.courseDetails?.courseJoinUrl,
@@ -800,7 +829,9 @@ async function enrollInCourseTarget(
   if (!target.classroomCourseId) {
     await markCourseEnrollmentFailed(
       order,
-      "CLASSROOM_COURSE_NOT_CONFIGURED",
+      target.missingProduct
+        ? "BONUS_COURSE_UNAVAILABLE"
+        : "CLASSROOM_COURSE_NOT_CONFIGURED",
       enrollment,
       target.courseTitle
     );
@@ -872,7 +903,9 @@ async function enrollInCourseTarget(
     studentEmail: order.customerEmail!,
   });
 
-  if (!result.errorCategory) {
+  // "Already enrolled" is the satisfied state: the student already has access,
+  // so treat it as a successful fulfillment instead of flagging it for action.
+  if (!result.errorCategory || result.errorCategory === "ALREADY_ENROLLED") {
     const loaded = result.providerResponse ?? undefined;
     const name =
       (loaded && typeof loaded === "object"
@@ -1007,6 +1040,12 @@ async function sendCourseAccessEmail(
 }
 
 
+// A booking left in PROCESSING (e.g. the serverless runtime was frozen between
+// creating the calendar event and persisting CONFIRMED) becomes claimable again
+// after this window, so the sweeper or admin retry can recover it without
+// racing an in-flight worker.
+const STALE_BOOKING_CLAIM_MS = 120_000;
+
 export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   if (order.metadata?.productType !== "CONSULTATION") return;
 
@@ -1017,9 +1056,9 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
     .lean()
     .exec();
   if (!booking) return;
-  // A booking is actionable when not yet confirmed; the 3-min retry sweeper
-  // and the admin "Confirm session" action both rely on this to recover
-  // FAILED / ACTION_REQUIRED bookings once a time is selected.
+  // A booking is actionable when not yet confirmed; the retry sweeper and the
+  // admin "Confirm session" action both rely on this to recover FAILED /
+  // ACTION_REQUIRED / stale PROCESSING bookings once a time is selected.
   if (booking.status === "CONFIRMED" || booking.status === "CANCELLED") return;
 
   if (!booking.requestedStartTime) {
@@ -1048,19 +1087,23 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
       }
     );
     const adapter = createMailAdapter();
-    try {
-      await adapter.sendTemplateEmail({
-        templateKey: "booking_request_received",
-        to: booking.customerEmail,
-        variables: {
-          customerName: booking.customerName ?? "",
-          itemTitle: order.items[0]?.titleSnapshot ?? "your session",
-          bookingUrl: booking.schedulingUrl ?? `${env.NEXT_PUBLIC_APP_URL}/account/bookings`,
-          schedulingUrl: booking.schedulingUrl ?? "",
-        },
-      });
-    } catch {
-      // Best effort — don't fail the settlement for a missed email.
+    // Only nudge the customer the first time we notice the missing time; the
+    // sweeper retries this branch frequently and must not spam the same email.
+    if (booking.attempts === 0) {
+      try {
+        await adapter.sendTemplateEmail({
+          templateKey: "booking_request_received",
+          to: booking.customerEmail,
+          variables: {
+            customerName: booking.customerName ?? "",
+            itemTitle: order.items[0]?.titleSnapshot ?? "your session",
+            bookingUrl: booking.schedulingUrl ?? `${env.NEXT_PUBLIC_APP_URL}/account/bookings`,
+            schedulingUrl: booking.schedulingUrl ?? "",
+          },
+        });
+      } catch {
+        // Best effort — don't fail the settlement for a missed email.
+      }
     }
     return;
   }
@@ -1087,8 +1130,79 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
 
   const durationMinutes =
     (order.metadata?.productDurationMinutes as number | undefined) ?? 90;
-  const timezone = booking.timezone ?? "Africa/Lagos";
-  const startTime = new Date(booking.requestedStartTime);
+
+  // If a calendar event was already created for this session (e.g. the first
+  // attempt created it but was frozen before persisting CONFIRMED), reuse the
+  // existing event instead of creating a duplicate Google Meet link + invite.
+  if (
+    booking.meetingUrl ||
+    booking.providerEventUri ||
+    booking.providerBookingUri
+  ) {
+    const scheduledStartTime =
+      booking.scheduledStartTime ?? new Date(booking.requestedStartTime);
+    const scheduledEndTime =
+      booking.scheduledEndTime ??
+      new Date(scheduledStartTime.getTime() + durationMinutes * 60_000);
+    await Booking.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          status: "CONFIRMED",
+          scheduledStartTime,
+          scheduledEndTime,
+          attempts: booking.attempts + 1,
+          bookedAt: booking.bookedAt ?? new Date(),
+          lastError: null,
+        },
+      }
+    );
+    await Fulfillment.findOneAndUpdate(
+      { orderId: order._id, type: "BOOKING" },
+      {
+        $set: {
+          status: "FULFILLED",
+          fulfilledAt: new Date(),
+          lastError: null,
+          attempts: 1,
+          metadata: {
+            meetingUrl: booking.meetingUrl ?? "",
+            calendarEventId: booking.providerEventUri ?? "",
+            calendarEventLink: booking.providerBookingUri ?? "",
+            scheduledStartTime: new Date(scheduledStartTime).toISOString(),
+            scheduledEndTime: new Date(scheduledEndTime).toISOString(),
+          },
+        },
+      }
+    );
+    return;
+  }
+
+  // Atomically claim this booking so concurrent runners (webhook background +
+  // browser callback + sweeper) cannot each create their own Meet event. Only
+  // one runner wins the claim; stale PROCESSING claims are reclaimable.
+  const staleCutoff = new Date(Date.now() - STALE_BOOKING_CLAIM_MS);
+  const claimed = await Booking.findOneAndUpdate(
+    {
+      _id: booking._id,
+      $or: [
+        {
+          status: {
+            $in: ["PENDING", "FAILED", "ACTION_REQUIRED", "RETRY_PENDING"],
+          },
+        },
+        { status: "PROCESSING", updatedAt: { $lt: staleCutoff } },
+      ],
+    } as unknown as Parameters<typeof Booking.findOneAndUpdate>[0],
+    { $set: { status: "PROCESSING" } },
+    { returnDocument: "after" }
+  )
+    .lean()
+    .exec();
+  if (!claimed) return;
+
+  const timezone = claimed.timezone ?? "Africa/Lagos";
+  const startTime = new Date(claimed.requestedStartTime as Date);
   const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
 
   const adapter = createGoogleCalendarAdapter({
@@ -1103,14 +1217,14 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
   });
 
   const description = [
-    booking.answers?.whatYouAreBuilding
-      ? `Building: ${booking.answers.whatYouAreBuilding}`
+    claimed.answers?.whatYouAreBuilding
+      ? `Building: ${claimed.answers.whatYouAreBuilding}`
       : null,
-    booking.answers?.currentStage
-      ? `Stage: ${booking.answers.currentStage}`
+    claimed.answers?.currentStage
+      ? `Stage: ${claimed.answers.currentStage}`
       : null,
-    booking.answers?.helpNeeded
-      ? `Help needed: ${booking.answers.helpNeeded}`
+    claimed.answers?.helpNeeded
+      ? `Help needed: ${claimed.answers.helpNeeded}`
       : null,
   ]
     .filter((line): line is string => Boolean(line))
@@ -1125,12 +1239,12 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       timezone,
-      attendeeEmail: booking.customerEmail,
-      attendeeName: booking.customerName,
+      attendeeEmail: claimed.customerEmail,
+      attendeeName: claimed.customerName,
     });
 
     await Booking.updateOne(
-      { _id: booking._id },
+      { _id: claimed._id },
       {
         $set: {
           status: "CONFIRMED",
@@ -1139,7 +1253,7 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
           meetingUrl: event.hangoutLink ?? "",
           scheduledStartTime: new Date(event.startTime),
           scheduledEndTime: new Date(event.endTime),
-          attempts: booking.attempts + 1,
+          attempts: claimed.attempts + 1,
           bookedAt: new Date(),
           lastError: null,
         },
@@ -1172,12 +1286,12 @@ export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
       error,
     });
     await Booking.updateOne(
-      { _id: booking._id },
+      { _id: claimed._id },
       {
         $set: {
           status: "FAILED",
           lastError: message,
-          attempts: booking.attempts + 1,
+          attempts: claimed.attempts + 1,
         },
       }
     );
@@ -1426,14 +1540,18 @@ export async function processPaystackWebhookEvent(
           .exec();
 
         if (payment) {
-          await settleVerifiedPayment(payment, {
-            status: "success",
-            paid: true,
-            amountMinor: charge.data.amount,
-            currency: charge.data.currency,
-            reference: charge.data.reference,
-            raw: data,
-          });
+          await settleVerifiedPayment(
+            payment,
+            {
+              status: "success",
+              paid: true,
+              amountMinor: charge.data.amount,
+              currency: charge.data.currency,
+              reference: charge.data.reference,
+              raw: data,
+            },
+            { awaitFulfillment: true }
+          );
         }
       }
       await PaymentEvent.updateOne(

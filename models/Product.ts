@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import type { ProductCourseDetails, ProductDoc } from "@/types/product";
 
@@ -112,8 +112,11 @@ const ProductSchema = new Schema<ProductDoc>(
 
 ProductSchema.index({ status: 1, type: 1, sortOrder: 1, title: 1 });
 
-export const Product: Model<ProductDoc> =
-  (models.Product as Model<ProductDoc>) ||
-  model<ProductDoc>("Product", ProductSchema);
+export const Product: Model<ProductDoc> = model<ProductDoc>(
+  "Product",
+  ProductSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default Product;

@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import { RESOURCE_TYPES, type ResourceDoc, type ResourceType, type ResourceStatus } from "@/types/resource";
 
@@ -18,8 +18,11 @@ const ResourceSchema = new Schema<ResourceDoc>(
 
 ResourceSchema.index({ published: 1, createdAt: -1 });
 
-export const Resource: Model<ResourceDoc> =
-  (models.Resource as Model<ResourceDoc>) ||
-  model<ResourceDoc>("Resource", ResourceSchema);
+export const Resource: Model<ResourceDoc> = model<ResourceDoc>(
+  "Resource",
+  ResourceSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export type { ResourceType, ResourceStatus };

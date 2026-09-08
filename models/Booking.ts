@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import {
   BOOKING_PROVIDERS,
@@ -72,8 +72,11 @@ const BookingSchema = new Schema<BookingDoc>(
 BookingSchema.index({ orderId: 1 }, { unique: true });
 BookingSchema.index({ status: 1, createdAt: 1 });
 
-export const Booking: Model<BookingDoc> =
-  (models.Booking as Model<BookingDoc>) ||
-  model<BookingDoc>("Booking", BookingSchema);
+export const Booking: Model<BookingDoc> = model<BookingDoc>(
+  "Booking",
+  BookingSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default Booking;

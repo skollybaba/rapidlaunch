@@ -28,11 +28,13 @@ export default async function AdminEditCoursePage({
 
   const choices = await getCourseBundleChoices();
 
+  const { _id, ...rest } = course;
+
   const initial = {
-    ...course,
-    id: String(course._id),
-    courseDetails: course.courseDetails ?? null,
-    bundleCourseIds: (course.bundleCourseIds ?? []).map((bundleId) =>
+    ...rest,
+    id: String(_id),
+    courseDetails: rest.courseDetails ?? null,
+    bundleCourseIds: (rest.bundleCourseIds ?? []).map((bundleId) =>
       String(bundleId)
     ),
   };

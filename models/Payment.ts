@@ -1,4 +1,4 @@
-import { Schema, models, model, type Model } from "mongoose";
+import { Schema, model, type Model } from "mongoose";
 
 import { PAYMENT_STATUSES, type PaymentDoc } from "@/types/payment";
 
@@ -34,8 +34,11 @@ PaymentSchema.index(
   { unique: true, sparse: true }
 );
 
-export const Payment: Model<PaymentDoc> =
-  (models.Payment as Model<PaymentDoc>) ||
-  model<PaymentDoc>("Payment", PaymentSchema);
+export const Payment: Model<PaymentDoc> = model<PaymentDoc>(
+  "Payment",
+  PaymentSchema,
+  undefined,
+  { overwriteModels: true }
+);
 
 export default Payment;
