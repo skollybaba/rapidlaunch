@@ -233,48 +233,67 @@ export default function HomePage() {
           className="animate-drift absolute inset-0 bg-[radial-gradient(90%_70%_at_18%_8%,var(--color-ink-700)_0%,var(--color-ink-900)_48%,var(--color-ink-950)_100%)]"
         />
         <div className="relative mx-auto flex w-[98%] flex-1 -translate-y-4 flex-col justify-center px-6 py-20 md:w-[min(83%,96rem)] lg:-translate-y-8 lg:px-8 lg:py-28">
-          <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-            <Reveal>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
-                For founders &amp; product managers
-              </p>
-              <h1 className="mt-4 text-[42px] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
-                Launch and test your ideas faster.
-              </h1>
-              <p className="mx-auto mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
-                Stop debating and start validating. Get the clarity you need
-                to build with AI and ship a product a team can keep
-                writing into tomorrow. One session, not a whole build cycle.
-              </p>
-              <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                <Link
-                  href="/book"
-                  className={buttonStyles({
-                    variant: "primary",
-                    theme: "dark",
-                    size: "lg",
-                  })}
-                >
-                  Book a clarity session
-                  <CalendarClock aria-hidden="true" className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/resources"
-                  className={buttonStyles({
-                    variant: "secondary",
-                    theme: "dark",
-                    size: "lg",
-                  })}
-                >
-                  <Play aria-hidden="true" className="h-4 w-4" />
-                  Watch the latest video
-                </Link>
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1fr_520px]">
+            <div className="max-w-2xl">
+              <Reveal>
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
+                  For founders &amp; product managers
+                </p>
+                <h1 className="mt-4 text-[42px] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
+                  Launch and test your ideas faster.
+                </h1>
+                <p className="mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
+                  Stop debating and start validating. Get the clarity you need
+                  to build with AI and ship a product a team can keep
+                  writing into tomorrow. One session, not a whole build cycle.
+                </p>
+                <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                  <Link
+                    href="/book"
+                    className={buttonStyles({
+                      variant: "primary",
+                      theme: "dark",
+                      size: "lg",
+                    })}
+                  >
+                    Book a clarity session
+                    <CalendarClock aria-hidden="true" className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="/resources"
+                    className={buttonStyles({
+                      variant: "secondary",
+                      theme: "dark",
+                      size: "lg",
+                    })}
+                  >
+                    <Play aria-hidden="true" className="h-4 w-4" />
+                    Watch the latest video
+                  </Link>
+                </div>
+              </Reveal>
+            </div>
+
+            <Reveal delay={160} className="hidden self-center lg:block">
+              <div className="translate-y-10 animate-artwork-in rounded-md border border-white/10 bg-ink-900/70 p-3 shadow-2xl shadow-ink-950/50">
+                <VibecodingIllustration className="h-[21rem] w-full rounded-sm" />
+                <div className="mt-3 flex items-center justify-between px-1">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-lavender-200">
+                    Idea → working screen
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-success-600" />
+                    <span className="text-[10px] font-semibold text-lavender-200">
+                      verified
+                    </span>
+                  </span>
+                </div>
               </div>
             </Reveal>
           </div>
 
           <Reveal delay={200}>
-            <dl className="mx-auto mt-16 grid max-w-3xl grid-cols-1 gap-6 border-t border-white/10 pt-8 text-center sm:grid-cols-3">
+            <dl className="mt-16 grid max-w-3xl grid-cols-1 gap-6 border-t border-white/10 pt-8 sm:grid-cols-3">
               {STATS.map((stat) => (
                 <div key={stat.label}>
                   <dd className="font-sans text-2xl font-bold text-white">
