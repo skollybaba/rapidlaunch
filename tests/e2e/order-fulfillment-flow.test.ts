@@ -55,6 +55,7 @@ vi.mock("@/lib/services/whatsapp-service", () => ({
 }));
 
 import { dbConnect } from "@/lib/db";
+import mongoose from "mongoose";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
@@ -76,6 +77,13 @@ let mongoAvailable = true;
 
 try {
   await dbConnect();
+  if (mongoose.connection.db?.databaseName !== "quicklaunch_test") {
+    console.error(
+      `[e2e] REFUSING TO RUN: expected isolation database "quicklaunch_test" ` +
+        `but connected to "${mongoose.connection.db?.databaseName}".`
+    );
+    mongoAvailable = false;
+  }
 } catch {
   mongoAvailable = false;
 }
