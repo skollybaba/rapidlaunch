@@ -390,10 +390,18 @@ export class SmtpMailAdapter implements MailAdapter {
         providerMessageId: info.messageId ?? null,
         sentAt: new Date(),
       };
-    } catch {
+    } catch (error) {
+      const detail =
+        error && typeof error === "object" && "responseCode" in error
+          ? ` (${(error as { responseCode: unknown }).responseCode}) ${
+              "response" in error
+                ? String((error as { response: unknown }).response)
+                : ""
+            }`
+          : "";
       throw new MailProviderError(
         "SMTP_SEND_FAILED",
-        "Could not send email",
+        `Could not send email${detail}`,
         true
       );
     }

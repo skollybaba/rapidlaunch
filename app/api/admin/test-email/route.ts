@@ -29,7 +29,10 @@ export async function POST() {
       return apiError(
         502,
         "MAIL_SEND_FAILED",
-        `Could not send the test email (${error.code}). Check the SMTP credentials and network access.`,
+        `Could not send the test email (${error.code}).${error.message.replace(
+          "Could not send email",
+          ""
+        )}`,
         requestId
       );
     }
