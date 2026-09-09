@@ -26,6 +26,8 @@ const SCOPES = [
 ];
 
 async function main() {
+  const args = process.argv.slice(2);
+  const urlOnly = args.includes("--url-only");
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri =
@@ -48,13 +50,20 @@ async function main() {
     redirect_uri: redirectUri,
   });
 
+  console.log("\nOpen this URL and approve access:\n\n" + url + "\n");
+  if (urlOnly) {
+    console.log(
+      "After approving, copy the `code` query parameter from the redirect URL and share it here."
+    );
+    return;
+  }
+
   console.log("Scopes requested:");
   for (const scope of SCOPES) console.log("  -", scope);
   console.log(
     "IMPORTANT: make sure this redirect URI is registered as an Authorized\n" +
       `redirect URI in Google Cloud: ${redirectUri}\n`
   );
-  console.log("\nOpen this URL and approve access:\n\n" + url + "\n");
 
   const code = await new Promise<string>((resolve) => {
     const readline = createInterface({
