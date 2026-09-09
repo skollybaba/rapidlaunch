@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { TestEmailButton } from "@/components/admin/test-email-button";
 import { TrendChart } from "@/components/admin/trend-chart";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { requireAdmin } from "@/lib/auth/admin";
@@ -173,28 +174,31 @@ export default async function AdminDashboardPage({
           </p>
         </div>
 
-        <div
-          role="group"
-          aria-label="Time period"
-          className="flex rounded-pill border border-neutral-300 bg-white p-1"
-        >
-          {PERIOD_OPTIONS.map((option) => {
-            const active = option.value === snapshot.period;
-            return (
-              <Link
-                key={option.value}
-                href={`/admin/dashboard?period=${option.value}`}
-                aria-current={active ? "page" : undefined}
-                className={`rounded-pill px-4 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
-                  active
-                    ? "bg-ink-900 text-white"
-                    : "text-neutral-500 hover:text-neutral-950"
-                }`}
-              >
-                {option.label}
-              </Link>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2">
+          <TestEmailButton />
+          <div
+            role="group"
+            aria-label="Time period"
+            className="flex rounded-pill border border-neutral-300 bg-white p-1"
+          >
+            {PERIOD_OPTIONS.map((option) => {
+              const active = option.value === snapshot.period;
+              return (
+                <Link
+                  key={option.value}
+                  href={`/admin/dashboard?period=${option.value}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-pill px-4 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
+                    active
+                      ? "bg-ink-900 text-white"
+                      : "text-neutral-500 hover:text-neutral-950"
+                  }`}
+                >
+                  {option.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 
