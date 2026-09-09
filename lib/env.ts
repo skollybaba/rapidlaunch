@@ -56,6 +56,9 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string().email().optional()
   ),
+  MAIL_TRANSPORT: z
+    .enum(["smtp", "gmail_api", "auto"])
+    .optional(),
   REMINDER_CRON_SECRET: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),

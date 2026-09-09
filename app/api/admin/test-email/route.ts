@@ -22,7 +22,15 @@ export async function POST() {
         return apiError(
           502,
           "MAIL_SEND_FAILED",
-          "SMTP is not configured on this server. Set GOOGLE_SMTP_USER and GOOGLE_SMTP_PASSWORD in the environment.",
+          "SMTP is not configured on this server. Set GOOGLE_SMTP_USER and GOOGLE_SMTP_PASSWORD, or set MAIL_TRANSPORT=gmail_api to send via the Gmail API.",
+          requestId
+        );
+      }
+      if (error.code === "MAIL_NOT_CONFIGURED") {
+        return apiError(
+          502,
+          "MAIL_SEND_FAILED",
+          "No sender address is configured. Set MAIL_FROM_EMAIL in the environment.",
           requestId
         );
       }

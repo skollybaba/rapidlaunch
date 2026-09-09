@@ -1,6 +1,7 @@
 import "server-only";
 
 import nodemailer, { type Transporter } from "nodemailer";
+import { google } from "googleapis";
 
 export type EmailTemplateKey =
   | "welcome"
@@ -429,7 +430,187 @@ export class SmtpMailAdapter implements MailAdapter {
   }
 }
 
+export interface GmailApiMailAdapterConfig {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  fromName: string;
+  fromEmail?: string;
+}
+
+function encodeSubject(subject: string): string {
+  if (/^[\x20-\x7E]*$/.test(subject)) return subject;
+  return `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`;
+}
+
+function buildRawMessage(
+  input: SendEmailInput,
+  from: string,
+  fromName: string
+): string {
+  const boundary = `_rl_${Date.now().toString(16)}_boundary`;
+  const safeName = fromName.replace(/["\\]/g, "");
+  const headers = [
+    `From: ${safeName ? `"${safeName}" <${from}>` : from}`,
+    `To: ${input.to}`,
+    `Subject: ${encodeSubject(input.subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ...(input.replyTo ? [`Reply-To: ${input.replyTo}`] : []),
+  ].join("\r\n");
+  const body = [
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "",
+    input.text ?? "",
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "",
+    input.html ?? "",
+    `--${boundary}--`,
+  ].join("\r\n");
+  return Buffer.from(headers + "\r\n\r\n" + body, "utf8").toString("base64url");
+}
+
+function googleApiErrorDetail(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const code =
+    "code" in error && typeof (error as { code: unknown }).code === "number"
+      ? String((error as { code: number }).code)
+      : "";
+  let message = "";
+  if ("response" in error) {
+    const response = (error as { response: unknown }).response;
+    const data =
+      response &&
+      typeof response === "object" &&
+      "data" in response
+        ? (response as { data: unknown }).data
+        : null;
+    const errorInfo =
+      data && typeof data === "object" && "error" in data
+        ? (data as { error: unknown }).error
+        : null;
+    if (
+      errorInfo &&
+      typeof errorInfo === "object" &&
+      "message" in errorInfo
+    ) {
+      message = String(
+        (errorInfo as { message?: unknown }).message ?? ""
+      );
+    }
+  }
+  return [code, message].filter(Boolean).join(" ");
+}
+
+export class GmailApiMailAdapter implements MailAdapter {
+  private resolvedSender?: { address: string; name: string };
+
+  constructor(private readonly config: GmailApiMailAdapterConfig) {}
+
+  private gmail() {
+    const oauth = new google.auth.OAuth2(
+      this.config.clientId,
+      this.config.clientSecret
+    );
+    oauth.setCredentials({ refresh_token: this.config.refreshToken });
+    return google.gmail({ version: "v1", auth: oauth });
+  }
+
+  private async resolveSender(): Promise<{ address: string; name: string }> {
+    if (this.resolvedSender) return this.resolvedSender;
+    if (this.config.fromEmail) {
+      this.resolvedSender = {
+        address: this.config.fromEmail,
+        name: this.config.fromName,
+      };
+      return this.resolvedSender;
+    }
+    const profile = await this.gmail().users.getProfile({ userId: "me" });
+    this.resolvedSender = {
+      address: profile.data.emailAddress ?? "",
+      name: this.config.fromName,
+    };
+    return this.resolvedSender;
+  }
+
+  async sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+    const sender = await this.resolveSender();
+    if (!sender.address) {
+      throw new MailProviderError(
+        "MAIL_NOT_CONFIGURED",
+        "No sender email is configured",
+        false
+      );
+    }
+    try {
+      const raw = buildRawMessage(input, sender.address, sender.name);
+      const response = await this.gmail().users.messages.send({
+        userId: "me",
+        requestBody: { raw },
+      });
+      return {
+        providerMessageId: response.data.id ?? null,
+        sentAt: new Date(),
+      };
+    } catch (error) {
+      const detail = googleApiErrorDetail(error);
+      throw new MailProviderError(
+        "GMAIL_SEND_FAILED",
+        `Could not send email${detail ? ` (${detail})` : ""}`,
+        true
+      );
+    }
+  }
+
+  async sendTemplateEmail(
+    input: SendTemplateEmailInput
+  ): Promise<SendEmailResult> {
+    const template = buildTemplate(input.templateKey, input.variables);
+    return this.sendEmail({
+      to: input.to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendTestEmail(): Promise<void> {
+    const sender = await this.resolveSender();
+    await this.sendEmail({
+      to: sender.address,
+      subject: "Rapid Launch test email",
+      html: "<p>This is a test email from Rapid Launch.</p>",
+      text: "This is a test email from Rapid Launch.",
+    });
+  }
+}
+
 export function createMailAdapter(config?: MailAdapterConfig): MailAdapter {
+  const transport = (process.env.MAIL_TRANSPORT || "auto").toLowerCase();
+  const hasSmtp = Boolean(
+    process.env.GOOGLE_SMTP_USER && process.env.GOOGLE_SMTP_PASSWORD
+  );
+  const hasGmailOAuth = Boolean(
+    process.env.GOOGLE_CLIENT_ID &&
+      process.env.GOOGLE_CLIENT_SECRET &&
+      process.env.GOOGLE_REFRESH_TOKEN
+  );
+
+  if (
+    transport === "gmail_api" ||
+    (transport === "auto" && !hasSmtp && hasGmailOAuth)
+  ) {
+    return new GmailApiMailAdapter({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      refreshToken: process.env.GOOGLE_REFRESH_TOKEN || "",
+      fromName: process.env.MAIL_FROM_NAME || "Rapid Launch",
+      fromEmail: process.env.MAIL_FROM_EMAIL,
+    });
+  }
+
   const cfg: MailAdapterConfig = config ?? {
     host: process.env.GOOGLE_SMTP_HOST || "smtp.gmail.com",
     port: Number(process.env.GOOGLE_SMTP_PORT || 465),
