@@ -35,6 +35,19 @@ const CONFIG = {
   workEnd: "17:00",
 };
 
+function nextMondayFrom(date = new Date()): Date {
+  const start = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+  while (start.getUTCDay() !== 1) start.setUTCDate(start.getUTCDate() + 1);
+  return start;
+}
+
+const TEST_WEEK_START = nextMondayFrom();
+const TEST_DATE = TEST_WEEK_START.toISOString().slice(0, 10);
+const WEEK_START_ISO = TEST_WEEK_START.toISOString();
+const WEEK_END_ISO = new Date(TEST_WEEK_START.getTime() + 86_400_000).toISOString();
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -48,8 +61,8 @@ describe("HttpGoogleCalendarAdapter", () => {
     });
 
     const slots = await adapter.getAvailableSlots({
-      from: "2026-09-07T00:00:00.000Z",
-      to: "2026-09-08T00:00:00.000Z",
+      from: WEEK_START_ISO,
+      to: WEEK_END_ISO,
       durationMinutes: 90,
     });
 
@@ -63,7 +76,7 @@ describe("HttpGoogleCalendarAdapter", () => {
     );
     // 09:00-17:00 local (UTC+1) => 09:00,10:30,12:00,13:30,15:00 => 5 slots.
     expect(slots).toHaveLength(5);
-    expect(slots[0].startTime).toBe("2026-09-07T08:00:00.000Z");
+    expect(slots[0].startTime).toBe(`${TEST_DATE}T08:00:00.000Z`);
   });
 
   it("covers a full 30-day window without truncating at a small slot cap", async () => {
@@ -72,14 +85,14 @@ describe("HttpGoogleCalendarAdapter", () => {
     });
 
     const slots = await adapter.getAvailableSlots({
-      from: "2026-09-07T00:00:00.000Z",
-      to: "2026-10-07T00:00:00.000Z",
+      from: WEEK_START_ISO,
+      to: new Date(TEST_WEEK_START.getTime() + 30 * 86_400_000).toISOString(),
       durationMinutes: 90,
     });
 
     expect(slots.length).toBeGreaterThan(100);
     const last = new Date(slots[slots.length - 1].startTime);
-    const fromDay = new Date("2026-09-07T00:00:00.000Z").getTime();
+    const fromDay = Date.parse(WEEK_START_ISO);
     const spanDays = (last.getTime() - fromDay) / 86_400_000;
     expect(spanDays).toBeGreaterThan(25);
   });
@@ -90,7 +103,10 @@ describe("HttpGoogleCalendarAdapter", () => {
         calendars: {
           "owner@gmail.com": {
             busy: [
-              { start: "2026-09-07T08:00:00.000Z", end: "2026-09-07T09:30:00.000Z" },
+              {
+                start: `${TEST_DATE}T08:00:00.000Z`,
+                end: `${TEST_DATE}T09:30:00.000Z`,
+              },
             ],
           },
         },
@@ -98,13 +114,13 @@ describe("HttpGoogleCalendarAdapter", () => {
     });
 
     const slots = await adapter.getAvailableSlots({
-      from: "2026-09-07T00:00:00.000Z",
-      to: "2026-09-08T00:00:00.000Z",
+      from: WEEK_START_ISO,
+      to: WEEK_END_ISO,
       durationMinutes: 90,
     });
 
-    const busyStart = Date.parse("2026-09-07T08:00:00Z");
-    const busyEnd = Date.parse("2026-09-07T09:30:00Z");
+    const busyStart = Date.parse(`${TEST_DATE}T08:00:00Z`);
+    const busyEnd = Date.parse(`${TEST_DATE}T09:30:00Z`);
     for (const slot of slots) {
       const start = new Date(slot.startTime).getTime();
       const end = new Date(slot.endTime).getTime();
