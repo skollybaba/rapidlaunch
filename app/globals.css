@@ -98,10 +98,10 @@
 }
 
 @layer base {
-  /* Scale the whole design system to the equivalent of an 89.1% browser
+  /* Scale the whole design system to the equivalent of an 95.337% browser
      zoom by adjusting the root font size (all rem-based text & spacing). */
   html {
-    font-size: 89.1%;
+    font-size: 95.337%;
   }
 
   html,
