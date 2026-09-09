@@ -25,22 +25,21 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
-      <div className="mx-auto flex w-[98%] md:w-[min(83%,96rem)] items-center justify-between gap-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-[98%] md:w-[min(83%,96rem)] items-center justify-between gap-6 px-4 py-5.5 sm:px-6 lg:px-8">
         <Link
           href="/"
           onClick={closeMenu}
-          className="group inline-flex items-center gap-3 font-sans text-xl font-bold tracking-tight text-white"
+          aria-label="Rapid Launch home"
+          className="group inline-flex items-center"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center overflow-hidden">
+          <span className="inline-flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-icon.svg"
-              alt=""
-              aria-hidden="true"
-              className="h-9 w-9 transition-transform duration-[var(--duration-standard)] group-hover:-translate-y-0.5"
+              src="/images/agile_logo-mark.png"
+              alt="Rapid Launch"
+              className="h-10 w-auto transition-transform duration-[var(--duration-standard)] group-hover:-translate-y-0.5"
             />
           </span>
-          Rapid Launch
         </Link>
 
         <nav

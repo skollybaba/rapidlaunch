@@ -15,16 +15,16 @@ export function SiteFooter() {
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-12 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-start">
           <div>
-            <p className="inline-flex items-center gap-3 font-sans text-xl font-bold tracking-tight text-white">
+            <div className="inline-flex items-center gap-3">
+              <span className="inline-flex items-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo-icon.svg"
-                alt=""
-                aria-hidden="true"
-                className="h-9 w-9"
+                src="/images/agile_logo-mark.png"
+                alt="Rapid Launch"
+                className="h-10 w-auto"
               />
-              Rapid Launch
-            </p>
+            </span>
+            </div>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-neutral-500">
               Launch and test your ideas faster: product strategy, AI learning,
               and MVP execution.

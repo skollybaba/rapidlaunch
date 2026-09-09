@@ -21,8 +21,8 @@ export const metadata: Metadata = {
   description:
     "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
   icons: {
-    icon: "/logo-icon.svg",
-    apple: "/logo-icon.svg",
+    icon: "/images/agile_logo.png",
+    apple: "/images/agile_logo.png",
   },
 };
 
