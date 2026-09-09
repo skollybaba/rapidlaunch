@@ -352,6 +352,9 @@ export class SmtpMailAdapter implements MailAdapter {
       auth: config.user
         ? { user: config.user, pass: config.password ?? "" }
         : undefined,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
   }
 
