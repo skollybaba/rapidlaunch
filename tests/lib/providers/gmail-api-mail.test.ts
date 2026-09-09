@@ -13,7 +13,7 @@ vi.mock("googleapis", () => {
   };
 });
 
-import { GmailApiMailAdapter, MailProviderError } from "@/lib/providers/mail";
+import { GmailApiMailAdapter } from "@/lib/providers/mail";
 
 const sharedGmail = {
   users: {
@@ -78,6 +78,32 @@ describe("GmailApiMailAdapter", () => {
 
     expect(result.providerMessageId).toBe("msg-123");
     expect(result.sentAt).toBeInstanceOf(Date);
+  });
+
+  it("embeds the logo inline via cid in template and test emails", async () => {
+    await adapter.sendTemplateEmail({
+      templateKey: "account_welcome",
+      to: "student@gmail.com",
+      variables: { name: "Ade", appUrl: "https://example.com" },
+    });
+
+    const raw = sharedGmail.users.messages.send.mock.calls[0][0].requestBody
+      .raw as string;
+    const decoded = decodeRaw(raw);
+    expect(decoded).toContain('src="cid:agile-logo"');
+    expect(decoded).toContain('Content-Type: image/png; name="agile-logo.png"');
+    expect(decoded).toContain("Content-ID: <agile-logo>");
+    expect(decoded).toContain("Content-Disposition: inline");
+    expect(decoded).toContain("multipart/mixed");
+
+    vi.clearAllMocks();
+    sharedGmail.users.messages.send.mockResolvedValueOnce({
+      data: { id: "msg-test" },
+    });
+    await adapter.sendTestEmail();
+    const testRaw = sharedGmail.users.messages.send.mock.calls[0][0]
+      .requestBody.raw as string;
+    expect(decodeRaw(testRaw)).toContain("Content-ID: <agile-logo>");
   });
 
   it("resolves the sender from the account profile when fromEmail is unset", async () => {

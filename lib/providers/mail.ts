@@ -1,5 +1,8 @@
 import "server-only";
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import nodemailer, { type Transporter } from "nodemailer";
 import { google } from "googleapis";
 
@@ -26,6 +29,7 @@ export interface EmailAttachmentInput {
   filename: string;
   content: Buffer;
   contentType?: string;
+  cid?: string;
 }
 
 export interface SendEmailInput {
@@ -78,6 +82,46 @@ export class MailProviderError extends Error {
   }
 }
 
+const EMAIL_LOGO_CID = "agile-logo";
+let emailLogoCache: EmailAttachmentInput | null | undefined;
+
+function emailBrandLogo(): string {
+  return `<img src="cid:${EMAIL_LOGO_CID}" alt="Rapid Launch" width="96" height="44" style="display:block;margin:0 0 10px;width:96px;height:auto;" />`;
+}
+
+function emailLogoAttachment(): EmailAttachmentInput | null {
+  if (emailLogoCache !== undefined) return emailLogoCache;
+  try {
+    const file = path.join(
+      process.cwd(),
+      "public",
+      "images",
+      "agile_logo-mark.png"
+    );
+    emailLogoCache = {
+      filename: "agile-logo.png",
+      cid: EMAIL_LOGO_CID,
+      contentType: "image/png",
+      content: readFileSync(file),
+    };
+  } catch {
+    emailLogoCache = null;
+  }
+  return emailLogoCache;
+}
+
+function emailAttachments(): EmailAttachmentInput[] {
+  const logo = emailLogoAttachment();
+  return logo ? [logo] : [];
+}
+
+function emailHeader(title: string): string {
+  return `<div style="background:#141414;padding:26px 32px;">
+  ${emailBrandLogo()}
+  <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
+</div>`;
+}
+
 function buildTemplate(
   templateKey: EmailTemplateKey,
   variables: Record<string, string>
@@ -126,10 +170,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
         : "";
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Payment confirmed</p>
-  </div>
+  ${emailHeader("Payment confirmed")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Thank you! Your payment for <strong style="color:#11121d;">${itemTitle}</strong> was successful.</p>
@@ -161,10 +202,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subject = `Next step: book your ${itemTitle}`;
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Book your session</p>
-  </div>
+  ${emailHeader("Book your session")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your payment for <strong style="color:#11121d;">${itemTitle}</strong> is confirmed. To complete your booking, please select a time that works for you.</p>
@@ -201,10 +239,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
 
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">${detailLabel}</p>
-  </div>
+  ${emailHeader(`${detailLabel}`)}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">This is a quick reminder about your one-on-one session with Rapid Launch.</p>
@@ -225,10 +260,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subject = `You can still complete your purchase — ${itemTitle}`;
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Your purchase is waiting</p>
-  </div>
+  ${emailHeader("Your purchase is waiting")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You started an order for <strong style="color:#11121d;">${itemTitle}</strong> but the payment was not completed. Your place is saved — you can finish checkout whenever you are ready.</p>
@@ -246,10 +278,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subject = "Welcome to Rapid Launch";
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Welcome aboard</p>
-  </div>
+  ${emailHeader("Welcome aboard")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi ${name},</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your account is ready. Now your purchases, sessions, and books are kept in one place so you can track everything you've registered for.</p>
@@ -268,10 +297,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subject = "Reset your password";
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">Reset your password</p>
-  </div>
+  ${emailHeader("Reset your password")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi ${name},</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">We received a request to reset your password. This link expires in one hour.</p>
@@ -294,10 +320,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
         : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your course is available now. Open your account and go to Courses to find the class.</p>`;
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">You're enrolled</p>
-  </div>
+  ${emailHeader("You're enrolled")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi there,</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">You now have access to <strong style="color:#11121d;">${courseTitle}</strong> in the classroom.</p>
@@ -315,10 +338,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subject = `Action needed for ${courseTitle}`;
       const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  <div style="background:#141414;padding:26px 32px;">
-    <p style="margin:0;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;">Rapid Launch</p>
-    <p style="margin:6px 0 0;font-size:20px;font-weight:700;color:#ffffff;">One more step</p>
-  </div>
+  ${emailHeader("One more step")}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Hi there,</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">We're finishing your enrollment into <strong style="color:#11121d;">${courseTitle}</strong>. No action is needed from you — our team will confirm your classroom access and email you once it's ready.</p>
@@ -417,6 +437,7 @@ export class SmtpMailAdapter implements MailAdapter {
       subject: template.subject,
       html: template.html,
       text: template.text,
+      attachments: emailAttachments(),
     });
   }
 
@@ -424,8 +445,9 @@ export class SmtpMailAdapter implements MailAdapter {
     await this.sendEmail({
       to: this.fromEmail ?? this.config.user ?? "",
       subject: "Rapid Launch test email",
-      html: "<p>This is a test email from Rapid Launch.</p>",
+      html: `${emailHeader("Rapid Launch test email")}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Rapid Launch.</p></div></div></div>`,
       text: "This is a test email from Rapid Launch.",
+      attachments: emailAttachments(),
     });
   }
 }
@@ -448,28 +470,80 @@ function buildRawMessage(
   from: string,
   fromName: string
 ): string {
-  const boundary = `_rl_${Date.now().toString(16)}_boundary`;
   const safeName = fromName.replace(/["\\]/g, "");
   const headers = [
     `From: ${safeName ? `"${safeName}" <${from}>` : from}`,
     `To: ${input.to}`,
     `Subject: ${encodeSubject(input.subject)}`,
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
     ...(input.replyTo ? [`Reply-To: ${input.replyTo}`] : []),
-  ].join("\r\n");
-  const body = [
-    `--${boundary}`,
+  ];
+  const text = input.text ?? "";
+  const html = input.html ?? "";
+  const attachments = input.attachments ?? [];
+
+  if (attachments.length === 0) {
+    const boundary = `_rl_${Date.now().toString(16)}_boundary`;
+    const body = [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "",
+      text,
+      `--${boundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      "",
+      html,
+      `--${boundary}--`,
+    ].join("\r\n");
+    return Buffer.from(
+      headers
+        .concat([`Content-Type: multipart/alternative; boundary="${boundary}"`])
+        .join("\r\n") + "\r\n\r\n" + body,
+      "utf8"
+    ).toString("base64url");
+  }
+
+  const mixedBoundary = `_rlm_${Date.now().toString(16)}`;
+  const altBoundary = `_rla_${Date.now().toString(16)}`;
+  const altBody = [
+    `--${altBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "",
-    input.text ?? "",
-    `--${boundary}`,
+    text,
+    `--${altBoundary}`,
     'Content-Type: text/html; charset="UTF-8"',
     "",
-    input.html ?? "",
-    `--${boundary}--`,
+    html,
+    `--${altBoundary}--`,
   ].join("\r\n");
-  return Buffer.from(headers + "\r\n\r\n" + body, "utf8").toString("base64url");
+
+  const parts = [
+    `--${mixedBoundary}`,
+    `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    "",
+    altBody,
+  ];
+  for (const attachment of attachments) {
+    parts.push(
+      `--${mixedBoundary}`,
+      `Content-Type: ${
+        attachment.contentType ?? "application/octet-stream"
+      }; name="${attachment.filename}"`,
+      `Content-Disposition: inline; filename="${attachment.filename}"`,
+      `Content-Transfer-Encoding: base64`,
+      ...(attachment.cid ? [`Content-ID: <${attachment.cid}>`] : []),
+      "",
+      attachment.content.toString("base64")
+    );
+  }
+  parts.push(`--${mixedBoundary}--`);
+
+  return Buffer.from(
+    headers
+      .concat([`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`])
+      .join("\r\n") + "\r\n\r\n" + parts.join("\r\n"),
+    "utf8"
+  ).toString("base64url");
 }
 
 function googleApiErrorDetail(error: unknown): string {
@@ -573,6 +647,7 @@ export class GmailApiMailAdapter implements MailAdapter {
       subject: template.subject,
       html: template.html,
       text: template.text,
+      attachments: emailAttachments(),
     });
   }
 
@@ -581,8 +656,9 @@ export class GmailApiMailAdapter implements MailAdapter {
     await this.sendEmail({
       to: sender.address,
       subject: "Rapid Launch test email",
-      html: "<p>This is a test email from Rapid Launch.</p>",
+      html: `${emailHeader("Rapid Launch test email")}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Rapid Launch.</p></div></div></div>`,
       text: "This is a test email from Rapid Launch.",
+      attachments: emailAttachments(),
     });
   }
 }
