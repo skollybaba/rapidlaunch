@@ -55,7 +55,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "min-h-[220px] max-h-[420px] overflow-y-auto px-4 py-3 focus:outline-none prose prose-neutral max-w-none",
+          "rich-content min-h-[220px] max-h-[420px] overflow-y-auto px-4 py-3 focus:outline-none",
       },
     },
   });

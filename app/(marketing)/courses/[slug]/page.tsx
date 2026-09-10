@@ -24,6 +24,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { ProductCard } from "@/components/ui/product-card";
 import { ProductCover } from "@/components/ui/product-cover";
 import { Price } from "@/components/ui/price";
+import { RichContent } from "@/components/marketing/rich-content";
 import { Reveal } from "@/components/marketing/reveal";
 import { formatDuration } from "@/lib/utils";
 import type { ProductDetail } from "@/types/product";
@@ -110,13 +111,7 @@ function CourseContent({ product }: { product: CourseDetail }) {
             </p>
           ) : null}
           {product.description ? (
-            <div className="mt-8 space-y-4">
-              {product.description.split("\n\n").map((paragraph, index) => (
-                <p key={index} className="text-base leading-relaxed text-neutral-700">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
+            <RichContent content={product.description} className="mt-8" />
           ) : null}
 
           {details?.outcomes?.length ? (

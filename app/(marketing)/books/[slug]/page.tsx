@@ -9,6 +9,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
 import { ProductCover } from "@/components/ui/product-cover";
 import { Price } from "@/components/ui/price";
+import { RichContent } from "@/components/marketing/rich-content";
 import { Reveal } from "@/components/marketing/reveal";
 import type { ProductDetail } from "@/types/product";
 
@@ -107,13 +108,7 @@ function BookContent({ product }: { product: ProductDetail }) {
             </p>
           ) : null}
           {product.description ? (
-            <div className="mt-8 space-y-4">
-              {product.description.split("\n\n").map((paragraph, index) => (
-                <p key={index} className="text-base leading-relaxed text-neutral-700">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
+            <RichContent content={product.description} className="mt-8" />
           ) : null}
         </article>
 

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { DetailList } from "@/components/catalog/detail-list";
 import { ProductCover } from "@/components/ui/product-cover";
+import { RichContent } from "@/components/marketing/rich-content";
 import { Reveal } from "@/components/marketing/reveal";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
 import { formatDuration } from "@/lib/utils";
@@ -114,13 +115,7 @@ function ServiceContent({ product }: { product: ProductDetail }) {
             </p>
           ) : null}
           {product.description ? (
-            <div className="mt-8 space-y-4">
-              {product.description.split("\n\n").map((paragraph, index) => (
-                <p key={index} className="text-base leading-relaxed text-neutral-700">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
+            <RichContent content={product.description} className="mt-8" />
           ) : null}
 
           {!isMvp && consultation?.sessionTypes?.length ? (
