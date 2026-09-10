@@ -24,6 +24,7 @@ const curriculumSchema = new Schema<ProductCurriculumStored>(
 const courseDetailsSchema = new Schema<ProductCourseDetails>(
   {
     instructor: String,
+    instructorImageUrl: String,
     durationMinutes: Number,
     level: String,
     audience: [String],

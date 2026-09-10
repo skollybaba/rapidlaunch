@@ -281,7 +281,31 @@ function CourseContent({ product }: { product: CourseDetail }) {
                 <DetailRow icon={GraduationCap} label="Level" value={details.level} />
               ) : null}
               {details?.instructor ? (
-                <DetailRow icon={UserRound} label="Instructor" value={details.instructor} />
+                <div className="flex items-center gap-3 py-3">
+                  {details.instructorImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={details.instructorImageUrl}
+                      alt={`Portrait of ${details.instructor}`}
+                      className="h-11 w-11 shrink-0 rounded-full border border-neutral-300 object-cover"
+                    />
+                  ) : (
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink-900">
+                      <UserRound
+                        aria-hidden="true"
+                        className="h-5 w-5 text-lavender-200"
+                      />
+                    </span>
+                  )}
+                  <div className="flex flex-1 items-start justify-between gap-4">
+                    <dt className="text-sm font-medium text-neutral-500">
+                      Instructor
+                    </dt>
+                    <dd className="text-right text-sm font-semibold text-neutral-950">
+                      {details.instructor}
+                    </dd>
+                  </div>
+                </div>
               ) : null}
               <DetailRow
                 icon={MonitorPlay}

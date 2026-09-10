@@ -34,6 +34,7 @@ interface CourseFormData {
     bundleCourseIds?: string[];
     courseDetails?: {
       instructor?: string;
+      instructorImageUrl?: string;
       durationMinutes?: number;
       level?: string;
       audience?: string[];
@@ -85,6 +86,9 @@ export function CourseForm({
 
   const cd = initial?.courseDetails;
   const [instructor, setInstructor] = useState(cd?.instructor ?? "");
+  const [instructorImageUrl, setInstructorImageUrl] = useState(
+    cd?.instructorImageUrl ?? ""
+  );
   const [durationMinutes, setDurationMinutes] = useState(
     cd?.durationMinutes ? String(cd.durationMinutes) : ""
   );
@@ -173,6 +177,7 @@ export function CourseForm({
       featured,
       courseDetails: {
         instructor: instructor || undefined,
+        instructorImageUrl: instructorImageUrl || undefined,
         durationMinutes: durationMinutes ? Number(durationMinutes) : undefined,
         level,
         audience: textToList(audience),
@@ -375,6 +380,17 @@ export function CourseForm({
               value={instructor}
               onChange={(e) => setInstructor(e.target.value)}
               className={fieldClasses}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <ThumbnailUpload
+              id="c-instructor-photo"
+              label="Instructor photo"
+              aspect="square"
+              value={instructorImageUrl}
+              onChange={setInstructorImageUrl}
+              help="Shown beside the instructor name on the public course page. Leave empty to show a simple icon."
+              expected="square portrait"
             />
           </div>
           <div>

@@ -36,6 +36,7 @@ export interface ProductCurriculumStored extends ProductCurriculum {
 
 export interface ProductCourseDetails {
   instructor?: string;
+  instructorImageUrl?: string;
   durationMinutes?: number;
   level?: string;
   audience?: string[];

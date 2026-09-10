@@ -125,6 +125,31 @@ describe("productInputSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts an instructor photo URL in course details", () => {
+    const result = productInputSchema.safeParse({
+      ...baseInput,
+      type: "COURSE",
+      status: "DRAFT",
+      priceMinor: 0,
+      courseDetails: {
+        instructor: "Ada Nwankwo",
+        instructorImageUrl: "https://res.cloudinary.com/x/instructor.jpg",
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an invalid instructor photo URL", () => {
+    const result = productInputSchema.safeParse({
+      ...baseInput,
+      type: "COURSE",
+      status: "DRAFT",
+      priceMinor: 0,
+      courseDetails: { instructorImageUrl: "not-a-url" },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("requires a delivery mode on published books", () => {
     const result = productInputSchema.safeParse({
       ...baseInput,
