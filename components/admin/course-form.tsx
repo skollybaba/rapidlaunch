@@ -35,6 +35,7 @@ interface CourseFormData {
     courseDetails?: {
       instructor?: string;
       instructorImageUrl?: string;
+      instructorUrl?: string;
       durationMinutes?: number;
       level?: string;
       audience?: string[];
@@ -89,6 +90,7 @@ export function CourseForm({
   const [instructorImageUrl, setInstructorImageUrl] = useState(
     cd?.instructorImageUrl ?? ""
   );
+  const [instructorUrl, setInstructorUrl] = useState(cd?.instructorUrl ?? "");
   const [durationMinutes, setDurationMinutes] = useState(
     cd?.durationMinutes ? String(cd.durationMinutes) : ""
   );
@@ -178,6 +180,7 @@ export function CourseForm({
       courseDetails: {
         instructor: instructor || undefined,
         instructorImageUrl: instructorImageUrl || undefined,
+        instructorUrl: instructorUrl || undefined,
         durationMinutes: durationMinutes ? Number(durationMinutes) : undefined,
         level,
         audience: textToList(audience),
@@ -379,6 +382,22 @@ export function CourseForm({
               id="c-instructor"
               value={instructor}
               onChange={(e) => setInstructor(e.target.value)}
+              className={fieldClasses}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="c-instructor-url"
+              className="text-sm font-medium text-neutral-700"
+            >
+              Instructor profile link
+            </label>
+            <input
+              id="c-instructor-url"
+              type="url"
+              value={instructorUrl}
+              onChange={(e) => setInstructorUrl(e.target.value)}
+              placeholder="https://linkedin.com/in/…"
               className={fieldClasses}
             />
           </div>

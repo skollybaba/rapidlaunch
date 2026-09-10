@@ -10,6 +10,7 @@ const courseDetailsInputSchema = z
   .object({
     instructor: z.string().min(1).optional(),
     instructorImageUrl: z.string().url().optional(),
+    instructorUrl: z.string().url().optional(),
     durationMinutes: z.number().int().positive().optional(),
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).optional(),
     audience: z.array(z.string().min(1)).optional(),

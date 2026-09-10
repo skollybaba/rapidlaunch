@@ -63,15 +63,13 @@ interface DetailRowProps {
 
 function DetailRow({ label, value, icon: Icon }: DetailRowProps) {
   return (
-    <div className="flex items-center gap-3 py-3">
+    <div className="flex items-start gap-3 py-3">
       <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-ink-900">
         <Icon aria-hidden="true" className="h-4 w-4 text-lavender-200" />
       </span>
-      <div className="flex flex-1 items-start justify-between gap-4">
-        <dt className="text-sm font-medium text-neutral-500">{label}</dt>
-        <dd className="text-right text-sm font-semibold text-neutral-950">
-          {value}
-        </dd>
+      <div className="flex-1">
+        <dt className="text-sm font-bold text-neutral-950">{label}</dt>
+        <dd className="mt-0.5 text-sm text-neutral-500">{value}</dd>
       </div>
     </div>
   );
@@ -276,28 +274,39 @@ function CourseContent({ product }: { product: CourseDetail }) {
                 <DetailRow icon={GraduationCap} label="Level" value={details.level} />
               ) : null}
               {details?.instructor ? (
-                <div className="flex items-center gap-3 py-3">
+                <div className="flex items-start gap-3 py-3">
                   {details.instructorImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={details.instructorImageUrl}
                       alt={`Portrait of ${details.instructor}`}
-                      className="h-11 w-11 shrink-0 rounded-full border border-neutral-300 object-cover"
+                      className="h-8 w-8 shrink-0 rounded-sm border border-neutral-300 object-cover"
                     />
                   ) : (
-                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink-900">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-ink-900">
                       <UserRound
                         aria-hidden="true"
-                        className="h-5 w-5 text-lavender-200"
+                        className="h-4 w-4 text-lavender-200"
                       />
                     </span>
                   )}
-                  <div className="flex flex-1 items-start justify-between gap-4">
-                    <dt className="text-sm font-medium text-neutral-500">
+                  <div className="flex-1">
+                    <dt className="text-sm font-bold text-neutral-950">
                       Instructor
                     </dt>
-                    <dd className="text-right text-sm font-semibold text-neutral-950">
-                      {details.instructor}
+                    <dd className="mt-0.5 text-sm text-neutral-500">
+                      {details.instructorUrl ? (
+                        <a
+                          href={details.instructorUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-terracotta-600 underline hover:text-terracotta-500"
+                        >
+                          {details.instructor}
+                        </a>
+                      ) : (
+                        details.instructor
+                      )}
                     </dd>
                   </div>
                 </div>

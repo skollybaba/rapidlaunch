@@ -150,6 +150,28 @@ describe("productInputSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts an instructor profile link in course details", () => {
+    const result = productInputSchema.safeParse({
+      ...baseInput,
+      type: "COURSE",
+      status: "DRAFT",
+      priceMinor: 0,
+      courseDetails: { instructorUrl: "https://linkedin.com/in/ada" },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an invalid instructor profile link", () => {
+    const result = productInputSchema.safeParse({
+      ...baseInput,
+      type: "COURSE",
+      status: "DRAFT",
+      priceMinor: 0,
+      courseDetails: { instructorUrl: "linkedin/in/ada" },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("requires a delivery mode on published books", () => {
     const result = productInputSchema.safeParse({
       ...baseInput,

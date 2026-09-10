@@ -25,6 +25,7 @@ const courseDetailsSchema = new Schema<ProductCourseDetails>(
   {
     instructor: String,
     instructorImageUrl: String,
+    instructorUrl: String,
     durationMinutes: Number,
     level: String,
     audience: [String],
