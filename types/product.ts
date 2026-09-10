@@ -21,7 +21,9 @@ export const FULFILLMENT_MODES = [
 
 export type FulfillmentMode = (typeof FULFILLMENT_MODES)[number];
 
-export const CURRICULUM_MAX_BYTES = 10 * 1024 * 1024;
+export const ADMIN_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+
+export const CURRICULUM_MAX_BYTES = ADMIN_UPLOAD_MAX_BYTES;
 
 export interface ProductCurriculum {
   fileName: string;

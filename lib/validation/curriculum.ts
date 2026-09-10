@@ -8,7 +8,7 @@ export const curriculumUploadSchema = z.object({
     .number()
     .int()
     .positive()
-    .max(CURRICULUM_MAX_BYTES, "Curriculum PDF must be under 10 MB"),
+    .max(CURRICULUM_MAX_BYTES, "Curriculum PDF must be under 25 MB"),
 });
 
 export type CurriculumUploadInput = z.infer<typeof curriculumUploadSchema>;

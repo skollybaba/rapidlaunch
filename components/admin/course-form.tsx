@@ -132,7 +132,7 @@ export function CourseForm({
       return;
     }
     if (file.size > CURRICULUM_MAX_BYTES) {
-      setCurriculumError("Curriculum PDF must be under 10 MB.");
+      setCurriculumError("Curriculum PDF must be under 25 MB.");
       return;
     }
     setCurriculumFile(file);
@@ -534,7 +534,7 @@ export function CourseForm({
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
           Upload the full course curriculum as a PDF. Visitors can download it
-          from the public course page. PDFs up to 10 MB.
+          from the public course page. PDFs up to 25 MB.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <input

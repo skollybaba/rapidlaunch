@@ -115,9 +115,10 @@ on Cloudinary's free plan:
 API the routes and mail jobs rely on. Uploads return direct public Cloudinary
 delivery URLs, so no self-hosted `/api/uploads` serving route is needed.
 
-Free-plan limits to keep in mind: ~500 MB storage and 25 monthly credits, a
-10 MB per-file cap, and unused assets may be removed after 30 days. Keep images
-(like course covers) under 10 MB.
+Free-plan limits to keep in mind: ~500 MB storage and 25 monthly credits and
+unused assets may be removed after 30 days. The admin upload routes enforce a
+25 MB per-file cap. If you need larger files, upgrade the Cloudinary plan and
+raise `ADMIN_UPLOAD_MAX_BYTES` in `types/product.ts`.
 
 ## Environment variables
 

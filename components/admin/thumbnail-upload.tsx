@@ -4,8 +4,7 @@ import { useRef, useState } from "react";
 import { Frame, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { readApiJson } from "@/lib/http";
-
-const MAX_BYTES = 10 * 1024 * 1024;
+import { ADMIN_UPLOAD_MAX_BYTES } from "@/types/product";
 
 interface ThumbnailUploadProps {
   id: string;
@@ -43,8 +42,8 @@ export function ThumbnailUpload({
       );
       return;
     }
-    if (file.size > MAX_BYTES) {
-      setError("Image must be under 10 MB.");
+    if (file.size > ADMIN_UPLOAD_MAX_BYTES) {
+      setError("Image must be under 25 MB.");
       return;
     }
 
@@ -127,7 +126,7 @@ export function ThumbnailUpload({
         <p className="mt-2 text-xs text-neutral-500">{help}</p>
       ) : value ? (
         <p className="mt-2 text-xs text-neutral-500">
-          Stored on Cloudinary (free plan, max 10 MB per image).
+          Stored on Cloudinary (max 25 MB per image).
         </p>
       ) : null}
       {expected ? (

@@ -3,10 +3,9 @@ import { NextRequest } from "next/server";
 import { apiError, apiOk, handleApiError, newRequestId } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth/session";
 import { writeUpload } from "@/lib/storage";
+import { ADMIN_UPLOAD_MAX_BYTES } from "@/types/product";
 
 export const runtime = "nodejs";
-
-const MAX_BYTES = 10 * 1024 * 1024; // Cloudinary free plan upload cap
 
 export async function POST(request: NextRequest) {
   const requestId = newRequestId();
@@ -31,8 +30,8 @@ export async function POST(request: NextRequest) {
     return apiError(400, "NO_FILE", "No file provided.", requestId);
   }
 
-  if (file.size > MAX_BYTES) {
-    return apiError(413, "FILE_TOO_LARGE", "File must be under 10 MB.", requestId);
+  if (file.size > ADMIN_UPLOAD_MAX_BYTES) {
+    return apiError(413, "FILE_TOO_LARGE", "File must be under 25 MB.", requestId);
   }
 
   try {
