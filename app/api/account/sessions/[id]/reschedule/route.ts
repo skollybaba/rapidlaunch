@@ -1,12 +1,19 @@
+import { z } from "zod";
+
 import { apiError, apiOk, handleApiError, newRequestId } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth/session";
-import { requestSessionReschedule } from "@/lib/services/account-service";
+import { rescheduleSession } from "@/lib/services/account-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const bodySchema = z.object({
+  startTime: z.string().min(1, "Pick a new time for your session."),
+  endTime: z.string().min(1, "Pick a new time for your session."),
+});
+
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = newRequestId();
@@ -21,8 +28,15 @@ export async function POST(
     return apiError(400, "VALIDATION_ERROR", "Missing session id.", requestId);
   }
 
+  let body: unknown;
   try {
-    const result = await requestSessionReschedule(id, String(user._id));
+    body = await request.json();
+  } catch {
+    return apiError(400, "INVALID_JSON", "Invalid JSON body.", requestId);
+  }
+  try {
+    const input = bodySchema.parse(body);
+    const result = await rescheduleSession(id, String(user._id), input);
     return apiOk(result);
   } catch (error) {
     return handleApiError(error, requestId);

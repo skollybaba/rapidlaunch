@@ -19,7 +19,7 @@ const SECTIONS = [
   },
   {
     title: "Rescheduling your session",
-    body: "You can request to reschedule a session so long as your session is more than 24 hours away. Open your account, go to Sessions, and use the Request reschedule button beside the session. We will confirm the new time with you before it is applied.",
+    body: "You can reschedule a session yourself so long as your session is more than 24 hours away. Open your account, go to Sessions, and use the Reschedule button to pick a new time from the available slots. The change is applied immediately and you will receive a confirmation email.",
   },
   {
     title: "The 24-hour window",

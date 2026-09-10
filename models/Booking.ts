@@ -51,7 +51,7 @@ const BookingSchema = new Schema<BookingDoc>(
     lastReminderSentAt: { type: Date, default: null },
     bookedAt: { type: Date, default: null },
     dismissedAt: { type: Date, default: null },
-    rescheduleRequestedAt: { type: Date, default: null },
+    lastRescheduledAt: { type: Date, default: null },
     reminders: {
       type: [
         {

@@ -18,11 +18,11 @@ export type EmailTemplateKey =
   | "booking_request_received"
   | "booking_confirmed"
   | "booking_reminder"
+  | "booking_rescheduled"
   | "payment_reminder"
   | "mvp_inquiry_received"
   | "new_lead_notification"
   | "fulfillment_failure_alert"
-  | "booking_reschedule_request"
   | "refund_processed"
   | "support_acknowledgement";
 
@@ -350,40 +350,31 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const text = `Action needed for ${courseTitle}\n\nHi there,\n\nWe're finishing your enrollment into ${courseTitle}. Our team will confirm your classroom access and email you once it's ready.\n\nQuestions? Reply to this email or contact our support team.`;
       return { subject, html, text };
     }
-    case "booking_reschedule_request": {
-      const itemTitle = variables.itemTitle ?? "a session";
+    case "booking_rescheduled": {
+      const itemTitle = variables.itemTitle ?? "your session";
       const customerName = variables.customerName ?? "";
-      const customerEmail = variables.customerEmail ?? "";
-      const orderReference = variables.orderReference ?? "";
+      const meetingUrl = variables.meetingUrl ?? "";
       const scheduledAt = variables.scheduledAt ?? "";
       const appUrl = variables.appUrl ?? "#";
-      const detailLines = [
-        { label: "Customer", value: customerName || customerEmail || "—" },
-        { label: "Email", value: customerEmail || "—" },
-        { label: "Order", value: orderReference || "—" },
-        { label: "Current time", value: scheduledAt || "—" },
-      ]
-        .filter((line) => line.value !== "—")
-        .map(
-          (line) =>
-            `<tr><td style="padding:6px 12px 6px 0;font-size:14px;color:#74778c;white-space:nowrap;vertical-align:top;">${line.label}</td><td style="padding:6px 0;font-size:14px;color:#11121d;font-weight:600;vertical-align:top;">${line.value}</td></tr>`
-        )
-        .join("");
-      const subject = `Reschedule request: ${itemTitle}`;
-      const html = detailLines
-        ? `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
+      const subject = `Your session is rescheduled: ${itemTitle}`;
+      const meetingBlock = meetingUrl
+        ? `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your session is now at <strong style="color:#11121d;">${scheduledAt}</strong>.</p>
+<a href="${meetingUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Join your session</a>`
+        : `<p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your session is now at <strong style="color:#11121d;">${scheduledAt}</strong>. We will send the meeting link before the call.</p>`;
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
-  ${emailHeader("Reschedule request")}
+  ${emailHeader("Session rescheduled")}
   <div style="padding:28px 32px;">
-    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">A customer has requested a new time for <strong style="color:#11121d;">${itemTitle}</strong>. No refund is due — please confirm a new time.</p>
-    <table style="border-collapse:collapse;width:100%;margin:0 0 14px;">${detailLines}</table>
-    <a href="${appUrl}/admin/bookings" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Review bookings</a>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your one-on-one session <strong style="color:#11121d;">${itemTitle}</strong> has been moved to a new time.</p>
+    ${meetingBlock}
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Added to your account under Sessions. Questions? Reply to this email and we will help. View your account: ${appUrl}/account/sessions</p>
   </div>
 </div>
-</div>`
-        : "";
-      const text = `Reschedule request: ${itemTitle}\n\nA customer has requested a new time for ${itemTitle}. No refund is due — please confirm a new time.\n\n${customerName ? `Customer: ${customerName}\n` : ""}${customerEmail ? `Email: ${customerEmail}\n` : ""}${orderReference ? `Order: ${orderReference}\n` : ""}Current time: ${scheduledAt}\n\nReview bookings: ${appUrl}/admin/bookings`;
-      return { subject, html: html || text, text };
+</div>`;
+      const text = `Your session is rescheduled: ${itemTitle}\n\n${greeting}\n\nYour one-on-one session ${itemTitle} has been moved to a new time.\n\nNew time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nView your account: ${appUrl}/account/sessions`;
+      return { subject, html, text };
     }
     default:
       return {

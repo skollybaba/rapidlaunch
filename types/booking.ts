@@ -64,7 +64,7 @@ export interface BookingDoc {
   lastReminderSentAt?: Date | null;
   bookedAt?: Date | null;
   dismissedAt?: Date | null;
-  rescheduleRequestedAt?: Date | null;
+  lastRescheduledAt?: Date | null;
   reminders?: BookingReminderRecord[];
   createdAt?: Date;
   updatedAt?: Date;

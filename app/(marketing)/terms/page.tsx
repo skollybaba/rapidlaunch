@@ -27,7 +27,7 @@ const SECTIONS = [
   },
   {
     title: "Rescheduling and refunds",
-    body: "One-on-one session bookings are not refundable because a time is reserved for you, but you may request a new time as long as the session is more than 24 hours away. Please see our Refund Policy for the full details on what can be rescheduled and refunded.",
+    body: "One-on-one session bookings are not refundable because a time is reserved for you, but you may pick a new time from the available slots on your account's Sessions page as long as your session is more than 24 hours away. Please see our Refund Policy for the full details on what can be rescheduled and refunded.",
   },
   {
     title: "Access to courses and content",

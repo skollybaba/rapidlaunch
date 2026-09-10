@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AccountNav } from "@/components/account/account-nav";
-import { RescheduleButton } from "@/components/account/reschedule-button";
+import { ReschedulePanel } from "@/components/account/reschedule-panel";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSessionsForUser } from "@/lib/services/account-service";
@@ -47,8 +47,9 @@ function SessionList({
     requestedStartTime?: string | null;
     status: string;
     meetingUrl?: string | null;
+    timezone?: string | null;
+    durationMinutes?: number | null;
     rescheduleAvailable: boolean;
-    rescheduleRequestedAt?: string | null;
   }[];
   empty: string;
 }) {
@@ -97,13 +98,12 @@ function SessionList({
                 Join session &rarr;
               </a>
             ) : null}
-            {session.rescheduleRequestedAt ? (
-              <p className="mt-3 text-sm font-medium text-neutral-600">
-                Reschedule requested &mdash; we&rsquo;ll confirm the new time
-                shortly.
-              </p>
-            ) : session.rescheduleAvailable ? (
-              <RescheduleButton bookingId={session.id} />
+            {session.rescheduleAvailable ? (
+              <ReschedulePanel
+                bookingId={session.id}
+                durationMinutes={session.durationMinutes}
+                timezone={session.timezone}
+              />
             ) : null}
           </li>
         );

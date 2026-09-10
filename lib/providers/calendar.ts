@@ -58,6 +58,8 @@ export interface GoogleCalendarAdapter {
   getAvailableSlots(input: GetAvailableSlotsInput): Promise<CalendarSlot[]>;
 
   createMeetEvent(input: CreateMeetEventInput): Promise<CreatedMeetEvent>;
+
+  cancelEvent(eventId: string): Promise<void>;
 }
 
 export class GoogleCalendarProviderError extends Error {
@@ -216,6 +218,19 @@ export class HttpGoogleCalendarAdapter implements GoogleCalendarAdapter {
       startTime: created.start?.dateTime ?? input.startTime,
       endTime: created.end?.dateTime ?? input.endTime,
     };
+  }
+
+  async cancelEvent(eventId: string): Promise<void> {
+    const calendar = this.client();
+    try {
+      await calendar.events.delete({
+        calendarId: this.config.calendarId,
+        eventId,
+        sendUpdates: "all",
+      });
+    } catch (error) {
+      throw mapGoogleApiError(error);
+    }
   }
 }
 

@@ -2,12 +2,17 @@ import "server-only";
 
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
+import { createGoogleCalendarAdapter } from "@/lib/providers/calendar";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
 import { Product } from "@/models/Product";
-import type { BookingDoc } from "@/types/booking";
+import {
+  getAvailabilitySlots,
+  calendarConfigured,
+} from "@/lib/services/slot-service";
+import type { BookingDoc, BookingProvider } from "@/types/booking";
 import type { FulfillmentDoc } from "@/types/payment";
 import type { OrderDoc } from "@/types/order";
 
@@ -23,14 +28,6 @@ export class AccountServiceError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function ownerNotificationEmail(): string | null {
-  const admins = (env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-  return admins[0] ?? env.MAIL_FROM_EMAIL ?? null;
 }
 
 export interface AccountPurchase {
@@ -56,9 +53,16 @@ export interface AccountSession {
   scheduledEndTime?: string | null;
   meetingUrl?: string | null;
   timezone?: string | null;
+  durationMinutes?: number | null;
   isUpcoming: boolean;
-  rescheduleRequestedAt?: string | null;
   rescheduleAvailable: boolean;
+}
+
+export interface AccountRescheduleResult {
+  id: string;
+  scheduledStartTime: string;
+  scheduledEndTime: string;
+  meetingUrl?: string | null;
 }
 
 export interface AccountCourse {
@@ -244,16 +248,20 @@ export async function getSessionsForUser(
     const scheduledMs = booking.scheduledStartTime
       ? booking.scheduledStartTime.getTime()
       : null;
-    const requestedAt = booking.rescheduleRequestedAt
-      ? booking.rescheduleRequestedAt.toISOString()
-      : null;
     const rescheduleAvailable = Boolean(
       scheduledMs &&
         scheduledMs - now > RESCHEDULE_WINDOW_MS &&
         booking.status !== "CANCELLED" &&
-        booking.status !== "FAILED" &&
-        !requestedAt
+        booking.status !== "FAILED"
     );
+    const durationMinutes =
+      booking.scheduledStartTime && booking.scheduledEndTime
+        ? Math.round(
+            (booking.scheduledEndTime.getTime() -
+              booking.scheduledStartTime.getTime()) /
+              60_000
+          )
+        : null;
     return {
       id: String(booking._id),
       orderReference: orderMap.get(String(booking.orderId)) ?? "",
@@ -269,17 +277,18 @@ export async function getSessionsForUser(
         : null,
       meetingUrl: booking.meetingUrl ?? null,
       timezone: booking.timezone ?? null,
+      durationMinutes,
       isUpcoming: scheduled ? new Date(scheduled).getTime() > now : false,
-      rescheduleRequestedAt: requestedAt,
       rescheduleAvailable,
     };
   });
 }
 
-export async function requestSessionReschedule(
+export async function rescheduleSession(
   bookingId: string,
-  userId: string
-): Promise<{ id: string }> {
+  userId: string,
+  input: { startTime: string; endTime: string }
+): Promise<AccountRescheduleResult> {
   await dbConnect();
 
   const orders = await Order.find({ userId })
@@ -309,10 +318,13 @@ export async function requestSessionReschedule(
     );
   }
 
-  const startsAt = booking.scheduledStartTime
+  const originalStart = booking.scheduledStartTime
     ? booking.scheduledStartTime.getTime()
     : null;
-  if (!startsAt || startsAt - Date.now() <= RESCHEDULE_WINDOW_MS) {
+  if (
+    !originalStart ||
+    originalStart - Date.now() <= RESCHEDULE_WINDOW_MS
+  ) {
     throw new AccountServiceError(
       "RESCHEDULE_NOT_AVAILABLE",
       "Sessions within 24 hours of their start time cannot be rescheduled. Please contact support if you need help.",
@@ -320,54 +332,224 @@ export async function requestSessionReschedule(
     );
   }
 
-  if (booking.rescheduleRequestedAt) {
+  const start = new Date(input.startTime);
+  const end = new Date(input.endTime);
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start.getTime() >= end.getTime()
+  ) {
     throw new AccountServiceError(
-      "RESCHEDULE_ALREADY_REQUESTED",
-      "A reschedule request is already in progress for this session.",
+      "VALIDATION_ERROR",
+      "Please choose a valid time for your session.",
+      400
+    );
+  }
+  if (end.getTime() <= Date.now()) {
+    throw new AccountServiceError(
+      "VALIDATION_ERROR",
+      "Please choose a future time for your session.",
+      400
+    );
+  }
+
+  const durationMinutes = booking.scheduledEndTime
+    ? Math.round(
+        (booking.scheduledEndTime.getTime() - (originalStart as number)) /
+          60_000
+      )
+    : 90;
+  const timezone = booking.timezone ?? env.GOOGLE_CALENDAR_TIME_ZONE;
+
+  // Re-verify the chosen slot against live availability so a slot cannot be
+  // double-booked with a client-supplied time.
+  let slotConfirmed = false;
+  try {
+    const daysToCover = Math.min(
+      Math.max(Math.ceil((start.getTime() - Date.now()) / 86_400_000) + 3, 1),
+      30
+    );
+    const { slots } = await getAvailabilitySlots({
+      days: daysToCover,
+      durationMinutes,
+      timezone,
+    });
+    slotConfirmed = slots.some(
+      (slot) => new Date(slot.startTime).getTime() === start.getTime()
+    );
+  } catch (error) {
+    console.error("Availability check failed while rescheduling", {
+      bookingId,
+      error,
+    });
+    throw new AccountServiceError(
+      "SLOT_UNAVAILABLE",
+      "We could not confirm that time is still available. Please try again.",
+      503
+    );
+  }
+  if (!slotConfirmed) {
+    throw new AccountServiceError(
+      "SLOT_UNAVAILABLE",
+      "That time is no longer available. Please pick another slot.",
       409
     );
   }
 
-  const requestedAt = new Date();
-  await Booking.findOneAndUpdate(
-    { _id: bookingId },
-    { $set: { rescheduleRequestedAt: requestedAt } }
-  )
-    .lean()
-    .exec();
+  let meetingUrl = booking.meetingUrl ?? "";
+  let providerEventUri = booking.providerEventUri ?? "";
+  let providerBookingUri = booking.providerBookingUri ?? "";
+  let provider: BookingProvider = booking.provider;
 
-  const product = await Product.findById(booking.productId)
-    .select("title")
+  const orderDoc = await Order.findById(booking.orderId)
+    .select("items.titleSnapshot")
     .lean()
     .exec();
-  const itemTitle = product?.title ?? "your session";
-  const order = orders.find(
+  const itemTitle =
+    Array.isArray(orderDoc?.items) && orderDoc.items[0]
+      ? ((orderDoc.items[0] as { titleSnapshot?: string }).titleSnapshot ??
+        "your session")
+      : "your session";
+  const orderReference = orders.find(
     (o: OrderDoc) => String(o._id) === String(booking.orderId)
-  );
+  )?.orderReference;
 
-  const recipient = ownerNotificationEmail();
-  if (recipient) {
+  // For sessions with a Google Calendar event, move the event + Meet link to
+  // the new time. Manual bookings simply record the new time.
+  if (booking.provider === "google_calendar" && calendarConfigured()) {
+    const adapter = createGoogleCalendarAdapter({
+      clientId: env.GOOGLE_CLIENT_ID as string,
+      clientSecret: env.GOOGLE_CLIENT_SECRET as string,
+      refreshToken: env.GOOGLE_REFRESH_TOKEN as string,
+      calendarId: env.GOOGLE_CALENDAR_OWNER_EMAIL as string,
+      organizerName: env.GOOGLE_CALENDAR_ORGANIZER_NAME,
+      timezone: env.GOOGLE_CALENDAR_TIME_ZONE,
+      workStart: env.GOOGLE_CALENDAR_WORK_START,
+      workEnd: env.GOOGLE_CALENDAR_WORK_END,
+    });
+
+    let event;
     try {
-      const adapter = createMailAdapter();
-      await adapter.sendTemplateEmail({
-        templateKey: "booking_reschedule_request",
-        to: recipient,
+      event = await adapter.createMeetEvent({
+        calendarId: env.GOOGLE_CALENDAR_OWNER_EMAIL as string,
+        organizerName: env.GOOGLE_CALENDAR_ORGANIZER_NAME,
+        summary: itemTitle,
+        description: [
+          booking.answers?.whatYouAreBuilding
+            ? `Building: ${booking.answers.whatYouAreBuilding}`
+            : null,
+          booking.answers?.currentStage
+            ? `Stage: ${booking.answers.currentStage}`
+            : null,
+          booking.answers?.helpNeeded
+            ? `Help needed: ${booking.answers.helpNeeded}`
+            : null,
+        ]
+          .filter((line): line is string => Boolean(line))
+          .join("\n"),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        timezone,
+        attendeeEmail: booking.customerEmail,
+        attendeeName: booking.customerName,
+      });
+    } catch (error) {
+      console.error("Meet event creation failed while rescheduling", {
+        bookingId,
+        error,
+      });
+      throw new AccountServiceError(
+        "RESCHEDULE_FAILED",
+        "We could not reschedule your session right now. Please try again or contact support.",
+        502
+      );
+    }
+
+    meetingUrl = event.hangoutLink ?? meetingUrl;
+    providerEventUri = event.id;
+    providerBookingUri = event.htmlLink;
+    provider = "google_calendar";
+
+    if (booking.providerEventUri) {
+      try {
+        await adapter.cancelEvent(booking.providerEventUri);
+      } catch (error) {
+        console.error("Old calendar event could not be cancelled", {
+          bookingId,
+          eventId: booking.providerEventUri,
+          error,
+        });
+      }
+    }
+  }
+
+  const rescheduledAt = new Date();
+  await Booking.updateOne(
+    { _id: bookingId },
+    {
+      $set: {
+        scheduledStartTime: start,
+        scheduledEndTime: end,
+        meetingUrl,
+        providerEventUri,
+        providerBookingUri,
+        provider,
+        status: "CONFIRMED",
+        lastRescheduledAt: rescheduledAt,
+        lastReminderSentAt: null,
+        reminders: [],
+        bookedAt: booking.bookedAt ?? rescheduledAt,
+        lastError: null,
+      },
+    }
+  ).exec();
+
+  await Fulfillment.findOneAndUpdate(
+    { orderId: booking.orderId, type: "BOOKING" },
+    {
+      $set: {
+        metadata: {
+          meetingUrl,
+          calendarEventId: providerEventUri,
+          calendarEventLink: providerBookingUri,
+          scheduledStartTime: start.toISOString(),
+          scheduledEndTime: end.toISOString(),
+        },
+      },
+    }
+  ).exec();
+
+  if (booking.customerEmail) {
+    try {
+      const mailAdapter = createMailAdapter();
+      await mailAdapter.sendTemplateEmail({
+        templateKey: "booking_rescheduled",
+        to: booking.customerEmail,
         variables: {
           customerName: booking.customerName ?? "",
-          customerEmail: booking.customerEmail ?? "",
           itemTitle,
-          orderReference: order?.orderReference ?? "",
-          scheduledAt: new Date(startsAt).toUTCString(),
+          orderReference: orderReference ?? "",
+          scheduledAt: start.toLocaleString("en-GB", {
+            dateStyle: "full",
+            timeStyle: "short",
+            timeZone: timezone,
+          }),
+          meetingUrl,
           appUrl: env.NEXT_PUBLIC_APP_URL,
         },
       });
     } catch (error) {
-      console.error("Reschedule request notification email failed", {
+      console.error("Reschedule confirmation email failed", {
         bookingId,
         error,
       });
     }
   }
 
-  return { id: String(booking._id) };
+  return {
+    id: String(booking._id),
+    scheduledStartTime: start.toISOString(),
+    scheduledEndTime: end.toISOString(),
+    meetingUrl: meetingUrl || null,
+  };
 }
