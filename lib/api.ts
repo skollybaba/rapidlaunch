@@ -9,6 +9,7 @@ import { ProfileServiceError } from "@/lib/services/profile-service";
 import { BroadcastServiceError } from "@/lib/services/broadcast-service";
 import { AdminServiceError } from "@/lib/services/admin-service";
 import { ResourceServiceError } from "@/lib/services/resource-service";
+import { AccountServiceError } from "@/lib/services/account-service";
 
 export function newRequestId(): string {
   return randomUUID();
@@ -65,6 +66,10 @@ export function handleApiError(
   }
 
   if (error instanceof ResourceServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof AccountServiceError) {
     return apiError(error.status, error.code, error.message, requestId);
   }
 

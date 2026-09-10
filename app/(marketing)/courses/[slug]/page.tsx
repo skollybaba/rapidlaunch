@@ -193,12 +193,6 @@ function CourseContent({ product }: { product: CourseDetail }) {
                   Review every module and topic covered before you enrol.
                   Download the full course curriculum to plan your learning.
                 </p>
-                <p className="mt-2 text-xs text-neutral-500">
-                  {product.curriculum.fileName}
-                  {product.curriculum.size
-                    ? ` · ${(product.curriculum.size / 1024 / 1024).toFixed(2)} MB PDF`
-                    : " · PDF"}
-                </p>
                 <a
                   href={`/api/catalog/courses/${product.slug}/curriculum`}
                   className={buttonStyles({

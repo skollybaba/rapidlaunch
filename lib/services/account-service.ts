@@ -1,6 +1,8 @@
 import "server-only";
 
 import { dbConnect } from "@/lib/db";
+import { env } from "@/lib/env";
+import { createMailAdapter } from "@/lib/providers/mail";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
@@ -8,6 +10,28 @@ import { Product } from "@/models/Product";
 import type { BookingDoc } from "@/types/booking";
 import type { FulfillmentDoc } from "@/types/payment";
 import type { OrderDoc } from "@/types/order";
+
+export const RESCHEDULE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export class AccountServiceError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(code: string, message: string, status = 400) {
+    super(message);
+    this.name = "AccountServiceError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function ownerNotificationEmail(): string | null {
+  const admins = (env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return admins[0] ?? env.MAIL_FROM_EMAIL ?? null;
+}
 
 export interface AccountPurchase {
   id: string;
@@ -33,6 +57,8 @@ export interface AccountSession {
   meetingUrl?: string | null;
   timezone?: string | null;
   isUpcoming: boolean;
+  rescheduleRequestedAt?: string | null;
+  rescheduleAvailable: boolean;
 }
 
 export interface AccountCourse {
@@ -215,6 +241,19 @@ export async function getSessionsForUser(
     const scheduled = booking.scheduledStartTime
       ? booking.scheduledStartTime.toISOString()
       : null;
+    const scheduledMs = booking.scheduledStartTime
+      ? booking.scheduledStartTime.getTime()
+      : null;
+    const requestedAt = booking.rescheduleRequestedAt
+      ? booking.rescheduleRequestedAt.toISOString()
+      : null;
+    const rescheduleAvailable = Boolean(
+      scheduledMs &&
+        scheduledMs - now > RESCHEDULE_WINDOW_MS &&
+        booking.status !== "CANCELLED" &&
+        booking.status !== "FAILED" &&
+        !requestedAt
+    );
     return {
       id: String(booking._id),
       orderReference: orderMap.get(String(booking.orderId)) ?? "",
@@ -231,6 +270,104 @@ export async function getSessionsForUser(
       meetingUrl: booking.meetingUrl ?? null,
       timezone: booking.timezone ?? null,
       isUpcoming: scheduled ? new Date(scheduled).getTime() > now : false,
+      rescheduleRequestedAt: requestedAt,
+      rescheduleAvailable,
     };
   });
+}
+
+export async function requestSessionReschedule(
+  bookingId: string,
+  userId: string
+): Promise<{ id: string }> {
+  await dbConnect();
+
+  const orders = await Order.find({ userId })
+    .select("_id orderReference")
+    .lean()
+    .exec();
+  const orderIds = orders.map((order) => order._id);
+  if (!orderIds.length) {
+    throw new AccountServiceError("SESSION_NOT_FOUND", "Session not found.", 404);
+  }
+
+  const booking = await Booking.findOne({
+    _id: bookingId,
+    orderId: { $in: orderIds },
+  })
+    .lean()
+    .exec();
+  if (!booking) {
+    throw new AccountServiceError("SESSION_NOT_FOUND", "Session not found.", 404);
+  }
+
+  if (booking.status === "CANCELLED" || booking.status === "FAILED") {
+    throw new AccountServiceError(
+      "SESSION_NOT_ACTIVE",
+      "This session can no longer be rescheduled.",
+      409
+    );
+  }
+
+  const startsAt = booking.scheduledStartTime
+    ? booking.scheduledStartTime.getTime()
+    : null;
+  if (!startsAt || startsAt - Date.now() <= RESCHEDULE_WINDOW_MS) {
+    throw new AccountServiceError(
+      "RESCHEDULE_NOT_AVAILABLE",
+      "Sessions within 24 hours of their start time cannot be rescheduled. Please contact support if you need help.",
+      400
+    );
+  }
+
+  if (booking.rescheduleRequestedAt) {
+    throw new AccountServiceError(
+      "RESCHEDULE_ALREADY_REQUESTED",
+      "A reschedule request is already in progress for this session.",
+      409
+    );
+  }
+
+  const requestedAt = new Date();
+  await Booking.findOneAndUpdate(
+    { _id: bookingId },
+    { $set: { rescheduleRequestedAt: requestedAt } }
+  )
+    .lean()
+    .exec();
+
+  const product = await Product.findById(booking.productId)
+    .select("title")
+    .lean()
+    .exec();
+  const itemTitle = product?.title ?? "your session";
+  const order = orders.find(
+    (o: OrderDoc) => String(o._id) === String(booking.orderId)
+  );
+
+  const recipient = ownerNotificationEmail();
+  if (recipient) {
+    try {
+      const adapter = createMailAdapter();
+      await adapter.sendTemplateEmail({
+        templateKey: "booking_reschedule_request",
+        to: recipient,
+        variables: {
+          customerName: booking.customerName ?? "",
+          customerEmail: booking.customerEmail ?? "",
+          itemTitle,
+          orderReference: order?.orderReference ?? "",
+          scheduledAt: new Date(startsAt).toUTCString(),
+          appUrl: env.NEXT_PUBLIC_APP_URL,
+        },
+      });
+    } catch (error) {
+      console.error("Reschedule request notification email failed", {
+        bookingId,
+        error,
+      });
+    }
+  }
+
+  return { id: String(booking._id) };
 }

@@ -26,8 +26,8 @@ const SECTIONS = [
     body: "Payments are processed securely by Paystack. When you pay, you authorise the charge for the item amount, and your order is confirmed once payment is verified on our side.",
   },
   {
-    title: "Cancellations and refunds",
-    body: "One-on-one session bookings may be cancelled within 24 hours of booking, but because a time is reserved for you, they are not refunded. Please see our Refund Policy for the full details on what can be cancelled and refunded.",
+    title: "Rescheduling and refunds",
+    body: "One-on-one session bookings are not refundable because a time is reserved for you, but you may request a new time as long as the session is more than 24 hours away. Please see our Refund Policy for the full details on what can be rescheduled and refunded.",
   },
   {
     title: "Access to courses and content",
