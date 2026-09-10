@@ -21,6 +21,19 @@ export const FULFILLMENT_MODES = [
 
 export type FulfillmentMode = (typeof FULFILLMENT_MODES)[number];
 
+export const CURRICULUM_MAX_BYTES = 10 * 1024 * 1024;
+
+export interface ProductCurriculum {
+  fileName: string;
+  contentType: "application/pdf";
+  size: number;
+  uploadedAt?: Date | null;
+}
+
+export interface ProductCurriculumStored extends ProductCurriculum {
+  data: Buffer;
+}
+
 export interface ProductCourseDetails {
   instructor?: string;
   durationMinutes?: number;
@@ -86,6 +99,7 @@ export interface ProductDoc {
   bookDetails?: ProductBookDetails | null;
   consultationDetails?: ProductConsultationDetails | null;
   mvpServiceDetails?: ProductMvpServiceDetails | null;
+  curriculum?: ProductCurriculum | null;
   bundleCourseIds?: unknown[];
   publishedAt?: Date | null;
   createdAt?: Date;

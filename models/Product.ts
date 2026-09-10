@@ -1,6 +1,25 @@
 import { Schema, model, type Model } from "mongoose";
 
-import type { ProductCourseDetails, ProductDoc } from "@/types/product";
+import type {
+  ProductCourseDetails,
+  ProductCurriculumStored,
+  ProductDoc,
+} from "@/types/product";
+
+const curriculumSchema = new Schema<ProductCurriculumStored>(
+  {
+    fileName: { type: String, required: true, trim: true },
+    contentType: {
+      type: String,
+      enum: ["application/pdf"],
+      default: "application/pdf",
+    },
+    size: { type: Number, required: true, min: 0 },
+    data: { type: Buffer, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const courseDetailsSchema = new Schema<ProductCourseDetails>(
   {
@@ -101,6 +120,7 @@ const ProductSchema = new Schema<ProductDoc>(
     bookDetails: bookDetailsSchema,
     consultationDetails: consultationDetailsSchema,
     mvpServiceDetails: mvpServiceDetailsSchema,
+    curriculum: curriculumSchema,
     bundleCourseIds: {
       type: [{ type: Schema.Types.ObjectId, ref: "Product" }],
       default: [],

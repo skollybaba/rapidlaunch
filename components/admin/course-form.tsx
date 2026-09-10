@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
-import { PRODUCT_STATUSES } from "@/types/product";
+import { PRODUCT_STATUSES, CURRICULUM_MAX_BYTES } from "@/types/product";
 
 const fieldClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
@@ -43,6 +44,7 @@ interface CourseFormData {
       enrollmentMode?: string;
       accessInstructions?: string;
     } | null;
+    curriculum?: { fileName?: string; size?: number } | null;
   } | null;
 }
 
@@ -104,6 +106,34 @@ export function CourseForm({
     initial?.bundleCourseIds ?? []
   );
 
+  const curriculumInputRef = useRef<HTMLInputElement>(null);
+  const [curriculumFile, setCurriculumFile] = useState<File | null>(null);
+  const [removeCurriculum, setRemoveCurriculum] = useState(false);
+  const [curriculumBusy, setCurriculumBusy] = useState(false);
+  const [curriculumError, setCurriculumError] = useState("");
+
+  const savedCurriculum =
+    !removeCurriculum && initial?.curriculum?.fileName
+      ? initial.curriculum
+      : null;
+
+  function handleCurriculumFile(file: File) {
+    setCurriculumError("");
+    const isPdf =
+      file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      setCurriculumError("Please choose a PDF file.");
+      return;
+    }
+    if (file.size > CURRICULUM_MAX_BYTES) {
+      setCurriculumError("Curriculum PDF must be under 10 MB.");
+      return;
+    }
+    setCurriculumFile(file);
+    setRemoveCurriculum(false);
+    if (curriculumInputRef.current) curriculumInputRef.current.value = "";
+  }
+
   function toggleBundleCourse(id: string, checked: boolean) {
     setBundleCourseIds((current) =>
       checked
@@ -157,6 +187,7 @@ export function CourseForm({
     };
 
     setSaving(true);
+    setCurriculumError("");
     try {
       const response = await fetch(
         editing ? `/api/admin/courses/${initial?.id}` : "/api/admin/courses",
@@ -170,11 +201,48 @@ export function CourseForm({
       if (!json.ok) {
         throw new Error(json.error?.message ?? "Could not save course");
       }
+
+      const courseId = editing ? initial?.id : (json.data?.id as string);
+      if (!courseId) {
+        throw new Error("Could not resolve the course id after saving");
+      }
+
+      if (removeCurriculum) {
+        setCurriculumBusy(true);
+        const rmResponse = await fetch(
+          `/api/admin/courses/${courseId}/curriculum`,
+          { method: "DELETE" }
+        );
+        const rmJson = await rmResponse.json();
+        if (!rmJson.ok) {
+          throw new Error(rmJson.error?.message ?? "Could not remove curriculum");
+        }
+        setCurriculumFile(null);
+        setRemoveCurriculum(false);
+      } else if (curriculumFile) {
+        setCurriculumBusy(true);
+        const form = new FormData();
+        form.append("file", curriculumFile);
+        const upResponse = await fetch(
+          `/api/admin/courses/${courseId}/curriculum`,
+          { method: "PUT", body: form }
+        );
+        const upJson = await upResponse.json();
+        if (!upJson.ok) {
+          throw new Error(upJson.error?.message ?? "Could not upload curriculum");
+        }
+        setCurriculumFile(null);
+      }
+
       router.push("/admin/courses");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save course");
+      const message =
+        err instanceof Error ? err.message : "Could not save course";
+      setError(message);
+      if (curriculumFile || removeCurriculum) setCurriculumError(message);
       setSaving(false);
+      setCurriculumBusy(false);
     }
   }
 
@@ -423,6 +491,106 @@ export function CourseForm({
             />
           </div>
         </div>
+      </section>
+
+      <section className="rounded-[16px] border border-neutral-300 bg-white p-6">
+        <h2 className="text-lg font-bold text-neutral-950">
+          Curriculum (PDF)
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Upload the full course curriculum as a PDF. Visitors can download it
+          from the public course page. PDFs up to 10 MB.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <input
+            ref={curriculumInputRef}
+            id="c-curriculum"
+            type="file"
+            accept="application/pdf,.pdf"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleCurriculumFile(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => curriculumInputRef.current?.click()}
+            disabled={curriculumBusy || saving}
+            className="inline-flex items-center gap-2 rounded-pill border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {curriculumBusy ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <UploadCloud aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            )}
+            {curriculumBusy
+              ? "Uploading…"
+              : savedCurriculum || curriculumFile
+                ? "Replace curriculum"
+                : "Choose curriculum PDF"}
+          </button>
+          {curriculumFile ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCurriculumFile(null);
+                setCurriculumError("");
+                if (curriculumInputRef.current) curriculumInputRef.current.value = "";
+              }}
+              disabled={curriculumBusy || saving}
+              className="text-sm font-semibold text-neutral-500 hover:text-neutral-700 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Clear
+            </button>
+          ) : null}
+          {savedCurriculum || curriculumFile ? (
+            <button
+              type="button"
+              onClick={() => {
+                setRemoveCurriculum(true);
+                setCurriculumFile(null);
+                setCurriculumError("");
+                if (curriculumInputRef.current) curriculumInputRef.current.value = "";
+              }}
+              disabled={curriculumBusy || saving}
+              className="inline-flex items-center gap-1.5 rounded-pill border border-danger-600 px-4 py-2.5 text-sm font-semibold text-danger-600 transition-colors duration-[var(--duration-fast)] hover:bg-danger-100 disabled:pointer-events-none disabled:opacity-50"
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" />
+              Remove
+            </button>
+          ) : null}
+        </div>
+        {curriculumFile ? (
+          <p className="mt-3 flex items-center gap-2 text-sm text-neutral-700">
+            <FileText aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            {curriculumFile.name}{" "}
+            <span className="text-neutral-400">
+              ({(curriculumFile.size / 1024 / 1024).toFixed(2)} MB) — will be
+              uploaded when saved
+            </span>
+          </p>
+        ) : savedCurriculum ? (
+          <p className="mt-3 flex items-center gap-2 text-sm text-neutral-700">
+            <FileText aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            {savedCurriculum.fileName}
+            {savedCurriculum.size ? (
+              <span className="text-neutral-400">
+                ({(savedCurriculum.size / 1024 / 1024).toFixed(2)} MB)
+              </span>
+            ) : null}
+          </p>
+        ) : null}
+        {removeCurriculum ? (
+          <p className="mt-3 text-sm text-danger-600">
+            The current curriculum will be removed when you save.
+          </p>
+        ) : null}
+        {curriculumError ? (
+          <p role="alert" className="mt-2 text-sm text-danger-600">
+            {curriculumError}
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-[16px] border border-neutral-300 bg-white p-6">

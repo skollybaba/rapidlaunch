@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BadgeCheck,
   Clock,
+  FileText,
   GraduationCap,
   ListOrdered,
   MessageCircleQuestion,
@@ -188,6 +189,36 @@ function CourseContent({ product }: { product: CourseDetail }) {
               </p>
             </div>
           </Reveal>
+
+          {product.hasCurriculum && product.curriculum?.fileName ? (
+            <Reveal as="section" className="mt-10">
+              <div className="rounded-md border border-terracotta-200 bg-terracotta-50 p-6">
+                <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
+                  Full curriculum
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600">
+                  Review every module and topic covered before you enrol.
+                  Download the full course curriculum to plan your learning.
+                </p>
+                <p className="mt-2 text-xs text-neutral-500">
+                  {product.curriculum.fileName}
+                  {product.curriculum.size
+                    ? ` · ${(product.curriculum.size / 1024 / 1024).toFixed(2)} MB PDF`
+                    : " · PDF"}
+                </p>
+                <a
+                  href={`/api/catalog/courses/${product.slug}/curriculum`}
+                  className={buttonStyles({
+                    variant: "secondary",
+                    className: "mt-4",
+                  })}
+                >
+                  <FileText aria-hidden="true" className="h-4 w-4" />
+                  Download curriculum (PDF)
+                </a>
+              </div>
+            </Reveal>
+          ) : null}
 
           {product.bundleCourses.length > 0 ? (
             <Reveal as="section" className="mt-10">

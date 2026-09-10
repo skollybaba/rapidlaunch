@@ -43,6 +43,7 @@ function doc(overrides: Partial<ProductDoc> = {}): ProductDoc {
 
 function findChain<T>(resolve: T) {
   return {
+    select: vi.fn().mockReturnThis(),
     sort: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     lean: vi.fn().mockReturnThis(),
@@ -118,6 +119,27 @@ describe("getPublishedProductBySlug", () => {
     mockFindOne.mockReturnValue(findChain(null) as never);
     const product = await getPublishedProductBySlug("missing");
     expect(product).toBeNull();
+  });
+
+  it("reports hasCurriculum based on the stored curriculum file", async () => {
+    mockFindOne.mockReturnValue(findChain(doc()) as never);
+    const without = await getPublishedProductBySlug("ai-product-craft");
+    expect(without?.hasCurriculum).toBe(false);
+
+    mockFindOne.mockReturnValue(
+      findChain(
+        doc({
+          curriculum: {
+            fileName: "syllabus.pdf",
+            contentType: "application/pdf",
+            size: 1024,
+          },
+        }) as never
+      ) as never
+    );
+    const withCurriculum = await getPublishedProductBySlug("ai-product-craft");
+    expect(withCurriculum?.hasCurriculum).toBe(true);
+    expect(withCurriculum?.curriculum?.fileName).toBe("syllabus.pdf");
   });
 });
 

@@ -93,6 +93,7 @@ export default async function AdminCoursesPage({
                   <th className="px-5 py-3 font-semibold">Slug</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Price</th>
+                  <th className="px-5 py-3 font-semibold">Curriculum</th>
                   <th className="px-5 py-3 font-semibold">Featured</th>
                   <th className="px-5 py-3 font-semibold">Updated</th>
                 </tr>
@@ -114,6 +115,13 @@ export default async function AdminCoursesPage({
                     </td>
                     <td className="px-5 py-4 text-neutral-700">
                       {formatPrice(course.priceMinor, course.currency)}
+                    </td>
+                    <td className="px-5 py-4">
+                      {course.hasCurriculum ? (
+                        <Badge tone="success">PDF</Badge>
+                      ) : (
+                        <span className="text-neutral-300">None</span>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-neutral-700">
                       {course.featured ? "Yes" : "No"}

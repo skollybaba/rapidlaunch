@@ -10,6 +10,11 @@ import { Payment } from "@/models/Payment";
 import { Product } from "@/models/Product";
 import { User } from "@/models/User";
 import { productInputSchema } from "@/lib/validation/product";
+import {
+  curriculumUploadSchema,
+  isPdfLike,
+} from "@/lib/validation/curriculum";
+import type { ProductCurriculumStored } from "@/types/product";
 import type { OrderDoc, OrderStatus } from "@/types/order";
 import type { BookingAnswers, BookingDoc } from "@/types/booking";
 import type { BookingRange, BookingSort } from "@/types/booking";
@@ -793,6 +798,7 @@ export interface AdminCourseRow {
   priceMinor: number;
   currency: string;
   featured: boolean;
+  hasCurriculum: boolean;
   updatedAt: string;
 }
 
@@ -820,7 +826,7 @@ export async function getAdminCourses({
     Product.countDocuments(filter),
     Product.find(filter)
       .sort({ updatedAt: -1 })
-      .select("_id slug title status priceMinor currency featured updatedAt")
+      .select("_id slug title status priceMinor currency featured curriculum.fileName updatedAt")
       .lean()
       .exec(),
   ]);
@@ -833,6 +839,7 @@ export async function getAdminCourses({
     priceMinor: c.priceMinor,
     currency: c.currency,
     featured: c.featured,
+    hasCurriculum: Boolean(c.curriculum?.fileName),
     updatedAt: (c.updatedAt ?? new Date()).toISOString(),
   }));
 
@@ -842,7 +849,7 @@ export async function getAdminCourses({
 export async function getCourseById(id: string) {
   await dbConnect();
   return Product.findById(id)
-    .select("_id slug title shortDescription description status priceMinor currency fulfillmentMode thumbnailUrl featured sortOrder courseDetails bundleCourseIds")
+    .select("_id slug title shortDescription description status priceMinor currency fulfillmentMode thumbnailUrl featured sortOrder courseDetails bundleCourseIds curriculum.fileName curriculum.contentType curriculum.size curriculum.uploadedAt")
     .lean()
     .exec();
 }
@@ -945,6 +952,63 @@ export async function updateCourse(id: string, input: unknown) {
     throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
   }
   return updated;
+}
+
+export interface SetCourseCurriculumInput {
+  fileName: string;
+  contentType: string;
+  size: number;
+  data: Buffer;
+}
+
+export async function setCourseCurriculum(id: string, input: SetCourseCurriculumInput) {
+  const parsed = curriculumUploadSchema.parse({
+    fileName: input.fileName,
+    size: input.size,
+  });
+  if (!isPdfLike(parsed.fileName, input.contentType)) {
+    throw new AdminServiceError(
+      "INVALID_CURRICULUM_FILE",
+      "Curriculum must be a PDF file.",
+      400
+    );
+  }
+  await dbConnect();
+  const stored: ProductCurriculumStored = {
+    fileName: parsed.fileName,
+    contentType: "application/pdf",
+    size: parsed.size,
+    data: input.data,
+    uploadedAt: new Date(),
+  };
+  const updated = await Product.findOneAndUpdate(
+    { _id: id, type: "COURSE" },
+    { $set: { curriculum: stored } },
+    { new: true }
+  )
+    .select("_id")
+    .lean()
+    .exec();
+  if (!updated) {
+    throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
+  }
+  return { id: String(updated._id) };
+}
+
+export async function clearCourseCurriculum(id: string) {
+  await dbConnect();
+  const updated = await Product.findOneAndUpdate(
+    { _id: id, type: "COURSE" },
+    { $unset: { curriculum: 1 } },
+    { new: true }
+  )
+    .select("_id")
+    .lean()
+    .exec();
+  if (!updated) {
+    throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
+  }
+  return { id: String(updated._id) };
 }
 
 export class AdminServiceError extends Error {

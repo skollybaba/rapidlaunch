@@ -70,6 +70,7 @@ export async function listPublishedProducts(
   const docs = await Product.find(toFindFilter(publishedFilter(type)))
     .sort({ sortOrder: 1, title: 1 })
     .limit(limit)
+    .select("-curriculum.data")
     .lean()
     .exec();
 
@@ -87,6 +88,7 @@ export interface BundleCourseSummary {
 
 export type CourseDetail = ProductDetail & {
   bundleCourses: BundleCourseSummary[];
+  hasCurriculum: boolean;
 };
 
 async function loadBundleCourses(
@@ -129,10 +131,17 @@ export async function getPublishedProductBySlug(
   const filter = publishedFilter(type);
   filter.slug = slugify(slug);
 
-  const doc = await Product.findOne(toFindOneFilter(filter)).lean().exec();
+  const doc = await Product.findOne(toFindOneFilter(filter))
+    .select("-curriculum.data")
+    .lean()
+    .exec();
 
   if (!doc) return null;
-  return { ...toDetail(doc), bundleCourses: await loadBundleCourses(doc) };
+  return {
+    ...toDetail(doc),
+    hasCurriculum: Boolean(doc.curriculum?.fileName),
+    bundleCourses: await loadBundleCourses(doc),
+  };
 }
 
 export async function getPublishedProductById(
@@ -145,6 +154,7 @@ export async function getPublishedProductById(
   const doc = await Product.findOne(
     toFindOneFilter({ _id: id, status: "PUBLISHED" })
   )
+    .select("-curriculum.data")
     .lean()
     .exec();
 
@@ -163,6 +173,7 @@ export async function getRelatedProducts(
   const docs = await Product.find(toFindFilter(filter))
     .sort({ sortOrder: 1, title: 1 })
     .limit(limit)
+    .select("-curriculum.data")
     .lean()
     .exec();
 
