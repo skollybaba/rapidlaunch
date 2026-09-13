@@ -80,6 +80,13 @@ function webhookEventKey(event: string, payload: unknown): string {
   return `${event}:hash:${hash}`;
 }
 
+function paymentCallbackPath(order: { metadata?: Record<string, unknown> }): string {
+  const type = order.metadata?.productType;
+  if (type === "COURSE") return "/payment/callback/course";
+  if (type === "CONSULTATION") return "/payment/callback/session";
+  return "/payment/callback";
+}
+
 function fulfillmentTypeForOrder(order: {
   metadata: Record<string, unknown>;
   type?: unknown;
@@ -320,7 +327,9 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
       currency: order.currency,
       email: order.customerEmail,
       reference: providerReference,
-      callbackUrl: `${env.NEXT_PUBLIC_APP_URL}/payment/callback?reference=${providerReference}`,
+      callbackUrl: `${env.NEXT_PUBLIC_APP_URL}${paymentCallbackPath(
+        order
+      )}?reference=${providerReference}`,
       metadata: {
         orderId: String(order._id),
         orderReference: order.orderReference,

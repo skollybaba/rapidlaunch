@@ -334,7 +334,7 @@ describe("initializeCheckoutPayment", () => {
         currency: "NGN",
         email: "buyer@example.com",
         reference: expect.stringMatching(/^QL-PAY-/),
-        callback_url: expect.stringContaining("/payment/callback?reference="),
+        callback_url: expect.stringContaining("/payment/callback/course?reference="),
       }),
       expect.anything()
     );
@@ -345,6 +345,35 @@ describe("initializeCheckoutPayment", () => {
       })
     );
     expect(result.authorizationUrl).toBe("https://checkout.paystack.com/abc");
+  });
+
+  it("builds a session callback URL for consultation orders", async () => {
+    vi.mocked(Order.findOne).mockReturnValue(
+      lean({
+        ...orderDoc,
+        metadata: { productType: "CONSULTATION", productFulfillmentMode: "SCHEDULER" },
+      })
+    );
+    vi.mocked(Payment.create).mockResolvedValue(paymentDoc as never);
+    mockPost.mockResolvedValue({
+      data: {
+        data: {
+          authorization_url: "https://checkout.paystack.com/abc",
+          access_code: "ac_1",
+          reference: "QL-PAY-ABC",
+        },
+      },
+    });
+
+    await initializeCheckoutPayment({ orderReference: "QL-XYZ123" });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      "https://api.paystack.co/transaction/initialize",
+      expect.objectContaining({
+        callback_url: expect.stringContaining("/payment/callback/session?reference="),
+      }),
+      expect.anything()
+    );
   });
 
   it("rejects an unknown order", async () => {
