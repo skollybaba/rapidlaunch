@@ -89,10 +89,7 @@ async function main() {
       "1. Copy the refresh token above into GOOGLE_REFRESH_TOKEN in .env.local."
     );
     console.log(
-      "2. Set MAIL_TRANSPORT=gmail_api in your production environment (Render)."
-    );
-    console.log(
-      "3. Deploy, then use the admin dashboard 'Send test email' button to confirm."
+      "2. Deploy, then use the admin dashboard 'Send test email' button to confirm."
     );
     if (!refreshToken) {
       console.warn(
