@@ -24,6 +24,40 @@ describe("productInputSchema", () => {
     ).toThrow();
   });
 
+  it("accepts a root-relative thumbnail path for local assets", () => {
+    const parsed = productInputSchema.parse({
+      ...baseInput,
+      thumbnailUrl: "/images/service-strategy-session.jpg",
+    });
+    expect(parsed.thumbnailUrl).toBe("/images/service-strategy-session.jpg");
+  });
+
+  it("still accepts a remote thumbnail URL", () => {
+    const parsed = productInputSchema.parse({
+      ...baseInput,
+      thumbnailUrl: "https://images.pexels.com/photos/22046264/pexels-photo-22046264.jpeg",
+    });
+    expect(parsed.thumbnailUrl).toMatch(/^https:\/\/images\.pexels\.com/);
+  });
+
+  it("rejects a protocol-relative thumbnail that would leave the origin", () => {
+    expect(() =>
+      productInputSchema.parse({
+        ...baseInput,
+        thumbnailUrl: "//evil.example/payload.jpg",
+      })
+    ).toThrow();
+  });
+
+  it("rejects a javascript: thumbnail URL", () => {
+    expect(() =>
+      productInputSchema.parse({
+        ...baseInput,
+        thumbnailUrl: "javascript:alert(1)",
+      })
+    ).toThrow();
+  });
+
   it("rejects an unknown type", () => {
     expect(() =>
       productInputSchema.parse({ ...baseInput, type: "GADGET" })

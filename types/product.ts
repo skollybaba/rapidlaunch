@@ -74,12 +74,20 @@ export interface ProductConsultationDetails {
   cancellationPolicy?: string;
 }
 
+export type ProductInquiryMode = "NONE" | "INTEREST" | "QUOTE";
+
 export interface ProductMvpServiceDetails {
   scope?: string;
   deliverables?: string[];
   quoteMode?: boolean;
   startingPriceMinor?: number;
   maxDepositMinor?: number;
+  /**
+   * When set, the catalogue CTA opens an enquiry form instead of checkout.
+   * INTEREST collects scope confirmation before a listed price is payable;
+   * QUOTE collects a brief and prices the engagement manually.
+   */
+  inquiryMode?: ProductInquiryMode;
 }
 
 export interface ProductDoc {

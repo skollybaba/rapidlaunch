@@ -352,14 +352,14 @@ describe("rescheduleSession", () => {
 
   it("keeps the old booking unchanged when the new event cannot be created", async () => {
     setupBooking({ provider: "google_calendar" });
-    confirmSlot();
+    const slot = confirmSlot();
     mockCalendarConfigured.mockReturnValue(true);
     mockCreateMeetEvent.mockRejectedValue(new Error("provider down"));
 
     await expect(
       rescheduleSession("BK1", "U1", {
-        startTime: newSlot().startTime,
-        endTime: newSlot().endTime,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
       })
     ).rejects.toMatchObject({ code: "RESCHEDULE_FAILED" });
     expect(mockBookingUpdateOne).not.toHaveBeenCalled();

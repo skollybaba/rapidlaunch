@@ -87,6 +87,25 @@ function paymentCallbackPath(order: { metadata?: Record<string, unknown> }): str
   return "/payment/callback";
 }
 
+/**
+ * An engagement is bookable when it delivers a scheduled session. Consultations
+ * always are; an MVP sprint is bookable when it is configured to kick off in a
+ * scheduler rather than being fulfilled manually.
+ *
+ * This is derived from the product record on the server. The client cannot
+ * assert bookability, so a crafted checkout payload cannot create a booking for
+ * an engagement that does not sell one.
+ */
+function isBookableEngagement(input: {
+  type?: unknown;
+  fulfillmentMode?: unknown;
+}): boolean {
+  const type = input.type;
+  const mode = input.fulfillmentMode;
+  if (type === "CONSULTATION") return true;
+  return type === "MVP_SERVICE" && mode === "SCHEDULER";
+}
+
 function fulfillmentTypeForOrder(order: {
   metadata: Record<string, unknown>;
   type?: unknown;
@@ -230,7 +249,10 @@ export async function createCheckoutSession(
     },
   });
 
-  if (product.type === "CONSULTATION" && parsed.session) {
+  if (isBookableEngagement({
+      type: product.type,
+      fulfillmentMode: product.fulfillmentMode,
+    }) && parsed.session) {
     const booking = await Booking.create({
       orderId: order._id,
       productId: product._id,
@@ -246,6 +268,14 @@ export async function createCheckoutSession(
         ? new Date(parsed.session.requestedStartTime)
         : null,
       provider: "google_calendar",
+      // Bookable engagements are reachable from the Founders catalogue, so the
+      // origin is recorded rather than inferred from the request.
+      source: isBookableEngagement({
+        type: product.type,
+        fulfillmentMode: product.fulfillmentMode,
+      })
+        ? "FOUNDERS_CATALOGUE"
+        : "DIRECT",
       schedulingUrl: product.consultationDetails?.schedulerUrl,
       status: "PENDING",
       attempts: 0,
@@ -1056,7 +1086,14 @@ async function sendCourseAccessEmail(
 const STALE_BOOKING_CLAIM_MS = 120_000;
 
 export async function bookConsultationIfPending(order: LeanDoc<OrderDoc>) {
-  if (order.metadata?.productType !== "CONSULTATION") return;
+  if (
+    !isBookableEngagement({
+      type: order.metadata?.productType,
+      fulfillmentMode: order.metadata?.productFulfillmentMode,
+    })
+  ) {
+    return;
+  }
 
   const booking = await Booking.findOne({
     orderId: order._id,
@@ -1334,7 +1371,9 @@ function orderNextStepText(order: LeanDoc<OrderDoc>): string {
     return "We will send you a link to book your consultation shortly.";
   }
   if (type === "MVP_SERVICE") {
-    return "Our team will reach out to start your MVP project. Expect an onboarding message soon.";
+    return order.metadata?.productFulfillmentMode === "SCHEDULER"
+      ? "We will send you a link to book your kickoff session shortly."
+      : "Our team will reach out to start your MVP project. Expect an onboarding message soon.";
   }
   return "We are preparing the next steps for your purchase and will email you shortly.";
 }

@@ -78,6 +78,11 @@ const mvpServiceDetailsSchema = new Schema(
     quoteMode: Boolean,
     startingPriceMinor: Number,
     maxDepositMinor: Number,
+    inquiryMode: {
+      type: String,
+      enum: ["NONE", "INTEREST", "QUOTE"],
+      default: "NONE",
+    },
   },
   { _id: false }
 );

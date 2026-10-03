@@ -11,6 +11,15 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_PROVIDERS = ["manual", "google_calendar"] as const;
 
+/**
+ * Where a booking originated. Bookable engagements are only reachable from the
+ * Founders catalogue, so the server derives this rather than trusting the
+ * request.
+ */
+export const BOOKING_SOURCES = ["DIRECT", "FOUNDERS_CATALOGUE"] as const;
+
+export type BookingSource = (typeof BOOKING_SOURCES)[number];
+
 export type BookingProvider = (typeof BOOKING_PROVIDERS)[number];
 
 export const BOOKING_RANGES = [
@@ -54,6 +63,7 @@ export interface BookingDoc {
   scheduledStartTime?: Date | null;
   scheduledEndTime?: Date | null;
   provider: BookingProvider;
+  source: BookingSource;
   providerBookingUri?: string;
   providerEventUri?: string;
   meetingUrl?: string;

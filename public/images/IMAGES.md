@@ -26,6 +26,29 @@ downloaded in optimised JPEG form (1600x1100 crop where available).
 | vibecoding-ai.jpg | Dark setup with ChatGPT interface on screen | Matheus Bertelli | https://www.pexels.com/photo/chatgpt-on-monitor-16027812/ | 2026-09-01 |
 | vibecoding-code.jpg | Close-up of a person coding on a laptop | Lukas Blazek | https://www.pexels.com/photo/person-encoding-in-laptop-574071/ | 2026-09-01 |
 
+## Founders catalogue service imagery
+
+All five are Pexels CDN originals, same license as above. Each is landscape
+(16:9 or 3:2) to match the `landscape` service card format.
+
+| File | Service | Subject per Pexels listing | Creator | Source page | Downloaded |
+| --- | --- | --- | --- | --- | --- |
+| service-strategy-session.jpg | 90-Minute One-on-One Strategy Session | Two professionals discussing strategies at a modern office desk with a laptop | Vitaly Gariev | https://www.pexels.com/photo/office-workers-sitting-at-a-table-and-discussing-strategy-22046264/ | 2026-10-01 |
+| service-pm-clarity.jpg | 60-Minute Product Manager Clarity Session | Professionals analysing data on a laptop during an office meeting | Yan Krukau | https://www.pexels.com/photo/using-laptop-in-a-business-meeting-7693683/ | 2026-10-01 |
+| service-idea-to-mvp.jpg | Idea to MVP Sprint | A group of colleagues working together on a project around a laptop | not confirmed | https://www.pexels.com/photo/photo-of-people-looking-on-laptop-3182812/ | 2026-10-01 |
+| service-ai-build.jpg | Building Your Product with AI | Person coding on a laptop | not confirmed | https://www.pexels.com/photo/person-coding-on-a-macbook-pro-4974912/ | 2026-10-01 |
+| service-build-with-us.jpg | Build a Product With Us | Two colleagues working together in front of a laptop | not confirmed | https://www.pexels.com/photo/young-colleagues-sitting-and-working-together-in-front-of-a-laptop-7652245/ | 2026-10-01 |
+
+**Open item — these five are not visually reviewed.** The subject descriptions
+above come from the Pexels search listing, not from inspecting the files. Each
+file was verified only as a valid JPEG at the stated dimensions. Before these
+ship, open each file and confirm it shows people rather than objects or empty
+rooms, and that the framing suits a 16:9 card. Swap by editing `thumbnailUrl`
+in `scripts/seed.ts` and re-running `npm run seed`.
+
+Attribution is not required under the Pexels License. Creator names recorded as
+"not confirmed" were not visible in the search result and must not be guessed.
+
 ## Usage scope
 
 - `hero-ai-human.jpg` — hero concept for internal/landing iterations (homepage currently uses illustrations).

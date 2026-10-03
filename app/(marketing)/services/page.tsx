@@ -5,8 +5,7 @@ import { ArrowRight, CalendarCheck, FileCode2, MessageSquareQuote } from "lucide
 
 import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
-import { HeroVisual } from "@/components/marketing/hero-visual";
-import { ProductCover } from "@/components/ui/product-cover";
+import { ServiceVisual } from "@/components/ui/service-visual";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonStyles } from "@/components/ui/button";
 import { listPublishedProducts } from "@/lib/services/catalog-service";
@@ -16,9 +15,9 @@ import type { ProductSummary } from "@/types/product";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Services | Rapid Launch",
+  title: "Founders catalogue | Rapid Launch",
   description:
-    "Consulting sessions and outcome-led MVP builds: product strategy, AI tooling guidance, and launching your idea in shipping waves.",
+    "Founders catalogue: consulting sessions and outcome-led MVP builds: product strategy, AI tooling guidance, and launching your idea in shipping waves.",
 };
 
 async function ServicesGrid() {
@@ -54,7 +53,7 @@ async function ServicesGrid() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {services.map((product, index) => (
         <Reveal key={product.id} delay={index * 70}>
           <ServiceCard product={product} />
@@ -73,7 +72,9 @@ function ServiceCard({ product }: { product: ProductSummary }) {
       href={`/services/${product.slug}`}
       className="group flex h-full flex-col overflow-hidden rounded-md border border-neutral-300 bg-white transition-all duration-[var(--duration-standard)] hover:-translate-y-0.5 hover:border-ink-700 hover:shadow-md hover:shadow-ink-700/10"
     >
-      <ProductCover
+      <ServiceVisual
+        imageUrl={product.thumbnailUrl}
+        alt={`${product.title} engagement`}
         type={product.type}
         title={product.title}
         subtitle={product.shortDescription}
@@ -140,27 +141,25 @@ export default function ServicesPage() {
   return (
     <div className="flex flex-1 flex-col">
       <CatalogPageHeader
-        eyebrow="Services"
-        title="High-touch help when the outcome matters."
-        description="Consulting sessions clarify a decision you are facing today. MVP sprints turn a validated idea into a buildable plan and a launchable product. Both end with something you keep."
+        eyebrow="Founders catalogue"
+        title="Four ways to move your product forward."
+        description="Book a strategy session, turn an idea into an MVP, get your product built with AI, or talk to us about a custom build. Every route starts from where you actually are."
       />
       <div className="border-b border-neutral-300 bg-white">
-        <div className="mx-auto grid w-[98%] md:w-[min(83%,96rem)] grid-cols-1 items-center gap-10 px-6 py-14 lg:grid-cols-[1fr_440px] lg:px-8">
-          <Reveal>
+        <div className="mx-auto w-[98%] px-6 py-16 text-center md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <Reveal className="mx-auto max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
               Choose the engagement
             </p>
-            <h2 className="mt-3 max-w-xl text-[32px] leading-[1.286] md:text-[1.75rem]">
-              Two kinds of high-touch help, one honest workflow.
+            <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[2.25rem]">
+              Sessions you can book today, builds we scope with you.
             </h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-neutral-500">
-              Book the session you need today, or start a sprint that ends with
-              your product built. Both routes start with a conversation about
-              where you are now.
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral-500">
+              Two engagements have a listed price and book straight into a
+              session. Two start with a form so we can understand the work
+              before anyone pays a naira. Pick the route that matches where you
+              are.
             </p>
-          </Reveal>
-          <Reveal delay={140}>
-            <HeroVisual />
           </Reveal>
         </div>
       </div>
@@ -169,7 +168,7 @@ export default function ServicesPage() {
         <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
           <Suspense
             fallback={
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 4 }, (_, index) => (
                   <div
                     key={index}

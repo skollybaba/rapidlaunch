@@ -10,7 +10,7 @@ import { ProfileMenu } from "@/components/marketing/profile-menu";
 
 const NAV_LINKS = [
   { href: "/courses", label: "Courses" },
-  { href: "/services", label: "Services" },
+  { href: "/services", label: "Founders catalogue" },
   { href: "/books", label: "Books" },
   { href: "/resources", label: "Resources" },
   { href: "/about", label: "About" },

@@ -129,6 +129,7 @@ const products: SeedProduct[] = [
   {
     type: "CONSULTATION",
     slug: "90-minute-one-on-one-strategy-session",
+    thumbnailUrl: "/images/service-strategy-session.jpg",
     title: "90-Minute One-on-One Strategy Session",
     shortDescription:
       "A one-on-one to close the gap between your idea and execution.",
@@ -158,6 +159,7 @@ const products: SeedProduct[] = [
   {
     type: "CONSULTATION",
     slug: "60-minute-product-manager-clarity-session",
+    thumbnailUrl: "/images/service-pm-clarity.jpg",
     title: "60-Minute Product Manager Clarity Session",
     shortDescription:
       "A one-on-one for product managers who want to work faster with AI.",
@@ -187,19 +189,20 @@ const products: SeedProduct[] = [
   {
     type: "MVP_SERVICE",
     slug: "idea-to-mvp-sprint",
+    thumbnailUrl: "/images/service-idea-to-mvp.jpg",
     title: "Idea to MVP Sprint",
     shortDescription:
       "An outcome-oriented engagement from idea to a buildable, launchable MVP.",
     description:
-      "A focused engagement where product strategy, technical planning, and implementation come together.\n\nYou get a scope you can understand, a build that ships in waves, and the source code handed over. The full price depends on scope and is quoted after discovery.",
+      "A focused engagement where product strategy, technical planning, and implementation come together.\n\nYou get a scope you can understand, a build that ships in waves, and the source code handed over. We start with a kickoff session so the scope is agreed before a line of code is written.",
     status: "PUBLISHED",
-    priceMinor: 0,
+    priceMinor: 150_000_000,
     currency: "NGN",
-    fulfillmentMode: "MANUAL",
+    fulfillmentMode: "SCHEDULER",
     featured: true,
     sortOrder: 1,
     mvpServiceDetails: {
-      quoteMode: true,
+      quoteMode: false,
       startingPriceMinor: 150_000_000,
       scope:
         "Product strategy, technical planning, iterative MVP builds, and source-code handover.",
@@ -207,6 +210,62 @@ const products: SeedProduct[] = [
         "A buildable plan and acceptance criteria",
         "An MVP built in shipping waves",
         "Source code and setup documentation",
+      ],
+    },
+  },
+  {
+    type: "MVP_SERVICE",
+    slug: "building-your-product-with-ai",
+    thumbnailUrl: "/images/service-ai-build.jpg",
+    title: "Building Your Product with AI",
+    shortDescription:
+      "A fixed-scope engagement where we build your product with you, AI-first.",
+    description:
+      "We build your product the way modern teams do: AI-assisted, fast, and with you in the loop rather than replaced by it.\n\nThe scope is fixed before we start, so the price is the price. You tell us what you are building, we confirm the scope with you in a short call, and once you are happy we send a payment link. After that the build starts and you get a working product in shipping waves.\n\nYou keep the source code, the documentation, and everything we learn about building it this way.",
+    status: "PUBLISHED",
+    priceMinor: 100_000_000,
+    currency: "NGN",
+    fulfillmentMode: "MANUAL",
+    featured: false,
+    sortOrder: 2,
+    mvpServiceDetails: {
+      quoteMode: false,
+      inquiryMode: "INTEREST",
+      startingPriceMinor: 100_000_000,
+      scope:
+        "A scoped, AI-first product build: scope confirmation, iterative shipping waves, and full handover.",
+      deliverables: [
+        "A confirmed scope and acceptance criteria before payment",
+        "An MVP built in shipping waves with AI-assisted delivery",
+        "Source code, setup documentation, and a handover session",
+      ],
+    },
+  },
+  {
+    type: "MVP_SERVICE",
+    slug: "build-a-product-with-us",
+    thumbnailUrl: "/images/service-build-with-us.jpg",
+    title: "Build a Product With Us",
+    shortDescription:
+      "Tell us what you are building and we will come back with a quote.",
+    description:
+      "Not sure the scope yet? That is normal, and it is the right way to start.\n\nTell us what you are building, what it needs to do, and where you are stuck. We read it properly, come back with a quote that includes the scope, the timeline, the price, and what we would need from you to make it work.\n\nNothing is payable until you have seen the quote and decided. No payment link, no commitment, no obligation to say yes.",
+    status: "PUBLISHED",
+    priceMinor: 0,
+    currency: "NGN",
+    fulfillmentMode: "MANUAL",
+    featured: false,
+    sortOrder: 3,
+    mvpServiceDetails: {
+      quoteMode: true,
+      inquiryMode: "QUOTE",
+      startingPriceMinor: 150_000_000,
+      scope:
+        "A bespoke product build, scoped and priced per project after we review your brief.",
+      deliverables: [
+        "A written quote with scope, timeline and price",
+        "A build plan agreed before anything is committed",
+        "Source code and documentation at handover",
       ],
     },
   },

@@ -12,6 +12,7 @@ import {
   ReceiptText,
   LogOut,
   ExternalLink,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +30,8 @@ const NAV_LINKS: NavLink[] = [
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: BookOpen },
+  { href: "/admin/services", label: "Services", icon: ChartNoAxesCombined },
+  { href: "/admin/submissions", label: "Submissions", icon: Inbox },
   { href: "/admin/enrollees", label: "Enrollees", icon: Users },
   { href: "/admin/resources", label: "Resources", icon: FolderOpen },
 ];

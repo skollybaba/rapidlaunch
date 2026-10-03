@@ -4,6 +4,7 @@ import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { Booking } from "@/models/Booking";
+import { Lead } from "@/models/Lead";
 import { Fulfillment } from "@/models/Fulfillment";
 import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
@@ -18,6 +19,7 @@ import type { ProductCurriculumStored } from "@/types/product";
 import type { OrderDoc, OrderStatus } from "@/types/order";
 import type { BookingAnswers, BookingDoc } from "@/types/booking";
 import type { BookingRange, BookingSort } from "@/types/booking";
+import { Types } from "mongoose";
 
 export type { BookingRange } from "@/types/booking";
 import type { PaymentDoc } from "@/types/payment";
@@ -1009,6 +1011,127 @@ export async function clearCourseCurriculum(id: string) {
     throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
   }
   return { id: String(updated._id) };
+}
+
+export interface AdminServiceRow {
+  id: string;
+  type: "CONSULTATION" | "MVP_SERVICE";
+  slug: string;
+  title: string;
+  status: string;
+  priceMinor: number;
+  currency: string;
+  fulfillmentMode?: string | undefined;
+  inquiryMode: string;
+  quoteMode: boolean;
+  leadCount: number;
+  updatedAt?: Date | null;
+}
+
+const BOOKABLE_SERVICE_TYPES = ["CONSULTATION", "MVP_SERVICE"] as const;
+
+/**
+ * Lists the engagements shown on the Founders catalogue, newest configuration
+ * last, together with how many enquiries each has received so the owner can
+ * tell which offers are actually being used.
+ */
+export async function listAdminServices(): Promise<AdminServiceRow[]> {
+  await dbConnect();
+
+  const docs = await Product.find({ type: { $in: [...BOOKABLE_SERVICE_TYPES] } })
+    .sort({ sortOrder: 1, title: 1 })
+    .select(
+      "_id type slug title status priceMinor currency fulfillmentMode mvpServiceDetails updatedAt"
+    )
+    .lean()
+    .exec();
+
+  const leadCounts = await Lead.aggregate<{ _id: unknown; count: number }>([
+    { $match: { productId: { $ne: null } } },
+    { $group: { _id: "$productId", count: { $sum: 1 } } },
+  ]).exec();
+
+  const countsByProduct = new Map<string, number>();
+  for (const row of leadCounts) {
+    countsByProduct.set(String(row._id), row.count);
+  }
+
+  return docs.map((doc) => ({
+    id: String(doc._id),
+    type: doc.type as AdminServiceRow["type"],
+    slug: doc.slug,
+    title: doc.title,
+    status: doc.status,
+    priceMinor: doc.priceMinor,
+    currency: doc.currency,
+    fulfillmentMode: doc.fulfillmentMode,
+    inquiryMode: doc.mvpServiceDetails?.inquiryMode ?? "NONE",
+    quoteMode: doc.mvpServiceDetails?.quoteMode === true,
+    leadCount: countsByProduct.get(String(doc._id)) ?? 0,
+    updatedAt: doc.updatedAt ?? null,
+  }));
+}
+
+export interface UpdateServiceInput {
+  status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  inquiryMode?: "NONE" | "INTEREST" | "QUOTE";
+  fulfillmentMode?: "SCHEDULER" | "MANUAL";
+}
+
+/**
+ * Updates the operational configuration of an engagement. Titles, copy and
+ * prices are deliberately not editable here: changing an engagement price is a
+ * catalogue decision and belongs with the owner.
+ */
+export async function updateServiceConfig(
+  id: string,
+  input: UpdateServiceInput
+) {
+  await dbConnect();
+
+  if (!Types.ObjectId.isValid(id)) {
+    throw new AdminServiceError("SERVICE_NOT_FOUND", "Engagement not found.", 404);
+  }
+
+  const service = await Product.findOne({
+    _id: id,
+    type: { $in: [...BOOKABLE_SERVICE_TYPES] },
+  }).exec();
+
+  if (!service) {
+    throw new AdminServiceError("SERVICE_NOT_FOUND", "Engagement not found.", 404);
+  }
+
+  if (input.status) service.status = input.status;
+  if (input.fulfillmentMode) service.fulfillmentMode = input.fulfillmentMode;
+
+  if (input.inquiryMode) {
+    if (!service.mvpServiceDetails) service.mvpServiceDetails = {};
+    service.mvpServiceDetails.inquiryMode = input.inquiryMode;
+    // Keep quoteMode consistent: a QUOTE enquiry has no payable amount.
+    service.mvpServiceDetails.quoteMode = input.inquiryMode === "QUOTE";
+  }
+
+  if (service.status === "PUBLISHED" && service.priceMinor <= 0) {
+    const quoted = service.mvpServiceDetails?.quoteMode === true;
+    const external = service.fulfillmentMode === "EXTERNAL";
+    if (!quoted && !external) {
+      throw new AdminServiceError(
+        "PRICE_REQUIRED",
+        "A published engagement needs a price unless it is quote-based.",
+        400
+      );
+    }
+  }
+
+  await service.save();
+
+  return {
+    id: String(service._id),
+    status: service.status,
+    inquiryMode: service.mvpServiceDetails?.inquiryMode ?? "NONE",
+    fulfillmentMode: service.fulfillmentMode ?? null,
+  };
 }
 
 export class AdminServiceError extends Error {

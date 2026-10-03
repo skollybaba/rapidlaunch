@@ -4,7 +4,7 @@ import { Mail, Rocket, Sparkles, Users, Wrench } from "lucide-react";
 const LEGAL_LINKS = ["Privacy", "Terms", "Refund policy"];
 const SITE_LINKS = [
   { href: "/about", label: "About", icon: Sparkles },
-  { href: "/services", label: "Services", icon: Wrench },
+  { href: "/services", label: "Founders catalogue", icon: Wrench },
   { href: "/courses", label: "Courses", icon: Users },
   { href: "/resources", label: "Resources", icon: Rocket },
 ];

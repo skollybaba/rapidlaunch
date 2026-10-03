@@ -59,8 +59,28 @@ const mvpServiceDetailsInputSchema = z
     quoteMode: z.boolean().optional(),
     startingPriceMinor: z.number().int().min(0).optional(),
     maxDepositMinor: z.number().int().min(0).optional(),
+    inquiryMode: z.enum(["NONE", "INTEREST", "QUOTE"]).optional(),
   })
   .strict();
+
+/**
+ * Accepts http(s) URLs and root-relative paths for locally owned assets (for
+ * example `/images/service-strategy-session.jpg`).
+ *
+ * Deliberately stricter than `z.string().url()`, which accepts schemes such as
+ * `javascript:`. Protocol-relative `//host` values are also rejected because
+ * the browser would resolve them against the current origin's protocol.
+ */
+const imageSourceSchema = z
+  .string()
+  .refine(
+    (value) =>
+      /^https?:\/\//i.test(value) || /^\/[^/\\]/.test(value),
+    {
+      message:
+        "Must be an http(s) URL or a root-relative path such as /images/example.jpg",
+    }
+  );
 
 export const productInputSchema = z
   .object({
@@ -80,8 +100,8 @@ export const productInputSchema = z
     priceMinor: z.number().int().min(0),
     currency: z.string().length(3).default("NGN"),
     fulfillmentMode: z.enum(FULFILLMENT_MODES).optional(),
-    thumbnailUrl: z.string().url().optional(),
-    mediaUrls: z.array(z.string().url()).default([]),
+    thumbnailUrl: imageSourceSchema.optional(),
+    mediaUrls: z.array(imageSourceSchema).default([]),
     featured: z.boolean().default(false),
     sortOrder: z.number().int().default(0),
     seoTitle: z.string().optional(),

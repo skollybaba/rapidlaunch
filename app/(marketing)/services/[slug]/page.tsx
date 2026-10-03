@@ -6,8 +6,9 @@ import { ArrowRight, CheckCircle2, MessageSquareQuote, FileCode2 } from "lucide-
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { DetailList } from "@/components/catalog/detail-list";
-import { ProductCover } from "@/components/ui/product-cover";
+import { ServiceVisual } from "@/components/ui/service-visual";
 import { RichContent } from "@/components/marketing/rich-content";
+import { EnquiryForm } from "@/components/marketing/enquiry-form";
 import { Reveal } from "@/components/marketing/reveal";
 import { getPublishedProductBySlug } from "@/lib/services/catalog-service";
 import { formatDuration } from "@/lib/utils";
@@ -61,9 +62,12 @@ function ServiceContent({ product }: { product: ProductDetail }) {
   const isMvp = product.type === "MVP_SERVICE";
   const consultation = product.consultationDetails;
   const mvp = product.mvpServiceDetails;
+  const inquiryMode = mvp?.inquiryMode ?? "NONE";
 
   const priceLabel = isMvp
-    ? mvp?.startingPriceMinor
+    ? mvp?.quoteMode || inquiryMode === "QUOTE"
+      ? "Custom quote"
+      : mvp?.startingPriceMinor
       ? (
           <>
             From{" "}
@@ -82,28 +86,24 @@ function ServiceContent({ product }: { product: ProductDetail }) {
     <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_340px]">
         <article className="max-w-[680px]">
-          <div className="mb-8 overflow-hidden rounded-md border border-neutral-300">
-            {isMvp ? (
-              <ProductCover
+          <div className="relative mb-8 overflow-hidden rounded-md border border-neutral-300">
+            <ServiceVisual
+              imageUrl={product.thumbnailUrl}
+              alt={`${product.title}: ${
+                isMvp
+                  ? "a team shipping a working product"
+                  : "a founder and a consultant working through a plan together"
+              }`}
                 type={product.type}
                 title={product.title}
                 subtitle={product.shortDescription}
                 format="landscape"
               />
-            ) : (
-              <div className="relative aspect-video">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/images/collab-brainstorm.jpg"
-                  alt="Founder and consultant mapping a roadmap on sticky notes"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-                <span className="absolute bottom-4 left-4 rounded-full bg-ink-950/70 px-3 py-1 font-sans text-[10px] font-semibold text-white">
+            {!isMvp ? (
+              <span className="pointer-events-none absolute bottom-4 left-4 rounded-full bg-ink-950/70 px-3 py-1 font-sans text-[10px] font-semibold text-white">
                   One-on-one · live session
                 </span>
-              </div>
-            )}
+            ) : null}
           </div>
           <Badge>{isMvp ? "MVP build" : "Consultation"}</Badge>
           <h1 className="mt-4 text-[38px] leading-[1.16] md:text-[2.25rem]">
@@ -246,7 +246,31 @@ function ServiceContent({ product }: { product: ProductDetail }) {
             </dl>
             <p className="mt-5 text-3xl font-bold text-neutral-950">{priceLabel}</p>
 
-            {product.priceMinor > 0 ? (
+            {inquiryMode === "INTEREST" ? (
+              <a
+                href="#enquiry"
+                className={buttonStyles({
+                  variant: "primary",
+                  size: "lg",
+                  className: "mt-6 w-full",
+                })}
+              >
+                Start with your idea
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </a>
+            ) : inquiryMode === "QUOTE" ? (
+              <a
+                href="#enquiry"
+                className={buttonStyles({
+                  variant: "primary",
+                  size: "lg",
+                  className: "mt-6 w-full",
+                })}
+              >
+                Request a quote
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </a>
+            ) : product.priceMinor > 0 ? (
               <Link
                 href={`/checkout/${product.id}`}
                 className={buttonStyles({
@@ -317,6 +341,29 @@ function ServiceContent({ product }: { product: ProductDetail }) {
           ) : null}
         </aside>
       </div>
+
+      {inquiryMode === "INTEREST" || inquiryMode === "QUOTE" ? (
+        <section id="enquiry" className="scroll-mt-8 pt-14">
+          <div className="mx-auto max-w-[680px]">
+            <EnquiryForm
+              mode={inquiryMode === "QUOTE" ? "quote" : "interest"}
+              productSlug={product.slug}
+              productTitle={product.title}
+              listedPriceMinor={
+                inquiryMode === "INTEREST" && product.priceMinor > 0
+                  ? product.priceMinor
+                  : undefined
+              }
+              currency={product.currency}
+              submitLabel={
+                inquiryMode === "QUOTE"
+                  ? "Request my quote"
+                  : "Send my interest"
+              }
+            />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Schema, model, type Model } from "mongoose";
 import {
   BOOKING_PROVIDERS,
   BOOKING_REMINDER_POINTS,
+  BOOKING_SOURCES,
   BOOKING_STATUSES,
   type BookingDoc,
 } from "@/types/booking";
@@ -35,6 +36,12 @@ const BookingSchema = new Schema<BookingDoc>(
       type: String,
       enum: BOOKING_PROVIDERS,
       default: "manual",
+    },
+    source: {
+      type: String,
+      enum: BOOKING_SOURCES,
+      default: "DIRECT",
+      index: true,
     },
     providerBookingUri: String,
     providerEventUri: String,

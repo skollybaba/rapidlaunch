@@ -57,8 +57,10 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const paymentSupportUrl = env.PAYMENT_SUPPORT_URL ?? "/contact";
 
   const isSession =
-    product.type === "CONSULTATION" &&
-    product.consultationDetails?.bookingMode === "EXTERNAL_SCHEDULER";
+    (product.type === "CONSULTATION" &&
+      product.consultationDetails?.bookingMode === "EXTERNAL_SCHEDULER") ||
+    (product.type === "MVP_SERVICE" &&
+      product.fulfillmentMode === "SCHEDULER");
   const durationMinutes = product.consultationDetails?.durationMinutes;
 
   return (
