@@ -13,8 +13,9 @@ import {
   ExternalLink,
   FileText,
   Link2,
-  List,
+  Menu,
   PlayCircle,
+  X,
 } from "lucide-react";
 
 import { buttonStyles } from "@/components/ui/button";
@@ -330,21 +331,16 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex w-full items-center justify-between rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 hover:bg-neutral-50"
+            className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100 transition-colors"
             aria-expanded={sidebarOpen}
             aria-controls="mobile-curriculum"
-            aria-label={sidebarOpen ? "Hide curriculum" : "Show curriculum"}
+            aria-label={sidebarOpen ? "Close curriculum" : "Open curriculum"}
           >
-            <span className="flex items-center gap-2">
-              <List className="h-4 w-4" />
-              Curriculum
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-neutral-500 transition-transform duration-[var(--duration-fast)]",
-                sidebarOpen && "rotate-180"
-              )}
-            />
+            {sidebarOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </button>
         </div>
       </header>
@@ -352,7 +348,7 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 md:hidden bg-black/30"
+          className="fixed inset-0 z-40 md:hidden bg-black/30 animate-fade-in"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -364,7 +360,9 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
           aria-label="Course curriculum"
           className={cn(
             "order-2 rounded-[16px] border border-neutral-300 bg-white p-4 lg:order-1 lg:sticky lg:top-[6rem] max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin",
-            sidebarOpen ? "md:hidden fixed inset-y-0 left-0 z-50 w-80 shadow-xl" : "hidden md:block"
+            sidebarOpen
+              ? "md:hidden fixed inset-y-0 left-0 z-50 w-full max-w-[320px] shadow-xl animate-slide-in"
+              : "hidden md:block"
           )}
         >
           {orientationModule ? (
