@@ -2,17 +2,17 @@ import { z } from "zod";
 
 export const sessionDetailsSchema = z
   .object({
-    customerName: z.string().trim().min(1, "Your name is required").max(120),
+    customerName: z.string().trim().min(1, "Please enter your full name").max(120),
     whatYouAreBuilding: z
       .string()
       .trim()
-      .min(1, "Tell us what you are building")
+      .min(1, "Please tell us a bit about what you're building")
       .max(400),
     currentStage: z.string().trim().max(60).optional(),
     helpNeeded: z
       .string()
       .trim()
-      .min(1, "Tell us what you need help with")
+      .min(1, "Please let us know what you'd like help with")
       .max(1000),
     timezone: z.string().trim().max(80).optional(),
     requestedStartTime: z.string().datetime().optional(),
@@ -22,12 +22,12 @@ export const sessionDetailsSchema = z
 
 export const createCheckoutSessionSchema = z
   .object({
-    productId: z.string().min(1, "productId is required"),
+    productId: z.string().min(1, "Please select a product"),
     customerEmail: z
       .string()
       .trim()
       .toLowerCase()
-      .email("A valid email is required"),
+      .email("Please enter a valid email address"),
     session: sessionDetailsSchema,
     metadata: z.record(z.string(), z.unknown()).optional(),
   })

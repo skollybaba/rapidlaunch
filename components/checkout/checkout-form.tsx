@@ -163,21 +163,44 @@ export function CheckoutForm({
 
       const authorizationUrl = initJson.data.authorizationUrl as string;
       setState("redirecting");
-      toast.info({
-        title: "Redirecting to Paystack",
-        description: "Complete your payment to finish.",
+      toast.success({
+        title: "Redirecting to secure payment",
+        description: "You'll be taken to Paystack to complete your purchase.",
       });
       window.location.href = authorizationUrl;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      const reason = message
-        ? message
-        : "We couldn't start your checkout. Please try again. No payment has been taken.";
+      let reason: string;
+      let description = "No payment has been taken.";
+      
+      if (message.includes("PRODUCT_NOT_AVAILABLE")) {
+        reason = "This product isn't available right now. Please try again or contact us.";
+      } else if (message.includes("PRODUCT_NOT_PAYABLE")) {
+        reason = "This product can't be purchased at the moment. Please contact us.";
+      } else if (message.includes("EXTERNAL_PRODUCT")) {
+        reason = "This product is purchased elsewhere. Check the product page for details.";
+      } else if (message.includes("A valid email is required") || message.includes("valid email")) {
+        reason = "Please check your email address and try again.";
+      } else if (message.includes("Your name is required") || message.includes("full name")) {
+        reason = "Please enter your full name to continue.";
+      } else if (message.includes("Tell us what you're building") || message.includes("what you are building")) {
+        reason = "Please let us know a bit about what you're building.";
+      } else if (message.includes("help with") || message.includes("helpNeeded")) {
+        reason = "Please tell us what you'd like help with for your session.";
+      } else if (message.includes("PAYSTACK_NOT_CONFIGURED")) {
+        reason = "Secure payments are being set up. Your order is saved - contact us to complete it.";
+        description = "Your order details are ready. We'll help you finish when payments go live.";
+      } else if (message) {
+        reason = message;
+      } else {
+        reason = "Something went wrong. Please try again or contact us if the issue persists.";
+      }
+      
       setState("error");
       setMessage(reason);
       toast.error({
         title: reason,
-        description: "No payment has been taken.",
+        description,
         action: { label: "Retry", onClick: () => void runCheckout() },
       });
     }
