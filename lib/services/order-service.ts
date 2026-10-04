@@ -926,7 +926,7 @@ async function enrollInCourseTarget(
     );
     await sendCourseAccessEmail(order, target, {
       courseName: target.courseTitle,
-      courseLink: "/learn/" + String(target.productId),
+      courseLink: `${env.NEXT_PUBLIC_APP_URL}/learn/${target.productId}`,
       enrolled: true,
     });
   } catch (error) {

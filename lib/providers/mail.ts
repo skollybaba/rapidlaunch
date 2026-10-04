@@ -2,6 +2,7 @@ import "server-only";
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import nodemailer, { type Transporter } from "nodemailer";
 
@@ -84,20 +85,16 @@ export class MailProviderError extends Error {
 
 const EMAIL_LOGO_CID = "agile-logo";
 let emailLogoCache: EmailAttachmentInput | null | undefined;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function emailBrandLogo(): string {
-  return `<img src="cid:${EMAIL_LOGO_CID}" alt="Rapid Launch" width="96" height="44" style="display:block;margin:0 0 10px;width:96px;height:auto;" />`;
+  return `<img src="cid:${EMAIL_LOGO_CID}" alt="Rapid Launch" width="120" height="55" style="display:block;margin:0 0 10px;width:120px;height:auto;" />`;
 }
 
 function emailLogoAttachment(): EmailAttachmentInput | null {
   if (emailLogoCache !== undefined) return emailLogoCache;
   try {
-    const file = path.join(
-      process.cwd(),
-      "public",
-      "images",
-      "agile_logo-mark.png"
-    );
+    const file = path.join(__dirname, "..", "..", "public", "images", "agile_logo.png");
     emailLogoCache = {
       filename: "agile-logo.png",
       cid: EMAIL_LOGO_CID,
