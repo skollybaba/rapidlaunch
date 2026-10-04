@@ -480,6 +480,7 @@ export function CheckoutForm({
         onContinueAsGuest={() => void continueAsGuest()}
         onAuthenticated={() => void continueAfterAuth()}
         redirectPath={pathname}
+        allowGuest={isSession}
       />
     </div>
   );

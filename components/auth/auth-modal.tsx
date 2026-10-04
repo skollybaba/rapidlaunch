@@ -14,6 +14,7 @@ interface AuthModalProps {
   onContinueAsGuest: () => void;
   onAuthenticated: () => void;
   redirectPath?: string;
+  allowGuest?: boolean;
 }
 
 export function AuthModal({
@@ -22,6 +23,7 @@ export function AuthModal({
   onContinueAsGuest,
   onAuthenticated,
   redirectPath,
+  allowGuest = false,
 }: AuthModalProps) {
   const router = useRouter();
   const { loginWithGoogle, setUser } = useAuth();
@@ -115,17 +117,19 @@ export function AuthModal({
             Continue with email
           </button>
 
-          <button
-            type="button"
-            onClick={onContinueAsGuest}
-            className={buttonStyles({
-              variant: "secondary",
-              size: "lg",
-              className: "w-full",
-            })}
-          >
-            Continue as guest
-          </button>
+          {allowGuest && (
+            <button
+              type="button"
+              onClick={onContinueAsGuest}
+              className={buttonStyles({
+                variant: "secondary",
+                size: "lg",
+                className: "w-full",
+              })}
+            >
+              Continue as guest
+            </button>
+          )}
         </div>
 
         <p className="mt-5 text-center text-xs leading-relaxed text-neutral-400">
