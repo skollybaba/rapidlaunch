@@ -5,6 +5,8 @@ import Link from "next/link";
 
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 type Mode = "login" | "register" | "forgot";
@@ -32,6 +34,7 @@ export function AuthCard({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -55,25 +58,37 @@ export function AuthCard({
         });
         const json = await readApiJson(response);
         if (!json?.ok) {
-          throw new Error(json?.error?.message ?? "Could not send reset email");
+          throw new Error(readApiError(json, "Could not send reset email"));
         }
         setMessage(
-          "If an account exists for this email, we've sent a reset link to your inbox."
+          "If an account exists for this email, we've sent a reset link to your inbox.",
         );
+        toast.success({
+          title: "Reset link sent",
+          description: "Check your inbox for the link.",
+        });
       }
 
       if (mode !== "forgot") {
         setMessage(
           mode === "register"
             ? "Your account is ready. You can continue to payment."
-            : "You're signed in. You can continue to payment."
+            : "You're signed in. You can continue to payment.",
+        );
+        toast.success(
+          mode === "register"
+            ? { title: "Account created" }
+            : { title: "Signed in" },
         );
         onSuccess?.();
       }
     } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Something went wrong. Try again."
-      );
+      const reason =
+        caught instanceof Error
+          ? caught.message
+          : "Something went wrong. Try again.";
+      setError(reason);
+      toast.error({ title: reason });
     } finally {
       setSubmitting(false);
     }
@@ -95,7 +110,9 @@ export function AuthCard({
             : "Reset password"}
       </p>
       <h1 className="mt-2 text-[1.75rem] leading-[1.286]">{title}</h1>
-      <p className="mt-2 text-sm leading-relaxed text-neutral-500">{subtitle}</p>
+      <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+        {subtitle}
+      </p>
 
       <div className="mt-6 flex gap-2 rounded-[12px] bg-neutral-100 p-1">
         <button
@@ -124,8 +141,8 @@ export function AuthCard({
 
       {mode === "forgot" ? (
         <p className="mt-6 text-sm leading-relaxed text-neutral-500">
-          Enter the email you used to create your account and we&apos;ll send you a
-          reset link.
+          Enter the email you used to create your account and we&apos;ll send
+          you a reset link.
         </p>
       ) : null}
 
@@ -181,7 +198,9 @@ export function AuthCard({
             <input
               id="auth-password"
               type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
               required
               minLength={mode === "register" ? 8 : undefined}
               value={password}

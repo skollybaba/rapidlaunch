@@ -225,17 +225,17 @@ export async function getInsights(
       createdAt: { $gte: windowStart },
     }),
     Fulfillment.countDocuments({
-      type: "CLASSROOM_ENROLLMENT",
+      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
       status: "FULFILLED",
       fulfilledAt: { $gte: windowStart },
     }),
     Fulfillment.countDocuments({
-      type: "CLASSROOM_ENROLLMENT",
+      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
       status: { $in: ["PENDING", "RETRY_PENDING"] },
       createdAt: { $gte: windowStart },
     }),
     Fulfillment.countDocuments({
-      type: "CLASSROOM_ENROLLMENT",
+      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
       status: { $in: ["ACTION_REQUIRED", "FAILED"] },
       createdAt: { $gte: windowStart },
     }),
@@ -268,7 +268,7 @@ export async function getInsights(
     Fulfillment.aggregate<EnrollmentTrendRow>([
       {
         $match: {
-          type: "CLASSROOM_ENROLLMENT",
+          type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
           status: "FULFILLED",
           fulfilledAt: { $gte: windowStart },
         },
@@ -314,7 +314,7 @@ export async function getInsights(
       status: { $in: ["CONFIRMED", "PENDING"] },
       scheduledStartTime: { $gte: now },
     }),
-    Fulfillment.find({ type: "CLASSROOM_ENROLLMENT" })
+    Fulfillment.find({ type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] } })
       .sort({ createdAt: -1 })
       .limit(8)
       .select("_id orderId status fulfilledAt")

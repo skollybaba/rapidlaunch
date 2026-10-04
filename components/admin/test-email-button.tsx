@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { AlertTriangle, Loader2, MailCheck, Send } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
+
 interface TestEmailButtonProps {
   className?: string;
 }
 
 export function TestEmailButton({ className }: TestEmailButtonProps) {
+  const toast = useToast();
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{
     ok: boolean;
@@ -21,11 +25,14 @@ export function TestEmailButton({ className }: TestEmailButtonProps) {
       const res = await fetch("/api/admin/test-email", { method: "POST" });
       const body = await res.json();
       if (!res.ok) {
-        setResult({
-          ok: false,
-          message:
-            body?.error?.message ??
-            "Could not send the test email. Try again shortly.",
+        const reason = readApiError(
+          body,
+          "Could not send the test email. Try again shortly."
+        );
+        setResult({ ok: false, message: reason });
+        toast.error({
+          title: reason,
+          action: { label: "Retry", onClick: () => void sendTest() },
         });
         return;
       }
@@ -33,11 +40,14 @@ export function TestEmailButton({ className }: TestEmailButtonProps) {
         ok: true,
         message: "Test email sent. Check the configured sender's inbox.",
       });
-    } catch {
-      setResult({
-        ok: false,
-        message: "Could not send the test email. Check your connection.",
+      toast.success({
+        title: "Test email sent",
+        description: "Check the configured sender's inbox.",
       });
+    } catch {
+      const reason = "Could not send the test email. Check your connection.";
+      setResult({ ok: false, message: reason });
+      toast.error(reason);
     } finally {
       setPending(false);
     }

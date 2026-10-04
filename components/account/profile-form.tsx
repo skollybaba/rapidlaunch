@@ -4,13 +4,22 @@ import { useState, type FormEvent } from "react";
 
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 const inputClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
-export function ProfileForm({ initialName, email }: { initialName: string; email: string }) {
+export function ProfileForm({
+  initialName,
+  email,
+}: {
+  initialName: string;
+  email: string;
+}) {
   const { user, setUser } = useAuth();
+  const toast = useToast();
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -31,14 +40,18 @@ export function ProfileForm({ initialName, email }: { initialName: string; email
       });
       const json = await readApiJson<{ user?: { name?: string } }>(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not update your profile");
+        throw new Error(readApiError(json, "Could not update your profile"));
       }
       setMessage("Profile updated.");
+      toast.success({ title: "Profile updated" });
       if (setUser && user) {
         setUser({ ...user, name: json.data?.user?.name ?? name });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update your profile");
+      const reason =
+        err instanceof Error ? err.message : "Could not update your profile";
+      setError(reason);
+      toast.error(reason);
     } finally {
       setSaving(false);
     }
@@ -51,9 +64,16 @@ export function ProfileForm({ initialName, email }: { initialName: string; email
         Update the name shown across the site.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-5" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="mt-6 max-w-md space-y-5"
+        noValidate
+      >
         <div>
-          <label htmlFor="profile-name" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="profile-name"
+            className="text-sm font-medium text-neutral-700"
+          >
             Full name
           </label>
           <input
@@ -66,7 +86,10 @@ export function ProfileForm({ initialName, email }: { initialName: string; email
         </div>
 
         <div>
-          <label htmlFor="profile-email" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="profile-email"
+            className="text-sm font-medium text-neutral-700"
+          >
             Email
           </label>
           <input

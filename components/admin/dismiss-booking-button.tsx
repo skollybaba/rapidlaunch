@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Ban, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 interface DismissBookingButtonProps {
@@ -16,6 +18,7 @@ export function DismissBookingButton({
   className,
 }: DismissBookingButtonProps) {
   const router = useRouter();
+  const toast = useToast();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -30,16 +33,26 @@ export function DismissBookingButton({
       );
       const body = await res.json();
       if (!res.ok) {
-        setMessage(
-          body?.error?.message ?? "Could not clear this booking. Try again."
-        );
+        const reason = readApiError(body, "Could not clear this booking. Try again.");
+        setMessage(reason);
         setConfirming(false);
+        toast.error({
+          title: reason,
+          action: { label: "Retry", onClick: () => void dismiss() },
+        });
         return;
       }
+      setConfirming(false);
+      toast.success({
+        title: "Booking cleared",
+        description: "It has been removed from the bookings list.",
+      });
       router.refresh();
     } catch {
-      setMessage("Could not clear this booking. Check your connection.");
+      const reason = "Could not clear this booking. Check your connection.";
+      setMessage(reason);
       setConfirming(false);
+      toast.error(reason);
     } finally {
       setPending(false);
     }

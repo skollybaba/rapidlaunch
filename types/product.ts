@@ -1,3 +1,5 @@
+import type { CourseModule } from "@/types/lms";
+
 export const PRODUCT_TYPES = [
   "COURSE",
   "BOOK",
@@ -12,6 +14,7 @@ export const PRODUCT_STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
 export const FULFILLMENT_MODES = [
+  "LMS",
   "CLASSROOM",
   "DOWNLOAD",
   "EXTERNAL",
@@ -45,6 +48,12 @@ export interface ProductCourseDetails {
   audience?: string[];
   outcomes?: string[];
   syllabus?: string[];
+  /**
+   * Ordered curriculum for courses delivered through the LMS. Authoritative
+   * over `syllabus`, which is kept as the short public summary shown on the
+   * sales page.
+   */
+  modules?: CourseModule[];
   previewUrl?: string;
   classroomCourseId?: string;
   courseJoinUrl?: string;

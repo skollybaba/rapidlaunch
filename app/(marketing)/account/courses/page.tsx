@@ -6,8 +6,8 @@ import { AccountNav } from "@/components/account/account-nav";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getCoursesForUser } from "@/lib/services/account-service";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { getEnrollmentsForUser } from "@/lib/services/lms-service";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,34 +15,21 @@ export const metadata: Metadata = {
   title: "My courses | Rapid Launch",
 };
 
-function enrollmentMeta(status: string): { label: string; tone: "success" | "pending" | "error" | "neutral" } {
-  switch (status) {
-    case "FULFILLED":
-      return { label: "Enrolled", tone: "success" };
-    case "PENDING":
-    case "RETRY_PENDING":
-      return { label: "Enrolling…", tone: "pending" };
-    case "ACTION_REQUIRED":
-    case "FAILED":
-      return { label: "Action required", tone: "error" };
-    default:
-      return { label: status, tone: "neutral" };
-  }
-}
-
 export default async function AccountCoursesPage() {
   const user = await getCurrentUser();
   if (!user) notFound();
 
-  const courses = await getCoursesForUser(String(user._id));
+  const courses = await getEnrollmentsForUser(String(user._id));
 
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
-      <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:px-8 lg:py-24">
+      <div className="mx-auto w-[98%] flex-1 px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>
-        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">Courses</h1>
+        <h1 className="mt-2 text-[38px] leading-[1.286] md:text-[1.75rem]">
+          Courses
+        </h1>
 
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[260px_1fr]">
           <AccountNav />
@@ -51,10 +38,10 @@ export default async function AccountCoursesPage() {
             {courses.length ? (
               <ul className="space-y-3">
                 {courses.map((course) => {
-                  const meta = enrollmentMeta(course.enrollmentStatus);
+                  const started = course.completedLessons > 0;
                   return (
                     <li
-                      key={`${course.id}-${course.orderReference}-${course.title}`}
+                      key={course.id}
                       className="flex flex-col gap-4 rounded-[12px] border border-neutral-300 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex min-w-0 items-start gap-3">
@@ -64,36 +51,55 @@ export default async function AccountCoursesPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="truncate font-semibold text-neutral-950">
-                              {course.title}
+                              {course.courseTitle}
                             </p>
                             {course.isBonus ? (
                               <Badge tone="info">Bonus</Badge>
                             ) : null}
                           </div>
                           <p className="mt-1 text-sm text-neutral-500">
-                            {course.isBonus
-                              ? `Free bonus · included with order ${course.orderReference}`
-                              : `Purchased ${formatDate(course.purchasedAt)} · ${formatPrice(
-                                  course.priceMinor,
-                                  course.currency
-                                )}`}
+                            Enrolled {formatDate(course.enrolledAt)}
+                            {course.lastAccessedAt
+                              ? ` · Last opened ${formatDate(course.lastAccessedAt)}`
+                              : ""}
                           </p>
+                          <div className="mt-3 flex items-center gap-3 sm:max-w-xs">
+                            <div
+                              className="h-1.5 flex-1 overflow-hidden rounded-pill bg-neutral-200"
+                              role="progressbar"
+                              aria-valuenow={course.progressPercent}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-label={`${course.courseTitle} progress`}
+                            >
+                              <div
+                                className="h-full rounded-pill bg-terracotta-600"
+                                style={{ width: `${course.progressPercent}%` }}
+                              />
+                            </div>
+                            <span className="whitespace-nowrap text-xs font-medium text-neutral-500">
+                              {course.completedLessons}/{course.totalLessons}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 sm:shrink-0">
-                        <Badge tone={meta.tone}>{meta.label}</Badge>
-                        {course.enrollmentStatus === "FULFILLED" &&
-                        course.courseUrl ? (
-                          <a
-                            href={course.courseUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={buttonStyles({ variant: "primary" })}
-                          >
-                            <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                            Open course
-                          </a>
-                        ) : null}
+                        <Badge tone={started ? "pending" : "success"}>
+                          {course.progressPercent >= 100
+                            ? "Completed"
+                            : started
+                              ? "In progress"
+                              : "Not started"}
+                        </Badge>
+                        <a
+                          href={`/learn/${course.courseSlug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={buttonStyles({ variant: "primary" })}
+                        >
+                          <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                          Go to class
+                        </a>
                       </div>
                     </li>
                   );

@@ -8,6 +8,8 @@ import {
   type SchedulerSlot,
 } from "@/components/checkout/scheduler-calendar";
 import { buttonStyles } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 type SlotStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
@@ -38,6 +40,7 @@ export function ReschedulePanel({
   const [slots, setSlots] = useState<SchedulerSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [slotStatus, setSlotStatus] = useState<SlotStatus>("idle");
+  const toast = useToast();
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const [successTime, setSuccessTime] = useState("");
@@ -60,7 +63,7 @@ export function ReschedulePanel({
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
         const json = await response.json();
         if (cancelled) return;
@@ -110,7 +113,7 @@ export function ReschedulePanel({
             startTime: slot.startTime,
             endTime: slot.endTime,
           }),
-        }
+        },
       );
       const json = await readApiJson<{
         scheduledStartTime: string;
@@ -118,19 +121,32 @@ export function ReschedulePanel({
       }>(response);
       if (!json?.ok) {
         throw new Error(
-          json?.error?.message ?? "Could not reschedule your session."
+          readApiError(json, "Could not reschedule your session."),
         );
       }
       setSuccessTime(displayTime(json.data!.scheduledStartTime, timezone));
       setSuccessMeetingUrl(json.data?.meetingUrl ?? "");
       setSubmitState("success");
       setOpen(false);
+      toast.success({
+        title: "Session rescheduled",
+        description: "Your new time is confirmed and the invite was updated.",
+      });
       router.refresh();
     } catch (err) {
       setSubmitState("error");
-      setMessage(
-        err instanceof Error ? err.message : "Could not reschedule your session."
-      );
+      const reason =
+        err instanceof Error
+          ? err.message
+          : "Could not reschedule your session.";
+      setMessage(reason);
+      toast.error({
+        title: reason,
+        action: {
+          label: "Retry",
+          onClick: () => void confirmReschedule(),
+        },
+      });
     }
   }
 

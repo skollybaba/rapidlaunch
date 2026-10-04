@@ -5,6 +5,7 @@ import {
   PRODUCT_STATUSES,
   PRODUCT_TYPES,
 } from "@/types/product";
+import { courseModulesSchema } from "@/lib/validation/lms";
 
 const courseDetailsInputSchema = z
   .object({
@@ -16,6 +17,7 @@ const courseDetailsInputSchema = z
     audience: z.array(z.string().min(1)).optional(),
     outcomes: z.array(z.string().min(1)).optional(),
     syllabus: z.array(z.string().min(1)).optional(),
+    modules: courseModulesSchema.optional(),
     previewUrl: z.string().url().optional(),
     classroomCourseId: z.string().min(1).optional(),
     courseJoinUrl: z.string().url().optional(),
@@ -139,6 +141,24 @@ export const productInputSchema = z
 
     switch (data.type) {
       case "COURSE": {
+        if (data.fulfillmentMode === "LMS") {
+          // A published LMS course must ship real curriculum; otherwise the
+          // student would pay for an empty player.
+          const lessonCount = (data.courseDetails?.modules ?? []).reduce(
+            (total, module) => total + module.lessons.length,
+            0
+          );
+          if (lessonCount === 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message:
+                "Published LMS courses need at least one lesson in the curriculum",
+              path: ["courseDetails", "modules"],
+            });
+          }
+          break;
+        }
+
         const manual =
           data.fulfillmentMode === "MANUAL" ||
           data.courseDetails?.enrollmentMode === "MANUAL";

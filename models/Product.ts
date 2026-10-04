@@ -1,5 +1,6 @@
 import { Schema, model, type Model } from "mongoose";
 
+import { LESSON_TYPES } from "@/types/lms";
 import type {
   ProductCourseDetails,
   ProductCurriculumStored,
@@ -21,6 +22,42 @@ const curriculumSchema = new Schema<ProductCurriculumStored>(
   { _id: false }
 );
 
+const lessonSchema = new Schema(
+  {
+    id: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    type: {
+      type: String,
+      enum: LESSON_TYPES,
+      required: true,
+    },
+    description: String,
+    youtubeUrl: String,
+    documentUrl: String,
+    documentFileName: String,
+    documentSizeBytes: Number,
+    documentContentType: String,
+    linkUrl: String,
+    durationMinutes: Number,
+    isPreview: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const courseModuleSchema = new Schema(
+  {
+    id: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    description: String,
+    lessons: { type: [lessonSchema], default: [] },
+    // Deliberately no default: an absent value means "never decided", which
+    // resolves to orientation for the first module. An explicit false means an
+    // admin turned orientation off.
+    isOrientation: { type: Boolean },
+  },
+  { _id: false }
+);
+
 const courseDetailsSchema = new Schema<ProductCourseDetails>(
   {
     instructor: String,
@@ -31,6 +68,7 @@ const courseDetailsSchema = new Schema<ProductCourseDetails>(
     audience: [String],
     outcomes: [String],
     syllabus: [String],
+    modules: { type: [courseModuleSchema], default: [] },
     previewUrl: String,
     classroomCourseId: String,
     courseJoinUrl: String,
@@ -115,7 +153,7 @@ const ProductSchema = new Schema<ProductDoc>(
     currency: { type: String, required: true, default: "NGN", uppercase: true },
     fulfillmentMode: {
       type: String,
-      enum: ["CLASSROOM", "DOWNLOAD", "EXTERNAL", "SCHEDULER", "MANUAL"],
+      enum: ["LMS", "CLASSROOM", "DOWNLOAD", "EXTERNAL", "SCHEDULER", "MANUAL"],
     },
     thumbnailUrl: String,
     mediaUrls: { type: [String], default: [] },

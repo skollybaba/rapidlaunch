@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { PublicUser } from "@/types/user";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 interface AuthContextValue {
@@ -59,7 +60,9 @@ export function AuthProvider({
     });
     const json = await readApiJson<{ user: PublicUser }>(response);
     if (!json?.ok) {
-      throw new Error(json?.error?.message ?? "Could not sign in. Please try again.");
+      throw new Error(
+        readApiError(json, "Could not sign in. Please try again."),
+      );
     }
     const user = json.data?.user;
     if (!user) {
@@ -78,7 +81,9 @@ export function AuthProvider({
       });
       const json = await readApiJson<{ user: PublicUser }>(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not create account. Please try again.");
+        throw new Error(
+          readApiError(json, "Could not create account. Please try again."),
+        );
       }
       const user = json.data?.user;
       if (!user) {
@@ -87,7 +92,7 @@ export function AuthProvider({
       setUser(user);
       return user;
     },
-    []
+    [],
   );
 
   const logout = useCallback(async () => {
@@ -106,7 +111,9 @@ export function AuthProvider({
     });
     const json = await readApiJson<{ user: PublicUser }>(response);
     if (!json?.ok) {
-      throw new Error(json?.error?.message ?? "Could not sign in with Google. Please try again.");
+      throw new Error(
+        readApiError(json, "Could not sign in with Google. Please try again."),
+      );
     }
     const user = json.data?.user;
     if (!user) {
@@ -127,7 +134,7 @@ export function AuthProvider({
       loginWithGoogle,
       logout,
     }),
-    [user, loading, refresh, login, register, loginWithGoogle, logout]
+    [user, loading, refresh, login, register, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

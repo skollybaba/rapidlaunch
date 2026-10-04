@@ -223,6 +223,6 @@ export function publicUrl(key: string): string {
     secure: true,
     resource_type: type,
     type: "upload",
-    ...(format ? { format } : {}),
+    ...(type === "image" && format ? { format } : {}),
   });
 }

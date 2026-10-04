@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import {
   LEAD_STATUSES,
   LEAD_STATUS_LABELS,
@@ -36,6 +38,7 @@ export function LeadStatusControl({
   initialNotes,
 }: LeadStatusControlProps) {
   const router = useRouter();
+  const toast = useToast();
   const [status, setStatus] = useState<LeadStatus>(initialStatus);
   const [notes, setNotes] = useState(initialNotes ?? "");
   const [savedNotes, setSavedNotes] = useState(initialNotes ?? "");
@@ -63,19 +66,20 @@ export function LeadStatusControl({
       };
 
       if (!response.ok || !body.ok) {
-        setMessage({
-          tone: "error",
-          text: body.error?.message ?? "Could not save. Please try again.",
-        });
+        const reason = readApiError(body, "Could not save. Please try again.");
+        setMessage({ tone: "error", text: reason });
+        toast.error({ title: reason });
         return;
       }
 
       setStatus(nextStatus);
       setSavedNotes(nextNotes);
       setMessage({ tone: "ok", text: "Saved" });
+      toast.success({ title: "Lead details saved" });
       router.refresh();
     } catch {
       setMessage({ tone: "error", text: "Could not reach the server." });
+      toast.error("Could not reach the server.");
     } finally {
       setPending(false);
     }
@@ -150,8 +154,8 @@ export function LeadStatusControl({
             role="status"
             className={
               message.tone === "ok"
-                ? "text-xs font-medium text-emerald-700"
-                : "text-xs font-medium text-red-700"
+                ? "text-xs font-medium text-success-600"
+                : "text-xs font-medium text-danger-600"
             }
           >
             {message.text}

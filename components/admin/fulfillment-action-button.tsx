@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 interface FulfillmentActionButtonProps {
@@ -23,6 +25,7 @@ export function FulfillmentActionButton({
   variant = "terracotta",
 }: FulfillmentActionButtonProps) {
   const router = useRouter();
+  const toast = useToast();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -36,12 +39,20 @@ export function FulfillmentActionButton({
       );
       const body = await res.json();
       if (!res.ok) {
-        setMessage(body?.error?.message ?? "Action failed. Please try again.");
+        const reason = readApiError(body, "Action failed. Please try again.");
+        setMessage(reason);
+        toast.error({
+          title: reason,
+          action: { label: "Retry", onClick: () => void run() },
+        });
         return;
       }
+      toast.success({ title: "Done", description: "The order was updated." });
       router.refresh();
     } catch {
-      setMessage("Action failed. Check your connection and try again.");
+      const reason = "Action failed. Check your connection and try again.";
+      setMessage(reason);
+      toast.error(reason);
     } finally {
       setPending(false);
     }

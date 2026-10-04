@@ -15,6 +15,14 @@ import {
   curriculumUploadSchema,
   isPdfLike,
 } from "@/lib/validation/curriculum";
+import {
+  assertUniqueContentIds,
+  courseModulesSchema,
+} from "@/lib/validation/lms";
+import {
+  resolveOrientationFlags,
+  type CourseModule,
+} from "@/types/lms";
 import type { ProductCurriculumStored } from "@/types/product";
 import type { OrderDoc, OrderStatus } from "@/types/order";
 import type { BookingAnswers, BookingDoc } from "@/types/booking";
@@ -946,6 +954,21 @@ export async function updateCourse(id: string, input: unknown) {
     parsed.bundleCourseIds,
     id
   );
+
+  // The course form does not manage the LMS curriculum, and this update
+  // replaces courseDetails wholesale, so carry the stored modules across or a
+  // routine save would silently erase the curriculum.
+  if (parsed.courseDetails) {
+    const existing = await Product.findById(id)
+      .select("courseDetails.modules")
+      .lean()
+      .exec();
+    if (!parsed.courseDetails.modules && existing?.courseDetails?.modules) {
+      parsed.courseDetails.modules = existing.courseDetails
+        .modules as CourseModule[];
+    }
+  }
+
   const updated = await Product.findByIdAndUpdate(id, { $set: parsed }, { new: true })
     .select("_id slug title status")
     .lean()
@@ -954,6 +977,62 @@ export async function updateCourse(id: string, input: unknown) {
     throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
   }
   return updated;
+}
+
+/**
+ * The LMS curriculum for one course, for the admin builder.
+ */
+export async function getCourseModules(id: string): Promise<CourseModule[]> {
+  await dbConnect();
+  const course = await Product.findOne({ _id: id, type: "COURSE" })
+    .select("courseDetails.modules")
+    .lean()
+    .exec();
+  if (!course) {
+    throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
+  }
+  const modules = (course.courseDetails as { modules?: CourseModule[] } | null)
+    ?.modules;
+  return Array.isArray(modules) ? modules : [];
+}
+
+/**
+ * Replaces a course's LMS curriculum after validating its shape and that no two
+ * modules or lessons share an id (progress is keyed on those ids).
+ */
+export async function setCourseModules(id: string, input: unknown) {
+  const parsed = courseModulesSchema.parse(input);
+  const duplicates = assertUniqueContentIds(parsed);
+  if (duplicates.length) {
+    throw new AdminServiceError(
+      "DUPLICATE_CONTENT_ID",
+      `Duplicate content id: ${duplicates.join(", ")}.`,
+      400
+    );
+  }
+
+  // Orientation is positional. Persist it resolved so the stored document can
+  // never disagree with what the player renders: only module 1 may be the
+  // orientation module, and an undecided module 1 becomes orientation.
+  const orientationFlags = resolveOrientationFlags(parsed);
+  const modules: CourseModule[] = parsed.map((module, index) => ({
+    ...module,
+    isOrientation: orientationFlags[index] ?? false,
+  }));
+
+  await dbConnect();
+  const updated = await Product.findOneAndUpdate(
+    { _id: id, type: "COURSE" },
+    { $set: { "courseDetails.modules": modules } },
+    { new: true }
+  )
+    .select("_id title")
+    .lean()
+    .exec();
+  if (!updated) {
+    throw new AdminServiceError("COURSE_NOT_FOUND", "Course not found.", 404);
+  }
+  return { id: String(updated._id), moduleCount: modules.length };
 }
 
 export interface SetCourseCurriculumInput {
@@ -1172,7 +1251,7 @@ export async function getCourseEnrollees(): Promise<CourseEnrolleesGroup[]> {
       .select("_id title")
       .lean()
       .exec(),
-    Fulfillment.find({ type: "CLASSROOM_ENROLLMENT" })
+    Fulfillment.find({ type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] } })
       .sort({ fulfilledAt: -1 })
       .select("orderId status fulfilledAt lastError metadata orderItemId")
       .lean()

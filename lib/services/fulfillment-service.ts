@@ -106,7 +106,7 @@ async function findFulfillment(order: LeanDoc<OrderDoc>) {
   return Fulfillment.findOne({
     orderId: order._id,
     orderItemId: firstItemId,
-    type: "CLASSROOM_ENROLLMENT",
+    type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
   })
     .lean()
     .exec();

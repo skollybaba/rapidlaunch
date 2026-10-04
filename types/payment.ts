@@ -15,6 +15,7 @@ export const PAYMENT_STATUSES = [
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const FULFILLMENT_TYPES = [
+  "LMS_ENROLLMENT",
   "CLASSROOM_ENROLLMENT",
   "BOOK_DOWNLOAD",
   "BOOK_SHIPMENT",

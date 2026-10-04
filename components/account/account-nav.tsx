@@ -3,9 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarClock, GraduationCap, LayoutDashboard, LogOut, Package, Settings } from "lucide-react";
+import {
+  CalendarClock,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Package,
+  Settings,
+} from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
 
 const NAV_LINKS = [
   { href: "/account/overview", label: "Overview", icon: LayoutDashboard },
@@ -19,6 +27,7 @@ export function AccountNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleLogout() {
@@ -26,7 +35,14 @@ export function AccountNav() {
     setSigningOut(true);
     try {
       await logout();
+      toast.success({ title: "Signed out" });
       router.replace("/");
+    } catch {
+      toast.error({
+        title: "We couldn't sign you out",
+        description: "Please try again.",
+        action: { label: "Retry", onClick: () => void handleLogout() },
+      });
     } finally {
       setSigningOut(false);
     }

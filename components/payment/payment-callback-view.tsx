@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, CreditCard, Mail, ArrowRight, Clock } from "lucide-react";
+import {
+  CheckCircle2,
+  CreditCard,
+  Mail,
+  ArrowRight,
+  Clock,
+} from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonStyles } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/utils";
 
 interface VerifyResult {
@@ -121,8 +128,8 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
                     Check your email
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-neutral-500">
-                    A receipt and full confirmation have been sent to you. If you
-                    don&apos;t see it, check spam.
+                    A receipt and full confirmation have been sent to you. If
+                    you don&apos;t see it, check spam.
                   </p>
                 </div>
               </li>
@@ -138,8 +145,8 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
                     Payment verified
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-neutral-500">
-                    No payment has been taken twice. This page confirms what
-                    you just completed on Paystack.
+                    No payment has been taken twice. This page confirms what you
+                    just completed on Paystack.
                   </p>
                 </div>
               </li>
@@ -177,10 +184,7 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
                 <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </Link>
             ) : null}
-            <Link
-              href="/"
-              className={buttonStyles({ variant: "secondary" })}
-            >
+            <Link href="/" className={buttonStyles({ variant: "secondary" })}>
               Back to homepage
             </Link>
           </div>
@@ -208,7 +212,9 @@ function StaticPage({
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-16 lg:py-24">
         <div className="mx-auto max-w-[540px]">
           <Badge tone={tone}>{badge}</Badge>
-          <h1 className="mt-4 text-[38px] leading-[1.286] md:text-[1.75rem]">{title}</h1>
+          <h1 className="mt-4 text-[38px] leading-[1.286] md:text-[1.75rem]">
+            {title}
+          </h1>
           <p className="mt-4 text-base leading-relaxed text-neutral-500">
             {message}
           </p>
@@ -227,6 +233,12 @@ export default function PaymentCallbackView() {
   // the confirmation appears immediately; the fast verify call reconciles the
   // real state in the background. If there is no URL reference we show the
   // "missing reference" state after mount.
+  const toast = useToast();
+  // The verify effect must run once, so keep the latest toast API in a ref.
+  const toastRef = useRef(toast);
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
   const [renderState, setRenderState] = useState<RenderState>("success");
   const [data, setData] = useState<VerifyResult["data"] | null>(null);
 
@@ -246,7 +258,7 @@ export default function PaymentCallbackView() {
       try {
         const refParam = encodeURIComponent(ref);
         const res = await fetch(
-          `/api/payments/paystack/verify/${refParam}?fast=1`
+          `/api/payments/paystack/verify/${refParam}?fast=1`,
         );
         const json: VerifyResult = await res.json();
 
@@ -255,6 +267,11 @@ export default function PaymentCallbackView() {
         if (!json.ok) {
           if (json.error?.code === "PAYSTACK_NOT_CONFIGURED") {
             setRenderState("unverified");
+            toastRef.current.warning({
+              title: "We could not verify your payment yet",
+              description:
+                "Your order is safe. We will confirm it by email shortly.",
+            });
           }
           return;
         }
@@ -263,12 +280,25 @@ export default function PaymentCallbackView() {
 
         if (json.data.paymentStatus === "PAID" && !json.data.discrepancy) {
           setRenderState("success");
+          toastRef.current.success({
+            title: "Payment confirmed",
+            description: "Thanks! Your access is being prepared now.",
+          });
         } else if (
           json.data.discrepancy ||
           json.data.paymentStatus === "SUSPICIOUS"
         ) {
           setRenderState("discrepancy");
+          toastRef.current.warning({
+            title: "We need to double-check this payment",
+            description:
+              "Our team has been notified and will follow up by email.",
+          });
         } else if (json.data.paymentStatus === "PENDING") {
+          toastRef.current.info({
+            title: "Payment still processing",
+            description: "This can take a few seconds. Refresh in a moment.",
+          });
           // Webhook may still be landing; keep the (already-rendered)
           // optimistic view rather than blocking the user.
         } else {
@@ -276,6 +306,11 @@ export default function PaymentCallbackView() {
         }
       } catch {
         // Network hiccup: leave the optimistic success view in place.
+        toastRef.current.warning({
+          title: "Still confirming your payment",
+          description: "Refresh this page in a moment to see the result.",
+          action: { label: "Refresh", onClick: () => window.location.reload() },
+        });
       }
     }
 
@@ -291,7 +326,7 @@ export default function PaymentCallbackView() {
         tone="neutral"
         badge="No reference"
         title="Missing payment reference"
-        message="We couldn&apos;t find a payment reference in the URL. If you just completed a payment, check your email for confirmation or contact us."
+        message="We couldn't find a payment reference in the URL. If you just completed a payment, check your email for confirmation or contact us."
         actions={
           <>
             <Link href="/" className={buttonStyles({ variant: "primary" })}>
@@ -342,8 +377,8 @@ export default function PaymentCallbackView() {
       <StaticPage
         tone="error"
         badge="Action required"
-        title="We&apos;re checking this payment"
-        message="Something about this payment doesn&apos;t match its order. We have flagged it for manual review and will contact you. Please do not make a second payment."
+        title="We're checking this payment"
+        message="Something about this payment doesn't match its order. We have flagged it for manual review and will contact you. Please do not make a second payment."
         actions={
           <>
             <Link
@@ -352,10 +387,7 @@ export default function PaymentCallbackView() {
             >
               Contact support
             </Link>
-            <Link
-              href="/"
-              className={buttonStyles({ variant: "secondary" })}
-            >
+            <Link href="/" className={buttonStyles({ variant: "secondary" })}>
               Back to homepage
             </Link>
           </>
@@ -370,7 +402,7 @@ export default function PaymentCallbackView() {
         tone="pending"
         badge="Processing"
         title="Payment not yet confirmed"
-        message="We haven&apos;t received confirmation from Paystack yet. If you completed a payment, it may still be processing. Try refreshing this page in a moment or contact us."
+        message="We haven't received confirmation from Paystack yet. If you completed a payment, it may still be processing. Try refreshing this page in a moment or contact us."
         actions={
           <>
             <button
@@ -396,7 +428,7 @@ export default function PaymentCallbackView() {
     <StaticPage
       tone="neutral"
       badge="Unconfirmed"
-      title="We couldn&apos;t confirm this payment"
+      title="We couldn't confirm this payment"
       message="Payments are verified by our server after you complete them on Paystack. Check your email for confirmation, or contact us and we will look it up for you."
       actions={
         <>

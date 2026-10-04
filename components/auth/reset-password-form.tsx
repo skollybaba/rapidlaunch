@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
 import { buttonStyles } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 const inputClasses =
@@ -14,6 +16,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -23,11 +26,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
     setMessage("");
 
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      const reason = "Passwords do not match.";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      const reason = "Password must be at least 8 characters.";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
 
@@ -40,17 +47,19 @@ export function ResetPasswordForm({ token }: { token: string }) {
       });
       const json = await readApiJson(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not reset password");
+        throw new Error(readApiError(json, "Could not reset password"));
       }
       setMessage(
-        "Your password was reset. You can now sign in with your new password."
+        "Your password was reset. You can now sign in with your new password.",
       );
+      toast.success({ title: "Password reset" });
     } catch (caught) {
-      setError(
+      const reason =
         caught instanceof Error
           ? caught.message
-          : "Something went wrong. Try again."
-      );
+          : "Something went wrong. Try again.";
+      setError(reason);
+      toast.error({ title: reason });
     } finally {
       setSubmitting(false);
     }
@@ -61,7 +70,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
         Reset password
       </p>
-      <h1 className="mt-2 text-[1.75rem] leading-[1.286]">Choose a new password</h1>
+      <h1 className="mt-2 text-[1.75rem] leading-[1.286]">
+        Choose a new password
+      </h1>
       <p className="mt-2 text-sm leading-relaxed text-neutral-500">
         Enter a new password for your account.
       </p>

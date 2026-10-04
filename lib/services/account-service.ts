@@ -125,7 +125,7 @@ export async function getCoursesForUser(
   const orderIds = orders.map((order) => order._id);
   const fulfillments = await Fulfillment.find({
     orderId: { $in: orderIds },
-    type: "CLASSROOM_ENROLLMENT",
+    type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
   })
     .lean()
     .exec();

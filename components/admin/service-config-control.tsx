@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 type Status = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -44,6 +46,7 @@ export function ServiceConfigControl({
   initialFulfillmentMode,
 }: ServiceConfigControlProps) {
   const router = useRouter();
+  const toast = useToast();
   const [status, setStatus] = useState<Status>(initialStatus);
   const [inquiryMode, setInquiryMode] = useState<InquiryMode>(initialInquiryMode);
   const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode | null>(
@@ -70,17 +73,21 @@ export function ServiceConfigControl({
       };
 
       if (!response.ok || !body.ok) {
-        setMessage({
-          tone: "error",
-          text: body.error?.message ?? "Could not save. Please try again.",
-        });
+        const reason = readApiError(body, "Could not save. Please try again.");
+        setMessage({ tone: "error", text: reason });
+        toast.error({ title: reason });
         return;
       }
 
       setMessage({ tone: "ok", text: "Saved" });
+      toast.success({ title: "Service settings saved" });
       router.refresh();
     } catch {
-      setMessage({ tone: "error", text: "Could not reach the server." });
+      setMessage({
+        tone: "error",
+        text: "Could not reach the server.",
+      });
+      toast.error("Could not reach the server.");
     } finally {
       setPending(false);
     }
@@ -178,8 +185,8 @@ export function ServiceConfigControl({
             role="status"
             className={
               message.tone === "ok"
-                ? "text-xs font-medium text-emerald-700"
-                : "text-xs font-medium text-red-700"
+                ? "text-xs font-medium text-success-600"
+                : "text-xs font-medium text-danger-600"
             }
           >
             {message.text}

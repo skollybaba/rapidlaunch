@@ -10,6 +10,8 @@ import {
 import { AuthModal } from "@/components/auth/auth-modal";
 import { buttonStyles } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 interface CheckoutFormProps {
@@ -20,11 +22,7 @@ interface CheckoutFormProps {
 }
 
 type SubmitState =
-  | "idle"
-  | "submitting"
-  | "redirecting"
-  | "error"
-  | "unavailable";
+  "idle" | "submitting" | "redirecting" | "error" | "unavailable";
 
 type SlotStatus = "idle" | "loading" | "ready" | "empty" | "unavailable";
 
@@ -44,8 +42,9 @@ export function CheckoutForm({
   const [slots, setSlots] = useState<SchedulerSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [slotStatus, setSlotStatus] = useState<SlotStatus>(
-    isSession ? "loading" : "idle"
+    isSession ? "loading" : "idle",
   );
+  const toast = useToast();
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -65,7 +64,7 @@ export function CheckoutForm({
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
         const json = await response.json();
         if (cancelled) return;
@@ -127,9 +126,10 @@ export function CheckoutForm({
 
       if (!sessionJson.ok) {
         throw new Error(
-          sessionJson.error?.message ??
-            sessionJson.error?.code ??
-            "CHECKOUT_FAILED"
+          readApiError(
+            sessionJson,
+            sessionJson.error?.code ?? "CHECKOUT_FAILED",
+          ),
         );
       }
 
@@ -147,26 +147,39 @@ export function CheckoutForm({
         if (code === "PAYSTACK_NOT_CONFIGURED") {
           setState("unavailable");
           setMessage(
-            "Secure payment is being set up. Your order details are correct. Contact us to complete the purchase."
+            "Secure payment is being set up. Your order details are correct. Contact us to complete the purchase.",
           );
+          toast.warning({
+            title: "Payments not configured yet",
+            description:
+              "Your order is saved. Contact us to complete the purchase.",
+          });
           return;
         }
         throw new Error(
-          initJson.error?.message ?? code ?? "PAYMENT_INIT_FAILED"
+          initJson.error?.message ?? code ?? "PAYMENT_INIT_FAILED",
         );
       }
 
       const authorizationUrl = initJson.data.authorizationUrl as string;
       setState("redirecting");
+      toast.info({
+        title: "Redirecting to Paystack",
+        description: "Complete your payment to finish.",
+      });
       window.location.href = authorizationUrl;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
+      const reason = message
+        ? message
+        : "We couldn't start your checkout. Please try again. No payment has been taken.";
       setState("error");
-      setMessage(
-        message
-          ? message
-          : "We couldn't start your checkout. Please try again. No payment has been taken."
-      );
+      setMessage(reason);
+      toast.error({
+        title: reason,
+        description: "No payment has been taken.",
+        action: { label: "Retry", onClick: () => void runCheckout() },
+      });
     }
   }
 
@@ -232,7 +245,9 @@ export function CheckoutForm({
               type="text"
               autoComplete="name"
               required
-              disabled={disabled || state === "submitting" || state === "redirecting"}
+              disabled={
+                disabled || state === "submitting" || state === "redirecting"
+              }
               value={customerName}
               onChange={(event) => setCustomerName(event.target.value)}
               placeholder="Your name"
@@ -282,14 +297,17 @@ export function CheckoutForm({
                 htmlFor="checkout-building"
                 className="text-sm font-semibold text-neutral-950"
               >
-                What are you building? <span className="text-terracotta-600">*</span>
+                What are you building?{" "}
+                <span className="text-terracotta-600">*</span>
               </label>
               <input
                 id="checkout-building"
                 name="whatYouAreBuilding"
                 type="text"
                 required
-                disabled={disabled || state === "submitting" || state === "redirecting"}
+                disabled={
+                  disabled || state === "submitting" || state === "redirecting"
+                }
                 value={whatYouAreBuilding}
                 onChange={(event) => setWhatYouAreBuilding(event.target.value)}
                 placeholder="A short description of your product"
@@ -307,7 +325,9 @@ export function CheckoutForm({
               <select
                 id="checkout-stage"
                 name="currentStage"
-                disabled={disabled || state === "submitting" || state === "redirecting"}
+                disabled={
+                  disabled || state === "submitting" || state === "redirecting"
+                }
                 value={currentStage}
                 onChange={(event) => setCurrentStage(event.target.value)}
                 className={inputClasses}
@@ -325,14 +345,17 @@ export function CheckoutForm({
                 htmlFor="checkout-help"
                 className="text-sm font-semibold text-neutral-950"
               >
-                What do you need help with? <span className="text-terracotta-600">*</span>
+                What do you need help with?{" "}
+                <span className="text-terracotta-600">*</span>
               </label>
               <textarea
                 id="checkout-help"
                 name="helpNeeded"
                 rows={3}
                 required
-                disabled={disabled || state === "submitting" || state === "redirecting"}
+                disabled={
+                  disabled || state === "submitting" || state === "redirecting"
+                }
                 value={helpNeeded}
                 onChange={(event) => setHelpNeeded(event.target.value)}
                 placeholder="The main thing you want to get clarity on"
@@ -370,7 +393,9 @@ export function CheckoutForm({
                     selectedSlot={selectedSlot}
                     onSelect={setSelectedSlot}
                     disabled={
-                      disabled || state === "submitting" || state === "redirecting"
+                      disabled ||
+                      state === "submitting" ||
+                      state === "redirecting"
                     }
                     durationMinutes={sessionDurationMinutes}
                   />

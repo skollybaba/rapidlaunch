@@ -24,7 +24,6 @@ import {
   createGoogleCalendarAdapter,
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
-import { createClassroomAdapter } from "@/lib/providers/classroom";
 import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
@@ -33,6 +32,8 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
+import { User } from "@/models/User";
+import { grantCourseAccess } from "@/lib/services/lms-service";
 import type { FulfillmentType, PaymentDoc } from "@/types/payment";
 import type { OrderDoc, OrderPublicSummary } from "@/types/order";
 
@@ -114,6 +115,8 @@ function fulfillmentTypeForOrder(order: {
   const type = order.metadata.productType;
 
   switch (mode) {
+    case "LMS":
+      return "LMS_ENROLLMENT";
     case "CLASSROOM":
       return "CLASSROOM_ENROLLMENT";
     case "DOWNLOAD":
@@ -837,26 +840,45 @@ async function enrollmentTargetsForOrder(
 }
 
 export async function processCourseEnrollment(order: LeanDoc<OrderDoc>) {
-  if (fulfillmentTypeForOrder(order) !== "CLASSROOM_ENROLLMENT") return;
+  const fulfillmentType = fulfillmentTypeForOrder(order);
+  if (fulfillmentType !== "LMS_ENROLLMENT" && fulfillmentType !== "CLASSROOM_ENROLLMENT") return;
 
   const email = order.customerEmail;
   if (!email) return;
+
+  // LMS access is account-based. A guest checkout has no userId, so fall back
+  // to the matching account by email; when there is none the fulfillment is
+  // parked as action-required for the admin rather than creating an orphaned
+  // enrollment against a missing user.
+  const userId = await resolveLmsUserId(order, email);
 
   const targets = await enrollmentTargetsForOrder(order);
 
   for (const target of targets) {
     if (!target.productId) continue;
-    await enrollInCourseTarget(order, target);
+    await enrollInCourseTarget(order, target, userId);
   }
+}
+
+async function resolveLmsUserId(
+  order: LeanDoc<OrderDoc>,
+  email: string
+): Promise<string | null> {
+  if (order.userId) return String(order.userId);
+  const user = await User.findOne({ email: email.toLowerCase().trim() })
+    .select("_id")
+    .lean()
+    .exec();
+  return user ? String(user._id) : null;
 }
 
 async function enrollInCourseTarget(
   order: LeanDoc<OrderDoc>,
-  target: EnrollmentTarget
+  target: EnrollmentTarget,
+  userId: string | null
 ) {
   const existing = await findFulfillment(order, target.productId);
   if (existing && existing.status === "FULFILLED") return;
-
   let enrollment = existing;
   if (!enrollment) {
     enrollment = await createFulfillmentIfMissing(order, target.productId, {
@@ -864,101 +886,32 @@ async function enrollInCourseTarget(
     });
   }
   if (!enrollment || enrollment.status === "FULFILLED") return;
-
-  if (!target.classroomCourseId) {
+  if (target.missingProduct) {
     await markCourseEnrollmentFailed(
       order,
-      target.missingProduct
-        ? "BONUS_COURSE_UNAVAILABLE"
-        : "CLASSROOM_COURSE_NOT_CONFIGURED",
+      "BONUS_COURSE_UNAVAILABLE",
       enrollment,
       target.courseTitle
     );
     return;
   }
-
-  if (target.courseJoinUrl) {
-    const metadata: Record<string, unknown> = {
-      courseId: target.classroomCourseId,
-      courseName: target.courseTitle,
-      courseAltLink: target.courseJoinUrl,
-      studentId: null,
-      bonusCourse: true,
-      ...(enrollment.metadata ?? {}),
-    };
-    if (!target.isBonus) delete metadata.bonusCourse;
-    await Fulfillment.updateOne(
-      { _id: enrollment._id },
-      {
-        $set: {
-          status: "FULFILLED",
-          attempts: (enrollment.attempts ?? 0) + 1,
-          fulfilledAt: new Date(),
-          lastError: null,
-          metadata,
-        },
-      }
-    );
-    await sendCourseAccessEmail(order, target, {
-      courseName: metadata.courseName as string,
-      courseLink: target.courseJoinUrl,
-      enrolled: true,
-    });
-    return;
-  }
-
-  if (
-    !env.GOOGLE_CLIENT_ID ||
-    !env.GOOGLE_CLIENT_SECRET ||
-    !env.GOOGLE_REFRESH_TOKEN
-  ) {
-    await markCourseEnrollmentFailed(
-      order,
-      "GOOGLE_CLASSROOM_NOT_CONFIGURED",
-      enrollment,
-      target.courseTitle
-    );
-    return;
-  }
-
-  const adapter = createClassroomAdapter({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    refreshToken: env.GOOGLE_REFRESH_TOKEN,
-  });
-
-  let courseName = "";
-  let courseLink = "";
+  const metadata: Record<string, unknown> = {
+    courseId: target.productId,
+    courseName: target.courseTitle,
+    bonusCourse: target.isBonus,
+    ...(enrollment.metadata ?? {}),
+  };
+  if (!target.isBonus) delete metadata.bonusCourse;
   try {
-    const course = await adapter.getCourse(target.classroomCourseId);
-    courseName = course.name;
-    courseLink = course.alternateLink ?? "";
-  } catch {
-    // Still attempt enrollment; the link can be resolved from the course later.
-  }
-
-  const result = await adapter.enrollStudent({
-    courseId: target.classroomCourseId,
-    studentEmail: order.customerEmail!,
-  });
-
-  // "Already enrolled" is the satisfied state: the student already has access,
-  // so treat it as a successful fulfillment instead of flagging it for action.
-  if (!result.errorCategory || result.errorCategory === "ALREADY_ENROLLED") {
-    const loaded = result.providerResponse ?? undefined;
-    const name =
-      (loaded && typeof loaded === "object"
-        ? (loaded as { name?: { fullName?: string } }).name?.fullName
-        : undefined) || courseName || target.courseTitle;
-    const metadata: Record<string, unknown> = {
-      courseId: target.classroomCourseId,
-      courseName: name,
-      courseAltLink: courseLink,
-      studentId: result.studentId ?? null,
-      bonusCourse: true,
-      ...(enrollment.metadata ?? {}),
-    };
-    if (!target.isBonus) delete metadata.bonusCourse;
+    if (!userId) {
+      throw new Error("NO_ACCOUNT_FOR_LMS");
+    }
+    await grantCourseAccess({
+      userId,
+      courseId: target.productId,
+      sourceOrderId: String(order._id),
+      isBonus: target.isBonus,
+    });
     await Fulfillment.updateOne(
       { _id: enrollment._id },
       {
@@ -972,20 +925,22 @@ async function enrollInCourseTarget(
       }
     );
     await sendCourseAccessEmail(order, target, {
-      courseName: metadata.courseName as string,
-      courseLink,
+      courseName: target.courseTitle,
+      courseLink: "/learn/" + String(target.productId),
       enrolled: true,
     });
-    return;
+  } catch (error) {
+    await markCourseEnrollmentFailed(
+      order,
+      error instanceof Error && error.message === "NO_ACCOUNT_FOR_LMS"
+        ? "NO_ACCOUNT_FOR_LMS"
+        : "LMS_ENROLLMENT_FAILED",
+      enrollment,
+      target.courseTitle
+    );
   }
-
-  await markCourseEnrollmentFailed(
-    order,
-    result.errorCategory,
-    enrollment,
-    target.courseTitle
-  );
 }
+
 
 async function markCourseEnrollmentFailed(
   order: LeanDoc<OrderDoc>,

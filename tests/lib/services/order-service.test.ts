@@ -34,6 +34,16 @@ vi.mock("@/models/Product", () => ({
   Product: { findOne: vi.fn() },
 }));
 
+vi.mock("@/models/User", () => ({
+  User: {
+    findOne: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockReturnThis(),
+      exec: vi.fn().mockResolvedValue({ _id: "USER1", email: "buyer@example.com" }),
+    }),
+  },
+}));
+
 vi.mock("axios", () => ({
   default: { post: vi.fn(), get: vi.fn() },
 }));
@@ -68,6 +78,10 @@ vi.mock("@/lib/services/whatsapp-service", () => ({
   notifyAdminsOrderPaid: vi.fn().mockResolvedValue({ sent: 1, skipped: 0 }),
 }));
 
+vi.mock("@/lib/services/lms-service", () => ({
+  grantCourseAccess: vi.fn().mockResolvedValue({ id: "ENR1", created: true }),
+}));
+
 import axios from "axios";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -77,6 +91,7 @@ import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { createClassroomAdapter } from "@/lib/providers/classroom";
+import { grantCourseAccess } from "@/lib/services/lms-service";
 import {
   createCheckoutSession,
   initializeCheckoutPayment,
@@ -98,7 +113,7 @@ const productDoc = {
   title: "AI Course",
   priceMinor: 5_000_000,
   currency: "NGN",
-  fulfillmentMode: "CLASSROOM",
+  fulfillmentMode: "LMS",
   status: "PUBLISHED",
 };
 
@@ -120,7 +135,7 @@ const orderDoc = {
   discountMinor: 0,
   totalMinor: 5_000_000,
   currency: "NGN",
-  metadata: { productType: "COURSE", productFulfillmentMode: "CLASSROOM" },
+  metadata: { productType: "COURSE", productFulfillmentMode: "LMS" },
   paidAt: null,
   createdAt: new Date(),
 };
@@ -245,7 +260,7 @@ describe("createCheckoutSession", () => {
         ],
         metadata: expect.objectContaining({
           productType: "COURSE",
-          productFulfillmentMode: "CLASSROOM",
+          productFulfillmentMode: "LMS",
         }),
       })
     );
@@ -450,13 +465,13 @@ describe("verifyCheckoutPayment", () => {
       })
     );
     expect(vi.mocked(Fulfillment.findOneAndUpdate)).toHaveBeenCalledWith(
-      { orderId: "ORD1", orderItemId: "PROD1", type: "CLASSROOM_ENROLLMENT" },
+      { orderId: "ORD1", orderItemId: "PROD1", type: "LMS_ENROLLMENT" },
       expect.anything(),
       expect.objectContaining({ upsert: true })
     );
   });
 
-  it("enrolls the buyer in Google Classroom and marks the fulfillment fulfilled and emails access", async () => {
+  it("enrolls the buyer into the LMS and marks the fulfillment fulfilled and emails access", async () => {
     mockGet.mockResolvedValue({
       data: {
         data: {
@@ -472,7 +487,7 @@ describe("verifyCheckoutPayment", () => {
       lean({
         _id: "FUL1",
         orderId: "ORD1",
-        type: "CLASSROOM_ENROLLMENT",
+        type: "LMS_ENROLLMENT",
         status: "PENDING",
         attempts: 0,
         metadata: {},
@@ -481,7 +496,7 @@ describe("verifyCheckoutPayment", () => {
     vi.mocked(Order.findById).mockReturnValue(
       lean({
         ...orderDoc,
-        metadata: { ...orderDoc.metadata, classroomCourseId: "CRS1" },
+        metadata: { ...orderDoc.metadata, _classroomCourseId: "CRS1" },
       })
     );
 
@@ -490,20 +505,22 @@ describe("verifyCheckoutPayment", () => {
     // Fulfillment runs in the background; flush its microtasks before asserting.
     await new Promise((r) => setTimeout(r, 0));
 
-    const classroomAdapter = vi.mocked(createClassroomAdapter).mock.results[0]
-      .value;
-    expect(classroomAdapter.enrollStudent).toHaveBeenCalledWith({
-      courseId: "CRS1",
-      studentEmail: "buyer@example.com",
-    });
+    expect(vi.mocked(grantCourseAccess)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: expect.any(String),
+        courseId: "PROD1",
+        sourceOrderId: "ORD1",
+        isBonus: false,
+      })
+    );
     expect(vi.mocked(Fulfillment.updateOne)).toHaveBeenCalledWith(
       { _id: "FUL1" },
       expect.objectContaining({
         $set: expect.objectContaining({
           status: "FULFILLED",
           metadata: expect.objectContaining({
-            courseId: "CRS1",
-            courseAltLink: "https://classroom.google.com/c/CRS1",
+            courseId: "PROD1",
+            courseName: "AI Course",
           }),
         }),
       })
@@ -518,7 +535,7 @@ describe("verifyCheckoutPayment", () => {
     expect(emailTemplates).toContain("course_access_fulfilled");
   });
 
-  it("marks the course fulfillment ACTION_REQUIRED and emails action required when classroom enrollment fails", async () => {
+  it("marks the course fulfillment ACTION_REQUIRED and emails action required when LMS enrollment fails", async () => {
     mockGet.mockResolvedValue({
       data: {
         data: {
@@ -534,7 +551,7 @@ describe("verifyCheckoutPayment", () => {
       lean({
         _id: "FUL1",
         orderId: "ORD1",
-        type: "CLASSROOM_ENROLLMENT",
+        type: "LMS_ENROLLMENT",
         status: "PENDING",
         attempts: 0,
         metadata: {},
@@ -543,24 +560,11 @@ describe("verifyCheckoutPayment", () => {
     vi.mocked(Order.findById).mockReturnValue(
       lean({
         ...orderDoc,
-        metadata: { ...orderDoc.metadata, classroomCourseId: "CRS1" },
+        metadata: { ...orderDoc.metadata, _classroomCourseId: "CRS1" },
       })
     );
-    vi.mocked(createClassroomAdapter).mockReturnValue({
-      getCourse: vi.fn().mockResolvedValue({
-        id: "CRS1",
-        name: "AI Course",
-        alternateLink: "https://classroom.google.com/c/CRS1",
-      }),
-      enrollStudent: vi.fn().mockResolvedValue({
-        studentId: null,
-        alreadyEnrolled: false,
-        errorCategory: "FORBIDDEN",
-        providerResponse: null,
-      }),
-      listConfiguredCourses: vi.fn().mockResolvedValue([]),
-      checkEnrollment: vi.fn().mockResolvedValue(true),
-    } as never);
+    // Mock grantCourseAccess to throw an error
+    vi.mocked(grantCourseAccess).mockRejectedValueOnce(new Error("LMS_ENROLLMENT_FAILED"));
 
     await verifyCheckoutPayment("QL-PAY-ABC");
 
@@ -572,7 +576,7 @@ describe("verifyCheckoutPayment", () => {
       expect.objectContaining({
         $set: expect.objectContaining({
           status: "ACTION_REQUIRED",
-          lastError: "FORBIDDEN",
+          lastError: "LMS_ENROLLMENT_FAILED",
         }),
       })
     );

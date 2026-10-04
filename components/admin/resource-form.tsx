@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 import type { ResourceType } from "@/types/resource";
 
@@ -36,6 +39,8 @@ export function ResourceForm({
   singularLabel: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
   const editing = Boolean(initial?.id);
   const [status, setStatus] = useState<string>(
     initial?.published ? "PUBLISHED" : "DRAFT"
@@ -79,19 +84,31 @@ export function ResourceForm({
       );
       const json = await readApiJson<{ id: string }>(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not save");
+        throw new Error(readApiError(json, "Could not save"));
       }
+      toast.success({
+        title: editing ? `${singularLabel} updated` : `${singularLabel} created`,
+      });
       router.push(basePath);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save");
+      const reason = err instanceof Error ? err.message : "Could not save";
+      setError(reason);
+      toast.error(reason);
       setSaving(false);
     }
   }
 
   async function handleDelete() {
     if (!initial?.id || saving) return;
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+
+    const confirmed = await confirm({
+      title: `Delete “${title}”?`,
+      description: `This permanently removes the ${singularLabel.toLowerCase()} and cannot be undone.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
 
     setSaving(true);
     setError("");
@@ -101,12 +118,15 @@ export function ResourceForm({
       });
       const json = await readApiJson(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not delete");
+        throw new Error(readApiError(json, "Could not delete"));
       }
+      toast.success({ title: `${singularLabel} deleted` });
       router.push(basePath);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete");
+      const reason = err instanceof Error ? err.message : "Could not delete";
+      setError(reason);
+      toast.error(reason);
       setSaving(false);
     }
   }
@@ -242,7 +262,7 @@ export function ResourceForm({
         {editing ? (
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
             disabled={saving}
             className="ml-auto rounded-pill border border-danger-600 px-6 py-3 text-sm font-semibold text-danger-600 transition-colors hover:bg-danger-100 disabled:pointer-events-none disabled:opacity-50"
           >

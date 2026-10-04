@@ -28,6 +28,7 @@ vi.mock("@/models/Product", () => ({
   Product: {
     find: vi.fn(),
     findOne: vi.fn(),
+    findById: vi.fn(),
     create: vi.fn(),
     findByIdAndUpdate: vi.fn(),
   },
@@ -50,6 +51,7 @@ import {
 
 const mockFind = vi.mocked(Product.find);
 const mockFindOne = vi.mocked(Product.findOne);
+const mockFindById = vi.mocked(Product.findById);
 const mockCreate = vi.mocked(Product.create);
 const mockFindByIdAndUpdate = vi.mocked(Product.findByIdAndUpdate);
 
@@ -79,6 +81,7 @@ const baseInput = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockFindOne.mockImplementation(() => chain(null));
+  mockFindById.mockImplementation(() => chain(null));
   mockFind.mockImplementation(() => chain(bundleableCourses));
   mockCreate.mockResolvedValue({ _id: "CRS_PARENT" } as never);
   mockFindByIdAndUpdate.mockImplementation(() =>

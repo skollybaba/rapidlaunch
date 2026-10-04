@@ -3,6 +3,9 @@
 import { useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
+
 const fieldClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
@@ -22,6 +25,7 @@ export function BroadcastForm({
   const [body, setBody] = useState("");
   const [fileName, setFileName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<BroadcastResult | null>(null);
@@ -48,7 +52,7 @@ export function BroadcastForm({
       });
       const json = await response.json();
       if (!json.ok) {
-        throw new Error(json.error?.message ?? "Could not send broadcast");
+        throw new Error(readApiError(json, "Could not send broadcast"));
       }
       const r = json.data as BroadcastResult;
       setTitle("");
@@ -57,9 +61,16 @@ export function BroadcastForm({
       setFileName("");
       if (fileRef.current) fileRef.current.value = "";
       setResult(r);
+      toast.success({
+        title: "Broadcast sent",
+        description: `${r.sent} delivered, ${r.failed} failed of ${r.recipients}.`,
+      });
       onSuccess?.(r);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send broadcast");
+      const reason =
+        err instanceof Error ? err.message : "Could not send broadcast";
+      setError(reason);
+      toast.error({ title: reason });
     } finally {
       setSending(false);
     }
@@ -69,7 +80,10 @@ export function BroadcastForm({
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
-          <label htmlFor="bc-title" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="bc-title"
+            className="text-sm font-medium text-neutral-700"
+          >
             Title
           </label>
           <input
@@ -81,7 +95,10 @@ export function BroadcastForm({
           />
         </div>
         <div>
-          <label htmlFor="bc-subject" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="bc-subject"
+            className="text-sm font-medium text-neutral-700"
+          >
             Subject
           </label>
           <input
@@ -95,7 +112,10 @@ export function BroadcastForm({
       </div>
 
       <div>
-        <label htmlFor="bc-body" className="text-sm font-medium text-neutral-700">
+        <label
+          htmlFor="bc-body"
+          className="text-sm font-medium text-neutral-700"
+        >
           Body
         </label>
         <textarea
@@ -108,7 +128,10 @@ export function BroadcastForm({
       </div>
 
       <div>
-        <label htmlFor="bc-file" className="text-sm font-medium text-neutral-700">
+        <label
+          htmlFor="bc-file"
+          className="text-sm font-medium text-neutral-700"
+        >
           Attachment (optional)
         </label>
         <input

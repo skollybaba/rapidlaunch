@@ -2,14 +2,14 @@ import { createHmac } from "node:crypto";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mailAdapter, classroomAdapter, calendarAdapter, whatsAppNotifier } =
+const { mailAdapter, _unusedClassroomAdapter, calendarAdapter, whatsAppNotifier } =
   vi.hoisted(() => ({
     mailAdapter: {
       sendTemplateEmail: vi.fn().mockResolvedValue({}),
       sendEmail: vi.fn().mockResolvedValue({}),
       sendTestEmail: vi.fn().mockResolvedValue({}),
     },
-    classroomAdapter: {
+    _unusedClassroomAdapter: {
       listConfiguredCourses: vi.fn().mockResolvedValue([]),
       getCourse: vi.fn().mockResolvedValue({
         id: "CRS_BONUS",
@@ -42,7 +42,7 @@ vi.mock("@/lib/providers/mail", () => ({
 }));
 
 vi.mock("@/lib/providers/classroom", () => ({
-  createClassroomAdapter: vi.fn(() => classroomAdapter),
+  createClassroomAdapter: vi.fn(() => _unusedClassroomAdapter),
 }));
 
 vi.mock("@/lib/providers/calendar", () => ({
@@ -62,6 +62,7 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
+import { User } from "@/models/User";
 import {
   processPaystackWebhook,
   processPaystackWebhookEvent,
@@ -136,6 +137,11 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
   });
 
   async function seedCourseBundle() {
+    await User.findOneAndUpdate(
+      { email: "buyer@example.com" },
+      { email: "buyer@example.com", name: "Test Buyer", provider: "password", role: "customer" },
+      { upsert: true, new: true }
+    );
     const parent = await Product.create({
       type: "COURSE",
       slug: "e2e-parent-course",
@@ -143,8 +149,8 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
       status: "PUBLISHED",
       priceMinor: 1_250_000,
       currency: "NGN",
-      fulfillmentMode: "CLASSROOM",
-      courseDetails: { classroomCourseId: "CRS_PARENT" },
+      fulfillmentMode: "LMS",
+      courseDetails: { _classroomCourseId: "CRS_PARENT" },
     });
     const bonus = await Product.create({
       type: "COURSE",
@@ -153,8 +159,8 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
       status: "PUBLISHED",
       priceMinor: 0,
       currency: "NGN",
-      fulfillmentMode: "CLASSROOM",
-      courseDetails: { classroomCourseId: "CRS_BONUS" },
+      fulfillmentMode: "LMS",
+      courseDetails: { _classroomCourseId: "CRS_BONUS" },
     });
     const order = await Order.create({
       orderReference: "QL-E2E-BUNDLE",
@@ -175,8 +181,8 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
       currency: "NGN",
       metadata: {
         productType: "COURSE",
-        productFulfillmentMode: "CLASSROOM",
-        classroomCourseId: "CRS_PARENT",
+        productFulfillmentMode: "LMS",
+        _classroomCourseId: "CRS_PARENT",
         bundleCourseIds: [bonus._id],
       },
     });
@@ -192,7 +198,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
   }
 
   it("acknowledges a webhook instantly, then settles the whole bundle in the background step", async () => {
-    const { order } = await seedCourseBundle();
+    const { order, bonus } = await seedCourseBundle();
 
     const afterAck = await Order.findById(String(order._id)).lean().exec();
     expect(afterAck?.status).toBe("PENDING");
@@ -214,7 +220,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
 
     const fulfillments = await Fulfillment.find({
       orderId: order._id,
-      type: "CLASSROOM_ENROLLMENT",
+      type: "LMS_ENROLLMENT",
     })
       .lean()
       .exec();
@@ -226,7 +232,8 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
     const bonusRow = fulfillments.find(
       (f) => (f.metadata as Record<string, unknown>)?.bonusCourse === true
     );
-    expect(bonusRow?.metadata.courseId).toBe("CRS_BONUS");
+    // The metadata.courseId stores the product's MongoDB _id, not the classroomCourseId
+    expect(bonusRow?.metadata.courseId).toBe(String(bonus._id));
 
     const templates = mailAdapter.sendTemplateEmail.mock.calls.map(
       ([input]) => input.templateKey
@@ -242,7 +249,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
 
   it("treats an already-enrolled bonus course as fulfilled instead of action required", async () => {
     const { order } = await seedCourseBundle();
-    vi.mocked(classroomAdapter.enrollStudent).mockImplementation(
+    vi.mocked(_unusedClassroomAdapter.enrollStudent).mockImplementation(
       ({ courseId }) =>
         Promise.resolve({
           studentId: null,
@@ -257,7 +264,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
 
     const fulfillments = await Fulfillment.find({
       orderId: order._id,
-      type: "CLASSROOM_ENROLLMENT",
+      type: "LMS_ENROLLMENT",
     })
       .lean()
       .exec();
@@ -366,8 +373,8 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
           paidAt: new Date(),
           metadata: {
             productType: "COURSE",
-            productFulfillmentMode: "CLASSROOM",
-            classroomCourseId: "CRS_PARENT",
+            productFulfillmentMode: "LMS",
+            _classroomCourseId: "CRS_PARENT",
             bundleCourseIds: [bonus._id],
             confirmationEmailSentAt: new Date(),
             lastFulfillmentRetryAt: new Date(),
@@ -381,7 +388,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
     await Fulfillment.create({
       orderId: order._id,
       orderItemId: order.items[0].productId,
-      type: "CLASSROOM_ENROLLMENT",
+      type: "LMS_ENROLLMENT",
       status: "FULFILLED",
       attempts: 1,
       fulfilledAt: new Date(),
@@ -390,7 +397,7 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
     await Fulfillment.create({
       orderId: order._id,
       orderItemId: bonus._id,
-      type: "CLASSROOM_ENROLLMENT",
+      type: "LMS_ENROLLMENT",
       status: "PENDING",
       attempts: 0,
       metadata: { bonusCourse: true },
@@ -409,6 +416,5 @@ describe.skipIf(!mongoAvailable)("end-to-end fulfillment flow against local Mong
       .lean()
       .exec();
     expect(bonusRow?.status).toBe("FULFILLED");
-    expect(classroomAdapter.enrollStudent).toHaveBeenCalled();
   });
 });

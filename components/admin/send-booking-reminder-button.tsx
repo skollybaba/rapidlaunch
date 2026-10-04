@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2, MailCheck, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
 interface SendBookingReminderButtonProps {
@@ -16,6 +18,7 @@ export function SendBookingReminderButton({
   className,
 }: SendBookingReminderButtonProps) {
   const router = useRouter();
+  const toast = useToast();
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -30,16 +33,27 @@ export function SendBookingReminderButton({
       );
       const body = await res.json();
       if (!res.ok) {
-        setMessage(
-          body?.error?.message ??
-            "Could not send the reminder. Try again shortly."
+        const reason = readApiError(
+          body,
+          "Could not send the reminder. Try again shortly."
         );
+        setMessage(reason);
+        toast.error({
+          title: reason,
+          action: { label: "Retry", onClick: () => void sendReminder() },
+        });
         return;
       }
       setSent(true);
+      toast.success({
+        title: "Payment reminder sent",
+        description: "The customer has been emailed.",
+      });
       router.refresh();
     } catch {
-      setMessage("Could not send the reminder. Check your connection.");
+      const reason = "Could not send the reminder. Check your connection.";
+      setMessage(reason);
+      toast.error(reason);
     } finally {
       setPending(false);
     }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LayoutDashboard, LogOut, UserRound } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
 
 function initials(name?: string, email?: string): string {
   const text = (name ?? "").trim();
@@ -22,6 +23,7 @@ function initials(name?: string, email?: string): string {
 
 export function ProfileMenu() {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -100,8 +102,16 @@ export function ProfileMenu() {
             role="menuitem"
             onClick={async () => {
               setOpen(false);
-              await logout();
-              router.replace("/");
+              try {
+                await logout();
+                toast.success({ title: "Signed out" });
+                router.replace("/");
+              } catch {
+                toast.error({
+                  title: "We couldn't sign you out",
+                  description: "Please try again.",
+                });
+              }
             }}
             className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-neutral-200 transition-colors duration-[var(--duration-fast)] hover:bg-red-500/10 hover:text-red-300"
           >

@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 
 import { buttonStyles } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { cn, formatPrice } from "@/lib/utils";
 
 export type EnquiryMode = "interest" | "quote";
@@ -35,7 +36,10 @@ interface FieldProps {
   required?: boolean;
   hint?: string;
   error?: string | undefined;
-  children: (props: { id: string; describedBy: string | undefined }) => React.ReactElement;
+  children: (props: {
+    id: string;
+    describedBy: string | undefined;
+  }) => React.ReactElement;
 }
 
 function Field({ label, required, hint, error, children }: FieldProps) {
@@ -51,7 +55,10 @@ function Field({ label, required, hint, error, children }: FieldProps) {
         {required ? <span className="text-action"> *</span> : null}
       </label>
       {hint ? (
-        <p id={hintId} className="mt-1 text-xs leading-relaxed text-neutral-500">
+        <p
+          id={hintId}
+          className="mt-1 text-xs leading-relaxed text-neutral-500"
+        >
           {hint}
         </p>
       ) : null}
@@ -73,6 +80,7 @@ export function EnquiryForm({
   currency = "NGN",
   submitLabel,
 }: EnquiryFormProps) {
+  const toast = useToast();
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,17 +114,24 @@ export function EnquiryForm({
       };
 
       if (!response.ok || !body.ok || !body.data) {
-        const message = body.error?.message ?? "We could not send that. Please try again.";
+        const message =
+          body.error?.message ?? "We could not send that. Please try again.";
         setFormError(message);
+        toast.error({ title: message });
         return;
       }
 
       setSuccess(body.data);
       form.reset();
+      toast.success({
+        title: "Enquiry received",
+        description: "We will reply to you shortly.",
+      });
     } catch {
-      setFormError(
-        "We could not reach the server. Check your connection and try again."
-      );
+      const reason =
+        "We could not reach the server. Check your connection and try again.";
+      setFormError(reason);
+      toast.error({ title: reason });
     } finally {
       setPending(false);
     }
@@ -136,13 +151,13 @@ export function EnquiryForm({
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-neutral-600">
               Your enquiry for{" "}
-              <span className="font-semibold">{productTitle}</span> is with
-              our team. We reply to enquiries within two working days.
+              <span className="font-semibold">{productTitle}</span> is with our
+              team. We reply to enquiries within two working days.
             </p>
             {success.requiresQuote ? (
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">
-                Because this engagement is scoped per project, we will send you a
-                quote with the scope, timeline and price before anything is
+                Because this engagement is scoped per project, we will send you
+                a quote with the scope, timeline and price before anything is
                 payable.
               </p>
             ) : success.quotedPriceMinor ? (
@@ -311,7 +326,11 @@ export function EnquiryForm({
         </Field>
 
         <Field
-          label={mode === "quote" ? "What does the project involve?" : "What help do you need?"}
+          label={
+            mode === "quote"
+              ? "What does the project involve?"
+              : "What help do you need?"
+          }
           required
           error={errors[mode === "quote" ? "projectScope" : "helpNeeded"]}
         >

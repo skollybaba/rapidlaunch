@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { CookieConsent } from "@/components/marketing/cookie-consent";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { AppProviders } from "@/components/ui/providers";
 import { getCurrentPublicUser } from "@/lib/auth/session";
 import "./globals.css";
 
@@ -37,7 +38,9 @@ export default async function RootLayout({
       className={`${manrope.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider initialUser={user}>{children}</AuthProvider>
+        <AppProviders>
+          <AuthProvider initialUser={user}>{children}</AuthProvider>
+        </AppProviders>
         <CookieConsent />
       </body>
     </html>

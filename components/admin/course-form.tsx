@@ -6,6 +6,8 @@ import { FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { PRODUCT_STATUSES, CURRICULUM_MAX_BYTES } from "@/types/product";
 
 const fieldClasses =
@@ -65,6 +67,7 @@ export function CourseForm({
   bundleChoices = [],
 }: CourseFormData & { bundleChoices?: BundleChoice[] }) {
   const router = useRouter();
+  const toast = useToast();
   const editing = Boolean(initial?.id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -74,12 +77,12 @@ export function CourseForm({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [shortDescription, setShortDescription] = useState(
-    initial?.shortDescription ?? ""
+    initial?.shortDescription ?? "",
   );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [status, setStatus] = useState(initial?.status ?? "DRAFT");
   const [fulfillmentMode, setFulfillmentMode] = useState(
-    initial?.fulfillmentMode ?? "CLASSROOM"
+    initial?.fulfillmentMode ?? "LMS",
   );
   const [price, setPrice] = useState(priceNaira ? String(priceNaira) : "");
   const [thumbnailUrl, setThumbnailUrl] = useState(initial?.thumbnailUrl ?? "");
@@ -88,28 +91,28 @@ export function CourseForm({
   const cd = initial?.courseDetails;
   const [instructor, setInstructor] = useState(cd?.instructor ?? "");
   const [instructorImageUrl, setInstructorImageUrl] = useState(
-    cd?.instructorImageUrl ?? ""
+    cd?.instructorImageUrl ?? "",
   );
   const [instructorUrl, setInstructorUrl] = useState(cd?.instructorUrl ?? "");
   const [durationMinutes, setDurationMinutes] = useState(
-    cd?.durationMinutes ? String(cd.durationMinutes) : ""
+    cd?.durationMinutes ? String(cd.durationMinutes) : "",
   );
   const [level, setLevel] = useState(cd?.level ?? "BEGINNER");
   const [audience, setAudience] = useState(listToText(cd?.audience));
   const [outcomes, setOutcomes] = useState(listToText(cd?.outcomes));
   const [syllabus, setSyllabus] = useState(listToText(cd?.syllabus));
   const [classroomCourseId, setClassroomCourseId] = useState(
-    cd?.classroomCourseId ?? ""
+    cd?.classroomCourseId ?? "",
   );
   const [courseJoinUrl, setCourseJoinUrl] = useState(cd?.courseJoinUrl ?? "");
   const [enrollmentMode, setEnrollmentMode] = useState(
-    cd?.enrollmentMode ?? "AUTOMATIC"
+    cd?.enrollmentMode ?? "AUTOMATIC",
   );
   const [accessInstructions, setAccessInstructions] = useState(
-    cd?.accessInstructions ?? ""
+    cd?.accessInstructions ?? "",
   );
   const [bundleCourseIds, setBundleCourseIds] = useState<string[]>(
-    initial?.bundleCourseIds ?? []
+    initial?.bundleCourseIds ?? [],
   );
 
   const curriculumInputRef = useRef<HTMLInputElement>(null);
@@ -125,8 +128,7 @@ export function CourseForm({
 
   function handleCurriculumFile(file: File) {
     setCurriculumError("");
-    const isPdf =
-      file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     if (!isPdf) {
       setCurriculumError("Please choose a PDF file.");
       return;
@@ -144,15 +146,15 @@ export function CourseForm({
     setBundleCourseIds((current) =>
       checked
         ? [...new Set([...current, id])]
-        : current.filter((courseId) => courseId !== id)
+        : current.filter((courseId) => courseId !== id),
     );
   }
 
   const bundleOptions = bundleChoices.filter(
-    (course) => course.id !== initial?.id
+    (course) => course.id !== initial?.id,
   );
   const bundleCheckedChoices = bundleOptions.filter((course) =>
-    bundleCourseIds.includes(course.id)
+    bundleCourseIds.includes(course.id),
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -162,7 +164,10 @@ export function CourseForm({
 
     const priceNum = Number(price) || 0;
     if (priceNum <= 0) {
-      setError("Please enter a price in naira (0 allowed only for free/external courses).");
+      const reason =
+        "Please enter a price in naira (0 allowed only for free/external courses).";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
 
@@ -203,11 +208,11 @@ export function CourseForm({
           method: editing ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        }
+        },
       );
       const json = await response.json();
       if (!json.ok) {
-        throw new Error(json.error?.message ?? "Could not save course");
+        throw new Error(readApiError(json, "Could not save course"));
       }
 
       const courseId = editing ? initial?.id : (json.data?.id as string);
@@ -219,11 +224,11 @@ export function CourseForm({
         setCurriculumBusy(true);
         const rmResponse = await fetch(
           `/api/admin/courses/${courseId}/curriculum`,
-          { method: "DELETE" }
+          { method: "DELETE" },
         );
         const rmJson = await rmResponse.json();
         if (!rmJson.ok) {
-          throw new Error(rmJson.error?.message ?? "Could not remove curriculum");
+          throw new Error(readApiError(rmJson, "Could not remove curriculum"));
         }
         setCurriculumFile(null);
         setRemoveCurriculum(false);
@@ -233,15 +238,19 @@ export function CourseForm({
         form.append("file", curriculumFile);
         const upResponse = await fetch(
           `/api/admin/courses/${courseId}/curriculum`,
-          { method: "PUT", body: form }
+          { method: "PUT", body: form },
         );
         const upJson = await upResponse.json();
         if (!upJson.ok) {
-          throw new Error(upJson.error?.message ?? "Could not upload curriculum");
+          throw new Error(readApiError(upJson, "Could not upload curriculum"));
         }
         setCurriculumFile(null);
       }
 
+      toast.success({
+        title: editing ? "Course updated" : "Course created",
+        description: "Your changes are live.",
+      });
       router.push("/admin/courses");
       router.refresh();
     } catch (err) {
@@ -249,6 +258,10 @@ export function CourseForm({
         err instanceof Error ? err.message : "Could not save course";
       setError(message);
       if (curriculumFile || removeCurriculum) setCurriculumError(message);
+      toast.error({
+        title: message,
+        description: "Nothing was saved. Your edits are still here.",
+      });
       setSaving(false);
       setCurriculumBusy(false);
     }
@@ -260,7 +273,10 @@ export function CourseForm({
         <h2 className="text-lg font-bold text-neutral-950">Basics</h2>
         <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
-            <label htmlFor="c-title" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-title"
+              className="text-sm font-medium text-neutral-700"
+            >
               Title *
             </label>
             <input
@@ -271,7 +287,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-slug" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-slug"
+              className="text-sm font-medium text-neutral-700"
+            >
               Slug *
             </label>
             <input
@@ -283,7 +302,10 @@ export function CourseForm({
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="c-short" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-short"
+              className="text-sm font-medium text-neutral-700"
+            >
               Short description
             </label>
             <input
@@ -294,7 +316,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-status" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-status"
+              className="text-sm font-medium text-neutral-700"
+            >
               Status
             </label>
             <select
@@ -311,7 +336,10 @@ export function CourseForm({
             </select>
           </div>
           <div>
-            <label htmlFor="c-price" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-price"
+              className="text-sm font-medium text-neutral-700"
+            >
               Price (NGN)
             </label>
             <input
@@ -324,7 +352,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-fulfill" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-fulfill"
+              className="text-sm font-medium text-neutral-700"
+            >
               Fulfillment mode
             </label>
             <select
@@ -333,6 +364,7 @@ export function CourseForm({
               onChange={(e) => setFulfillmentMode(e.target.value)}
               className={fieldClasses}
             >
+              <option value="LMS">LMS (built-in player)</option>
               <option value="CLASSROOM">Classroom</option>
               <option value="DOWNLOAD">Download</option>
               <option value="EXTERNAL">External</option>
@@ -375,7 +407,10 @@ export function CourseForm({
         <h2 className="text-lg font-bold text-neutral-950">Course details</h2>
         <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
-            <label htmlFor="c-instructor" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-instructor"
+              className="text-sm font-medium text-neutral-700"
+            >
               Instructor
             </label>
             <input
@@ -413,7 +448,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-duration" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-duration"
+              className="text-sm font-medium text-neutral-700"
+            >
               Duration (minutes)
             </label>
             <input
@@ -425,7 +463,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-level" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-level"
+              className="text-sm font-medium text-neutral-700"
+            >
               Level
             </label>
             <select
@@ -440,7 +481,10 @@ export function CourseForm({
             </select>
           </div>
           <div>
-            <label htmlFor="c-classroom" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-classroom"
+              className="text-sm font-medium text-neutral-700"
+            >
               Classroom course ID
             </label>
             <input
@@ -451,7 +495,10 @@ export function CourseForm({
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="c-join" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-join"
+              className="text-sm font-medium text-neutral-700"
+            >
               Course join URL
             </label>
             <input
@@ -462,7 +509,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-enrollmode" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-enrollmode"
+              className="text-sm font-medium text-neutral-700"
+            >
               Enrollment mode
             </label>
             <select
@@ -478,7 +528,10 @@ export function CourseForm({
         </div>
         <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
-            <label htmlFor="c-audience" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-audience"
+              className="text-sm font-medium text-neutral-700"
+            >
               Audience (one per line)
             </label>
             <textarea
@@ -490,7 +543,10 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label htmlFor="c-outcomes" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-outcomes"
+              className="text-sm font-medium text-neutral-700"
+            >
               Outcomes (one per line)
             </label>
             <textarea
@@ -502,7 +558,10 @@ export function CourseForm({
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="c-syllabus" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-syllabus"
+              className="text-sm font-medium text-neutral-700"
+            >
               Syllabus (one item per line)
             </label>
             <textarea
@@ -514,7 +573,10 @@ export function CourseForm({
             />
           </div>
           <div className="md:col-span-2">
-            <label htmlFor="c-access" className="text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="c-access"
+              className="text-sm font-medium text-neutral-700"
+            >
               Access instructions
             </label>
             <textarea
@@ -529,9 +591,7 @@ export function CourseForm({
       </section>
 
       <section className="rounded-[16px] border border-neutral-300 bg-white p-6">
-        <h2 className="text-lg font-bold text-neutral-950">
-          Curriculum (PDF)
-        </h2>
+        <h2 className="text-lg font-bold text-neutral-950">Curriculum (PDF)</h2>
         <p className="mt-1 text-sm text-neutral-500">
           Upload the full course curriculum as a PDF. Visitors can download it
           from the public course page. PDFs up to 25 MB.
@@ -557,7 +617,10 @@ export function CourseForm({
             {curriculumBusy ? (
               <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
             ) : (
-              <UploadCloud aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+              <UploadCloud
+                aria-hidden="true"
+                className="h-4 w-4 text-terracotta-600"
+              />
             )}
             {curriculumBusy
               ? "Uploading…"
@@ -571,7 +634,8 @@ export function CourseForm({
               onClick={() => {
                 setCurriculumFile(null);
                 setCurriculumError("");
-                if (curriculumInputRef.current) curriculumInputRef.current.value = "";
+                if (curriculumInputRef.current)
+                  curriculumInputRef.current.value = "";
               }}
               disabled={curriculumBusy || saving}
               className="text-sm font-semibold text-neutral-500 hover:text-neutral-700 disabled:pointer-events-none disabled:opacity-50"
@@ -586,7 +650,8 @@ export function CourseForm({
                 setRemoveCurriculum(true);
                 setCurriculumFile(null);
                 setCurriculumError("");
-                if (curriculumInputRef.current) curriculumInputRef.current.value = "";
+                if (curriculumInputRef.current)
+                  curriculumInputRef.current.value = "";
               }}
               disabled={curriculumBusy || saving}
               className="inline-flex items-center gap-1.5 rounded-pill border border-danger-600 px-4 py-2.5 text-sm font-semibold text-danger-600 transition-colors duration-[var(--duration-fast)] hover:bg-danger-100 disabled:pointer-events-none disabled:opacity-50"
@@ -598,7 +663,10 @@ export function CourseForm({
         </div>
         {curriculumFile ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-neutral-700">
-            <FileText aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            <FileText
+              aria-hidden="true"
+              className="h-4 w-4 text-terracotta-600"
+            />
             {curriculumFile.name}{" "}
             <span className="text-neutral-400">
               ({(curriculumFile.size / 1024 / 1024).toFixed(2)} MB) — will be
@@ -607,7 +675,10 @@ export function CourseForm({
           </p>
         ) : savedCurriculum ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-neutral-700">
-            <FileText aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            <FileText
+              aria-hidden="true"
+              className="h-4 w-4 text-terracotta-600"
+            />
             {savedCurriculum.fileName}
             {savedCurriculum.size ? (
               <span className="text-neutral-400">
@@ -629,13 +700,15 @@ export function CourseForm({
       </section>
 
       <section className="rounded-[16px] border border-neutral-300 bg-white p-6">
-        <h2 className="text-lg font-bold text-neutral-950">Relational bundle</h2>
+        <h2 className="text-lg font-bold text-neutral-950">
+          Relational bundle
+        </h2>
         <p className="mt-1 text-sm text-neutral-500">
           Tick the courses you want to give away as a bonus. When a customer
-          pays for this course they are automatically enrolled into every
-          course selected here — at no extra cost. They will see these listed
-          as bonus courses on the course page and in their confirmation email.
-          The bonus courses are never counted as a separate purchase.
+          pays for this course they are automatically enrolled into every course
+          selected here — at no extra cost. They will see these listed as bonus
+          courses on the course page and in their confirmation email. The bonus
+          courses are never counted as a separate purchase.
         </p>
         {bundleCheckedChoices.length === 0 ? (
           <p className="mt-4 text-sm text-neutral-400">
@@ -651,7 +724,9 @@ export function CourseForm({
           </ul>
         )}
         <fieldset className="mt-5">
-          <legend className="sr-only">Bonus courses to include in this bundle</legend>
+          <legend className="sr-only">
+            Bonus courses to include in this bundle
+          </legend>
           <div className="max-h-72 space-y-2 overflow-y-auto rounded-[12px] border border-neutral-200 p-3">
             {bundleOptions.length === 0 ? (
               <p className="px-1 py-2 text-sm text-neutral-400">
@@ -668,7 +743,9 @@ export function CourseForm({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={(e) => toggleBundleCourse(course.id, e.target.checked)}
+                      onChange={(e) =>
+                        toggleBundleCourse(course.id, e.target.checked)
+                      }
                       className="h-4 w-4 rounded border-neutral-300 text-terracotta-600 focus:ring-terracotta-600"
                     />
                     <span className="min-w-0 flex-1">

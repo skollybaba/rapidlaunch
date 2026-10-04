@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockEnv, mailAdapter, classroomAdapter } = vi.hoisted(() => ({
+const { mockEnv, mailAdapter, classroomAdapter, lmsAdapter } = vi.hoisted(() => ({
   mockEnv: {
     GOOGLE_CLIENT_ID: "google-client-id",
     GOOGLE_CLIENT_SECRET: "google-client-secret",
@@ -33,6 +33,9 @@ const { mockEnv, mailAdapter, classroomAdapter } = vi.hoisted(() => ({
     }),
     checkEnrollment: vi.fn().mockResolvedValue(true),
   },
+  lmsAdapter: {
+    grantCourseAccess: vi.fn().mockResolvedValue({ id: "ENR1", created: true }),
+  },
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -60,12 +63,26 @@ vi.mock("@/models/Product", () => ({
   Product: { find: vi.fn() },
 }));
 
+vi.mock("@/models/User", () => ({
+  User: {
+    findOne: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockReturnThis(),
+      exec: vi.fn().mockResolvedValue({ _id: "USER1", email: "buyer@example.com" }),
+    }),
+  },
+}));
+
 vi.mock("@/lib/providers/mail", () => ({
   createMailAdapter: vi.fn(() => mailAdapter),
 }));
 
 vi.mock("@/lib/providers/classroom", () => ({
   createClassroomAdapter: vi.fn(() => classroomAdapter),
+}));
+
+vi.mock("@/lib/services/lms-service", () => ({
+  grantCourseAccess: lmsAdapter.grantCourseAccess,
 }));
 
 vi.mock("@/lib/services/whatsapp-service", () => ({
@@ -83,6 +100,7 @@ const mockFulfillmentUpdateOne = vi.mocked(Fulfillment.updateOne);
 const mockEnrollStudent = vi.mocked(classroomAdapter.enrollStudent);
 const mockSendTemplateEmail = vi.mocked(mailAdapter.sendTemplateEmail);
 const mockGetCourse = vi.mocked(classroomAdapter.getCourse);
+const mockGrantCourseAccess = vi.mocked(lmsAdapter.grantCourseAccess);
 
 function chain(value: unknown) {
   return {
@@ -127,8 +145,8 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
     ],
     metadata: {
       productType: "COURSE",
-      productFulfillmentMode: "CLASSROOM",
-      classroomCourseId: "CRS_PARENT",
+      productFulfillmentMode: "LMS",
+      _classroomCourseId: "CRS_PARENT",
       courseJoinUrl: undefined,
       bundleCourseIds: ["PROD2"],
       bundleCourseTitles: ["Bonus Course"],
@@ -143,7 +161,7 @@ function makeBonusProduct() {
       _id: "PROD2",
       title: "Bonus Course",
       courseDetails: {
-        classroomCourseId: "CRS_BONUS",
+        _classroomCourseId: "CRS_BONUS",
         courseJoinUrl: "",
       },
     },
@@ -211,6 +229,7 @@ beforeEach(() => {
     errorCategory: null,
     providerResponse: {},
   });
+  mockGrantCourseAccess.mockResolvedValue({ id: "ENR1", created: true });
   mockGetCourse.mockImplementation((courseId: string) =>
     Promise.resolve({
       id: courseId,
@@ -226,15 +245,23 @@ describe("processCourseEnrollment with relational bundles", () => {
   it("enrolls the bought course and each bonus course, each with its own fulfillment", async () => {
     await processCourseEnrollment(makeOrder() as never);
 
-    expect(mockEnrollStudent).toHaveBeenCalledTimes(2);
-    expect(mockEnrollStudent).toHaveBeenCalledWith({
-      courseId: "CRS_PARENT",
-      studentEmail: "buyer@example.com",
-    });
-    expect(mockEnrollStudent).toHaveBeenCalledWith({
-      courseId: "CRS_BONUS",
-      studentEmail: "buyer@example.com",
-    });
+    expect(mockGrantCourseAccess).toHaveBeenCalledTimes(2);
+    expect(mockGrantCourseAccess).toHaveBeenNthCalledWith(1,
+      expect.objectContaining({
+        userId: "USER1",
+        courseId: "PROD1",
+        sourceOrderId: "ORD1",
+        isBonus: false,
+      })
+    );
+    expect(mockGrantCourseAccess).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({
+        userId: "USER1",
+        courseId: "PROD2",
+        sourceOrderId: "ORD1",
+        isBonus: true,
+      })
+    );
 
     const fulfilledUpdates = mockFulfillmentUpdateOne.mock.calls.filter(
       ([, update]) =>
@@ -245,12 +272,13 @@ describe("processCourseEnrollment with relational bundles", () => {
     const bonusRecord = enrollStates.get("PROD2");
     expect(bonusRecord?.status).toBe("FULFILLED");
     expect(bonusRecord?.metadata.bonusCourse).toBe(true);
-    expect(bonusRecord?.metadata.courseId).toBe("CRS_BONUS");
+    // metadata.courseId stores the product's MongoDB _id, not the classroomCourseId
+    expect(bonusRecord?.metadata.courseId).toBe("PROD2");
 
     const parentRecord = enrollStates.get("PROD1");
     expect(parentRecord?.status).toBe("FULFILLED");
     expect(parentRecord?.metadata.bonusCourse).toBeUndefined();
-    expect(parentRecord?.metadata.courseId).toBe("CRS_PARENT");
+    expect(parentRecord?.metadata.courseId).toBe("PROD1");
   });
 
   it("sends one access email per granted course", async () => {
@@ -261,7 +289,9 @@ describe("processCourseEnrollment with relational bundles", () => {
     );
     expect(calls).toHaveLength(2);
     const courseTitles = calls.map(([input]) => input.variables.courseTitle);
-    expect(courseTitles).toContain("Bonus Classroom Course");
+    // LMS enrollment uses product titles, not classroom course names
+    expect(courseTitles).toContain("Bonus Course");
+    expect(courseTitles).toContain("AI Product Strategy");
   });
 
   it("is idempotent — already-fulfilled bonus courses are not re-enrolled", async () => {
@@ -288,15 +318,15 @@ describe("processCourseEnrollment with relational bundles", () => {
   });
 
   it("ignores an order without a bundle", async () => {
-    const order = makeOrder({ metadata: { productType: "COURSE", productFulfillmentMode: "CLASSROOM", classroomCourseId: "CRS_PARENT" } });
+    const order = makeOrder({ metadata: { productType: "COURSE", productFulfillmentMode: "LMS", _classroomCourseId: "CRS_PARENT" } });
 
     await processCourseEnrollment(order as never);
 
-    expect(mockEnrollStudent).toHaveBeenCalledTimes(1);
-    expect(mockEnrollStudent).toHaveBeenCalledWith({
-      courseId: "CRS_PARENT",
-      studentEmail: "buyer@example.com",
-    });
+    expect(mockGrantCourseAccess).toHaveBeenCalledTimes(1);
+    const callArgs = mockGrantCourseAccess.mock.calls[0][0];
+    expect(callArgs.courseId).toBe("PROD1");
+    expect(callArgs.sourceOrderId).toBe("ORD1");
+    expect(callArgs.isBonus).toBe(false);
     expect(enrollStates.get("PROD2")).toBeUndefined();
   });
 
@@ -305,11 +335,12 @@ describe("processCourseEnrollment with relational bundles", () => {
 
     await processCourseEnrollment(makeOrder() as never);
 
-    expect(mockEnrollStudent).toHaveBeenCalledTimes(1);
-    expect(mockEnrollStudent).toHaveBeenCalledWith({
-      courseId: "CRS_PARENT",
-      studentEmail: "buyer@example.com",
-    });
+    // Only called for parent (bonus is skipped due to missingProduct check)
+    expect(mockGrantCourseAccess).toHaveBeenCalledTimes(1);
+    const callArgs = mockGrantCourseAccess.mock.calls[0][0];
+    expect(callArgs.courseId).toBe("PROD1");
+    expect(callArgs.sourceOrderId).toBe("ORD1");
+    expect(callArgs.isBonus).toBe(false);
 
     const bonusRecord = enrollStates.get("PROD2");
     expect(bonusRecord?.status).toBe("ACTION_REQUIRED");
@@ -324,18 +355,14 @@ describe("processCourseEnrollment with relational bundles", () => {
   });
 
   it("treats an already-enrolled student response as a successful enrollment", async () => {
-    mockEnrollStudent.mockResolvedValue({
-      studentId: null,
-      alreadyEnrolled: true,
-      errorCategory: "ALREADY_ENROLLED",
-      providerResponse: null,
-    });
+    mockGrantCourseAccess.mockResolvedValue({ id: "ENR2", created: false });
 
     await processCourseEnrollment(makeOrder() as never);
 
     const bonusRecord = enrollStates.get("PROD2");
     expect(bonusRecord?.status).toBe("FULFILLED");
-    expect(bonusRecord?.metadata.courseId).toBe("CRS_BONUS");
+    // metadata.courseId stores the product's MongoDB _id, not the classroomCourseId
+    expect(bonusRecord?.metadata.courseId).toBe("PROD2");
 
     const parentRecord = enrollStates.get("PROD1");
     expect(parentRecord?.status).toBe("FULFILLED");
@@ -346,22 +373,17 @@ describe("processCourseEnrollment with relational bundles", () => {
     expect(accessEmails).toHaveLength(2);
   });
 
-  it("flags a bonus course as needing action when its classroom is not configured", async () => {
-    mockProductFind.mockImplementation(() =>
-      chain([
-        {
-          _id: "PROD2",
-          title: "Bonus Course",
-          courseDetails: { classroomCourseId: "", courseJoinUrl: "" },
-        },
-      ]) as never
-    );
+  it("flags a bonus course as needing action when LMS enrollment fails", async () => {
+    // First call (parent) succeeds, second call (bonus) fails
+    mockGrantCourseAccess
+      .mockResolvedValueOnce({ id: "ENR1", created: true })
+      .mockRejectedValueOnce(new Error("LMS_ENROLLMENT_FAILED"));
 
     await processCourseEnrollment(makeOrder() as never);
 
     const bonusRecord = enrollStates.get("PROD2");
     expect(bonusRecord?.status).toBe("ACTION_REQUIRED");
-    expect(bonusRecord?.lastError).toBe("CLASSROOM_COURSE_NOT_CONFIGURED");
+    expect(bonusRecord?.lastError).toBe("LMS_ENROLLMENT_FAILED");
 
     const sentToBonus = mockSendTemplateEmail.mock.calls.some(
       ([input]) =>

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CourseForm } from "@/components/admin/course-form";
+import { CourseTabs } from "@/components/admin/course-tabs";
+import type { BuilderModule } from "@/components/admin/course-builder";
 import { requireAdmin } from "@/lib/auth/admin";
 import {
   getCourseBundleChoices,
@@ -30,6 +31,8 @@ export default async function AdminEditCoursePage({
 
   const { _id, ...rest } = course;
 
+  const modules = (rest.courseDetails?.modules ?? []) as BuilderModule[];
+
   const initial = {
     ...rest,
     id: String(_id),
@@ -54,7 +57,12 @@ export default async function AdminEditCoursePage({
           </h1>
         </div>
       </div>
-      <CourseForm initial={initial} bundleChoices={choices} />
+      <CourseTabs
+        courseId={String(_id)}
+        initial={initial}
+        bundleChoices={choices}
+        modules={modules}
+      />
     </div>
   );
 }

@@ -3,12 +3,15 @@
 import { useState, type FormEvent } from "react";
 
 import { buttonStyles } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 
 const inputClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
 
 export function PasswordForm() {
+  const toast = useToast();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,7 +26,9 @@ export function PasswordForm() {
     setMessage("");
 
     if (newPassword !== confirmPassword) {
-      setError("New password and confirmation do not match.");
+      const reason = "New password and confirmation do not match.";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
 
@@ -36,14 +41,18 @@ export function PasswordForm() {
       });
       const json = await readApiJson(response);
       if (!json?.ok) {
-        throw new Error(json?.error?.message ?? "Could not change your password");
+        throw new Error(readApiError(json, "Could not change your password"));
       }
       setMessage("Password changed.");
+      toast.success({ title: "Password changed" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change your password");
+      const reason =
+        err instanceof Error ? err.message : "Could not change your password";
+      setError(reason);
+      toast.error(reason);
     } finally {
       setSaving(false);
     }
@@ -57,9 +66,16 @@ export function PasswordForm() {
         password, use the reset-password flow first.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-5" noValidate>
+      <form
+        onSubmit={handleSubmit}
+        className="mt-6 max-w-md space-y-5"
+        noValidate
+      >
         <div>
-          <label htmlFor="pw-current" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="pw-current"
+            className="text-sm font-medium text-neutral-700"
+          >
             Current password
           </label>
           <input
@@ -73,7 +89,10 @@ export function PasswordForm() {
         </div>
 
         <div>
-          <label htmlFor="pw-new" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="pw-new"
+            className="text-sm font-medium text-neutral-700"
+          >
             New password
           </label>
           <input
@@ -87,7 +106,10 @@ export function PasswordForm() {
         </div>
 
         <div>
-          <label htmlFor="pw-confirm" className="text-sm font-medium text-neutral-700">
+          <label
+            htmlFor="pw-confirm"
+            className="text-sm font-medium text-neutral-700"
+          >
             Confirm new password
           </label>
           <input

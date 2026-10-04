@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Frame, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
+import { useToast } from "@/components/ui/toast";
+import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
 import { ADMIN_UPLOAD_MAX_BYTES } from "@/types/product";
 
@@ -26,6 +28,7 @@ export function ThumbnailUpload({
   expected = "1280 × 720 pixels (16:9)",
 }: ThumbnailUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [pasteUrl, setPasteUrl] = useState("");
@@ -37,13 +40,16 @@ export function ThumbnailUpload({
       file.type.startsWith("image/") ||
       /\.(jpe?g|png|webp|gif|avif|svgz?|bmp|tiff?|ico)$/i.test(file.name);
     if (!isImage) {
-      setError(
-        "Please choose an image file (JPG, PNG, WebP, GIF, AVIF, SVG, …)."
-      );
+      const reason =
+        "Please choose an image file (JPG, PNG, WebP, GIF, AVIF, SVG, …).";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
     if (file.size > ADMIN_UPLOAD_MAX_BYTES) {
-      setError("Image must be under 25 MB.");
+      const reason = "Image must be under 25 MB.";
+      setError(reason);
+      toast.warning(reason);
       return;
     }
 
@@ -57,11 +63,17 @@ export function ThumbnailUpload({
       });
       const json = await readApiJson<{ url: string }>(response);
       if (!json?.ok || !json.data?.url) {
-        throw new Error(json?.error?.message ?? "Upload failed");
+        throw new Error(readApiError(json, "Upload failed"));
       }
       onChange(json.data.url);
+      toast.success({ title: "Image uploaded", description: file.name });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const reason = err instanceof Error ? err.message : "Upload failed";
+      setError(reason);
+      toast.error({
+        title: reason,
+        action: { label: "Retry", onClick: () => void handleFile(file) },
+      });
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -106,7 +118,10 @@ export function ThumbnailUpload({
           {uploading ? (
             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
           ) : (
-            <ImagePlus aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
+            <ImagePlus
+              aria-hidden="true"
+              className="h-4 w-4 text-terracotta-600"
+            />
           )}
           {uploading ? "Uploading…" : value ? "Replace image" : "Choose image"}
         </button>
@@ -163,7 +178,7 @@ export function ThumbnailUpload({
             alt=""
             className={`${
               aspect === "square" ? "aspect-square" : "aspect-video"
-            } w-full rounded-[12px] border border-neutral-300 object-cover`}
+            } w-24 rounded-[8px] border border-neutral-300 object-cover`}
           />
         </div>
       ) : null}

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
 
 interface NavLink {
   href: string;
@@ -25,7 +26,11 @@ interface NavLink {
 }
 
 const NAV_LINKS: NavLink[] = [
-  { href: "/admin/dashboard", label: "Dashboard & Insights", icon: LayoutDashboard },
+  {
+    href: "/admin/dashboard",
+    label: "Dashboard & Insights",
+    icon: LayoutDashboard,
+  },
   { href: "/admin/orders", label: "Orders", icon: ReceiptText },
   { href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/admin/users", label: "Users", icon: Users },
@@ -40,12 +45,16 @@ export function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const toast = useToast();
 
   return (
     <>
       <div className="flex h-16 items-center gap-3 border-b border-white/10 px-6">
         <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta-600">
-          <ChartNoAxesCombined aria-hidden="true" className="h-4 w-4 text-white" />
+          <ChartNoAxesCombined
+            aria-hidden="true"
+            className="h-4 w-4 text-white"
+          />
         </div>
         <div>
           <p className="text-sm font-bold text-white">Back office</p>
@@ -89,8 +98,16 @@ export function AdminNav() {
         <button
           type="button"
           onClick={async () => {
-            await logout();
-            router.replace("/");
+            try {
+              await logout();
+              toast.success({ title: "Signed out" });
+              router.replace("/");
+            } catch {
+              toast.error({
+                title: "We couldn't sign you out",
+                description: "Please try again.",
+              });
+            }
           }}
           className="mt-2 flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-white/60 transition-colors duration-[var(--duration-fast)] hover:bg-red-500/10 hover:text-red-300"
         >
