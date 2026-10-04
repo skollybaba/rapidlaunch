@@ -177,18 +177,10 @@ export async function loginWithGoogle(
   const payload = ticket.getPayload();
   const email = payload?.email;
   const googleId = payload?.sub;
-  const emailVerified = payload?.email_verified;
   if (!email || !googleId) {
     throw new AuthServiceError(
       "INVALID_GOOGLE_CREDENTIAL",
-      "Your Google account must have a verified email address to sign in. Please verify your email in your Google account settings and try again.",
-      401
-    );
-  }
-  if (emailVerified === false) {
-    throw new AuthServiceError(
-      "EMAIL_NOT_VERIFIED",
-      "Your Google account email is not verified. Please verify your email in your Google account settings and try again.",
+      "Your Google account must include an email address to sign in.",
       401
     );
   }
