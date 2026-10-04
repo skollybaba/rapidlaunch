@@ -100,11 +100,11 @@ function CourseContent({ product }: { product: CourseDetail }) {
             />
           )}
           <Badge>Course</Badge>
-          <h1 className="mt-4 text-[38px] leading-[1.16] md:text-[2.25rem]">
+          <h1 className="mt-4 text-[34px] leading-[1.16] md:text-[2rem]">
             {product.title}
           </h1>
           {product.shortDescription ? (
-            <p className="mt-4 text-lg leading-[1.55] text-neutral-500">
+            <p className="mt-4 text-base leading-[1.55] text-neutral-500">
               {product.shortDescription}
             </p>
           ) : null}
@@ -114,13 +114,13 @@ function CourseContent({ product }: { product: CourseDetail }) {
 
           {details?.outcomes?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
+              <h2 className="text-[22px] leading-snug md:text-[1.25rem]">
                 What you&apos;ll be able to do
               </h2>
               <ul className="mt-4 space-y-3">
                 {details.outcomes.map((outcome, index) => (
                   <Reveal key={index} delay={index * 50}>
-                    <li className="flex items-start gap-3 text-base leading-relaxed text-neutral-700">
+                    <li className="flex items-start gap-3 text-sm leading-relaxed text-neutral-700">
                       <BadgeCheck
                         aria-hidden="true"
                         className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-600"
@@ -135,12 +135,12 @@ function CourseContent({ product }: { product: CourseDetail }) {
 
           {details?.syllabus?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Syllabus</h2>
+              <h2 className="text-[22px] leading-snug md:text-[1.25rem]">Syllabus</h2>
               <ol className="mt-4 space-y-3">
                 {details.syllabus.map((module, index) => (
                   <li
                     key={index}
-                    className="flex items-start gap-3 text-base leading-relaxed text-neutral-700"
+                    className="flex items-start gap-3 text-sm leading-relaxed text-neutral-700"
                   >
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-lavender-100">
                       <ListOrdered
@@ -157,7 +157,7 @@ function CourseContent({ product }: { product: CourseDetail }) {
 
           {details?.audience?.length ? (
             <Reveal as="section" className="mt-10">
-              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">Who it&apos;s for</h2>
+              <h2 className="text-[22px] leading-snug md:text-[1.25rem]">Who it&apos;s for</h2>
               <ul className="mt-4 flex flex-wrap gap-2">
                 {details.audience.map((item) => (
                   <li
@@ -173,8 +173,8 @@ function CourseContent({ product }: { product: CourseDetail }) {
 
           <Reveal as="section" className="mt-10">
             <div className="rounded-md border border-neutral-300 bg-neutral-100 p-6">
-              <h2 className="text-[24px] leading-snug md:text-[1.375rem]">How access is granted</h2>
-              <p className="mt-3 text-sm leading-relaxed text-neutral-500">
+              <h2 className="text-[22px] leading-snug md:text-[1.25rem]">How access is granted</h2>
+              <p className="mt-3 text-xs leading-relaxed text-neutral-500">
                 Your purchase is verified before we grant course access. After a
                 successful payment you receive an email with a classroom
                 invitation. Use the email account you want enrolled. It can be
@@ -186,10 +186,10 @@ function CourseContent({ product }: { product: CourseDetail }) {
           {product.hasCurriculum && product.curriculum?.fileName ? (
             <Reveal as="section" className="mt-10">
               <div className="rounded-md border border-terracotta-200 bg-terracotta-50 p-6">
-                <h2 className="text-[24px] leading-snug md:text-[1.375rem]">
+                <h2 className="text-[22px] leading-snug md:text-[1.25rem]">
                   Full curriculum
                 </h2>
-                <p className="mt-3 text-sm leading-relaxed text-neutral-600">
+                <p className="mt-3 text-xs leading-relaxed text-neutral-600">
                   Review every module and topic covered before you enrol.
                   Download the full course curriculum to plan your learning.
                 </p>
@@ -211,7 +211,7 @@ function CourseContent({ product }: { product: CourseDetail }) {
             <Reveal as="section" className="mt-10">
               <div className="rounded-md border border-lavender-300 bg-lavender-50 p-6">
                 <Badge tone="info">Bonus courses included</Badge>
-                <h2 className="mt-3 text-[24px] leading-snug md:text-[1.375rem]">
+                <h2 className="mt-3 text-[22px] leading-snug md:text-[1.25rem]">
                   Get these free when you buy this course
                 </h2>
                 <ul className="mt-4 space-y-4">
@@ -222,11 +222,11 @@ function CourseContent({ product }: { product: CourseDetail }) {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="font-semibold text-neutral-950">
+                          <p className="font-semibold text-neutral-950 text-sm">
                             {bonus.title}
                           </p>
                           {bonus.shortDescription ? (
-                            <p className="mt-1 line-clamp-2 text-sm text-neutral-500">
+                            <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
                               {bonus.shortDescription}
                             </p>
                           ) : null}
@@ -239,15 +239,15 @@ function CourseContent({ product }: { product: CourseDetail }) {
                       </div>
                       <Link
                         href={`/courses/${bonus.slug}`}
-                        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-terracotta-600 hover:text-terracotta-500"
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-terracotta-600 hover:text-terracotta-500"
                       >
                         View course
-                        <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                        <ArrowRight aria-hidden="true" className="h-3 w-3" />
                       </Link>
                     </li>
                   ))}
                 </ul>
-                <p className="mt-4 text-xs leading-relaxed text-neutral-500">
+                <p className="mt-4 text-[10px] leading-relaxed text-neutral-500">
                   Bonus courses are granted with your purchase — you are not
                   charged for them, and they appear in your confirmation email
                   and course library once the order is confirmed.
@@ -315,7 +315,7 @@ function CourseContent({ product }: { product: CourseDetail }) {
                 }
               />
             </dl>
-            <p className="mt-5 text-3xl font-bold text-neutral-950">
+            <p className="mt-5 text-2xl font-bold text-neutral-950">
               <Price
                 amountMinor={product.priceMinor}
                 currency={product.currency}
@@ -358,7 +358,7 @@ async function RelatedCourses({ product }: { product: ProductDetail }) {
   return (
     <section className="bg-neutral-100">
       <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] px-6 py-12 lg:px-8 lg:py-16">
-        <h2 className="text-[24px] leading-snug md:text-[1.375rem]">You might also take</h2>
+        <h2 className="text-[22px] leading-snug md:text-[1.25rem]">You might also take</h2>
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {related.map((item) => (
             <ProductCard
