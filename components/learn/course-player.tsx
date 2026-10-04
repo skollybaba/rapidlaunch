@@ -13,6 +13,7 @@ import {
   ExternalLink,
   FileText,
   Link2,
+  List,
   PlayCircle,
 } from "lucide-react";
 
@@ -70,6 +71,7 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
   }, [lessons, outline.lastLessonId]);
 
   const [activeId, setActiveId] = useState<string | null>(firstId);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(
     () =>
       new Set(
@@ -324,12 +326,46 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
             </span>
           </div>
         </div>
+        <div className="md:hidden px-6 pb-4">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex w-full items-center justify-between rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 hover:bg-neutral-50"
+            aria-expanded={sidebarOpen}
+            aria-controls="mobile-curriculum"
+            aria-label={sidebarOpen ? "Hide curriculum" : "Show curriculum"}
+          >
+            <span className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              Curriculum
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-neutral-500 transition-transform duration-[var(--duration-fast)]",
+                sidebarOpen && "rotate-180"
+              )}
+            />
+          </button>
+        </div>
       </header>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden bg-black/30"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       <div className="mx-auto grid w-[98%] flex-1 gap-8 px-6 py-8 md:w-[min(90%,96rem)] lg:grid-cols-[340px_1fr] min-h-0 overflow-hidden">
         <nav
+          id="mobile-curriculum"
           aria-label="Course curriculum"
-          className="order-2 rounded-[16px] border border-neutral-300 bg-white p-4 lg:order-1 lg:sticky lg:top-[6rem] max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin"
+          className={cn(
+            "order-2 rounded-[16px] border border-neutral-300 bg-white p-4 lg:order-1 lg:sticky lg:top-[6rem] max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-thin",
+            sidebarOpen ? "md:hidden fixed inset-y-0 left-0 z-50 w-80 shadow-xl" : "hidden md:block"
+          )}
         >
           {orientationModule ? (
             <section aria-labelledby="orientation-heading" className="mb-5">

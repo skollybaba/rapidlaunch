@@ -130,7 +130,7 @@ export function YouTubePlayer({
             playsinline: 1,
             iv_load_policy: 3,
             disablekb: 1,
-            fs: 0,
+            fs: 1,
             origin: window.location.origin,
           },
           events: {
@@ -213,10 +213,13 @@ export function YouTubePlayer({
   const toggleFullscreen = useCallback(() => {
     const host = hostRef.current;
     if (!host) return;
+    // Find the iframe created by YouTube Player API
+    const iframe = host.querySelector("iframe");
+    if (!iframe) return;
     if (document.fullscreenElement) {
       void document.exitFullscreen();
     } else {
-      void host.requestFullscreen?.();
+      void iframe.requestFullscreen?.();
     }
   }, []);
 
