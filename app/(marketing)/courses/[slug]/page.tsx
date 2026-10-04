@@ -100,7 +100,7 @@ function CourseContent({ product }: { product: CourseDetail }) {
             />
           )}
           <Badge>Course</Badge>
-          <h1 className="mt-4 text-[34px] leading-[1.16] md:text-[2rem]">
+          <h1 className="mt-4 text-[28px] leading-[1.2] md:text-[2rem]">
             {product.title}
           </h1>
           {product.shortDescription ? (
