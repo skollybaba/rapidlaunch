@@ -10,12 +10,14 @@ import {
   Heading2,
   ImagePlus,
   Italic,
+  Link2,
   List,
   ListOrdered,
   Loader2,
   Quote,
   Redo2,
   Undo2,
+  X,
 } from "lucide-react";
 
 import { readApiError } from "@/lib/feedback";
@@ -67,6 +69,11 @@ export function RichTextEditor({
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState("");
 
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const linkRange = useRef<{ from: number; to: number } | null>(null);
+
   const editor = useEditor({
     extensions: [StarterKit, Placeholder.configure({ placeholder }), Image],
     content: value,
@@ -112,6 +119,84 @@ export function RichTextEditor({
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function normalizeLink(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^mailto:/i.test(trimmed)) return trimmed;
+    const withScheme = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    try {
+      const url = new URL(withScheme);
+      if (!url.hostname || !["http:", "https:"].includes(url.protocol)) {
+        return null;
+      }
+      return url.href;
+    } catch {
+      return null;
+    }
+  }
+
+  function startEditingLink() {
+    if (!editor) return;
+    const { from, to, empty } = editor.state.selection;
+    linkRange.current = empty ? null : { from, to };
+    const existing = editor.getAttributes("link").href as string | undefined;
+    setLinkUrl(existing ?? "");
+    setLinkError("");
+    setLinkOpen(true);
+  }
+
+  function applyLink() {
+    if (!editor) return;
+    const href = normalizeLink(linkUrl);
+    if (!href) {
+      setLinkError("Enter a valid link — https://… or mailto:…");
+      return;
+    }
+    const range = linkRange.current;
+    if (range) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from: range.from, to: range.to })
+        .setLink({ href })
+        .run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "text",
+          text: href,
+          marks: [{ type: "link", attrs: { href } }],
+        })
+        .run();
+    }
+    setLinkOpen(false);
+    setLinkUrl("");
+    setLinkError("");
+    linkRange.current = null;
+  }
+
+  function removeLink() {
+    if (!editor) return;
+    const range = linkRange.current;
+    if (range) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from: range.from, to: range.to })
+        .unsetLink()
+        .run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    }
+    setLinkOpen(false);
+    setLinkUrl("");
+    linkRange.current = null;
   }
 
   if (!editor) {
@@ -167,6 +252,13 @@ export function RichTextEditor({
         >
           <Quote className="h-4 w-4" />
         </ToolbarButton>
+        <ToolbarButton
+          label="Add or edit link"
+          active={editor.isActive("link")}
+          onClick={startEditingLink}
+        >
+          <Link2 className="h-4 w-4" />
+        </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-neutral-200" />
         <input
           ref={fileRef}
@@ -207,6 +299,66 @@ export function RichTextEditor({
           <Redo2 className="h-4 w-4" />
         </ToolbarButton>
       </div>
+      {linkOpen ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
+          <label htmlFor="rte-link-url" className="sr-only">
+            Link URL
+          </label>
+          <input
+            id="rte-link-url"
+            type="text"
+            autoFocus
+            value={linkUrl}
+            onChange={(e) => {
+              setLinkUrl(e.target.value);
+              setLinkError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              }
+            }}
+            placeholder="https://… or mailto:hello@…"
+            className="min-w-0 flex-1 rounded-[8px] border border-neutral-300 px-3 py-1.5 text-sm text-neutral-950 placeholder-neutral-300 focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]"
+          />
+          <button
+            type="button"
+            onClick={applyLink}
+            className="rounded-[8px] bg-terracotta-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-500"
+          >
+            Add link
+          </button>
+          <button
+            type="button"
+            onClick={removeLink}
+            className="rounded-[8px] border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100"
+          >
+            Remove
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLinkOpen(false);
+              setLinkUrl("");
+              setLinkError("");
+              linkRange.current = null;
+            }}
+            aria-label="Close link editor"
+            className="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      {linkError ? (
+        <p
+          role="alert"
+          className="border-b border-danger-100 bg-danger-100/50 px-4 py-2 text-xs font-medium text-danger-700"
+        >
+          {linkError}
+        </p>
+      ) : null}
       {imageError ? (
         <p
           role="alert"

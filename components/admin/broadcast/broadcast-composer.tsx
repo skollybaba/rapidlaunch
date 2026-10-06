@@ -507,7 +507,7 @@ export function BroadcastComposer({
             <RichTextEditor
               value={bodyHtml}
               onChange={setBodyHtml}
-              placeholder="Write your message… you can embed images and attach a file below."
+              placeholder="Write your message… add links, embed images, or attach a file below."
             />
           </div>
         </div>

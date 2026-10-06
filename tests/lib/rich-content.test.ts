@@ -88,4 +88,17 @@ describe("sanitizeEmailHtml", () => {
     const result = sanitizeEmailHtml('<img src="cid:agile-logo" alt="Logo" />');
     expect(result).toContain('src="cid:agile-logo"');
   });
+
+  it("preserves clickable email links, hardened for clients", () => {
+    const result = sanitizeEmailHtml(
+      '<p>Join us: <a href="https://courses.example/launch" title="Enroll">Enroll now</a> or email <a href="mailto:help@example.com">help@example.com</a> <a href="javascript:alert(1)">bad</a></p>'
+    );
+    expect(result).toContain(
+      '<a href="https://courses.example/launch" title="Enroll" rel="noopener noreferrer" target="_blank">Enroll now</a>'
+    );
+    expect(result).toContain(
+      '<a href="mailto:help@example.com" rel="noopener noreferrer" target="_blank">help@example.com</a>'
+    );
+    expect(result).not.toContain("javascript:");
+  });
 });
