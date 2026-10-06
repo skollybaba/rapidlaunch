@@ -108,6 +108,12 @@ export function BroadcastComposer({
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewSubject, setPreviewSubject] = useState("");
 
+
+  const [filteredCount, setFilteredCount] = useState<number | null>(null);
+  const [loadingCount, setLoadingCount] = useState(false);
+  const [countError, setCountError] = useState("");
+
+
   useEffect(() => {
     if (!previewOpen) return;
     const onKey = (event: KeyboardEvent) => {
@@ -116,6 +122,39 @@ export function BroadcastComposer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [previewOpen]);
+
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (segmentType === "IMPORTED") {
+        if (!cancelled) setFilteredCount(imported.length);
+        return;
+      }
+      setLoadingCount(true);
+      setCountError("");
+      try {
+        const params = new URLSearchParams({ segmentType });
+        if (productId) params.set("productId", productId);
+        const res = await fetch(`/api/admin/broadcast/recipients?${params}`);
+        const json = await res.json();
+        if (!json.ok) throw new Error(readApiError(json, "Could not load audience count"));
+        if (!cancelled) setFilteredCount(json.data.count);
+      } catch (e) {
+        if (!cancelled) {
+          setFilteredCount(null);
+          setCountError(e instanceof Error ? e.message : "Could not load audience count");
+        }
+      } finally {
+        if (!cancelled) setLoadingCount(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [segmentType, productId, imported.length]);
+
 
   function selectSegment(type: SegmentType) {
     setSegmentType(type);
@@ -126,6 +165,7 @@ export function BroadcastComposer({
 
   function recipientCount(): number {
     if (segmentType === "IMPORTED") return imported.length;
+    if (filteredCount !== null) return filteredCount;
     return segments.find((s) => s.type === segmentType)?.count ?? 0;
   }
 
@@ -597,7 +637,7 @@ export function BroadcastComposer({
           </button>
           <button
             type="submit"
-            disabled={sending}
+            disabled={sending || recipientCount() === 0}
             className="inline-flex h-[46px] items-center gap-2 rounded-pill bg-terracotta-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500 disabled:pointer-events-none disabled:opacity-50"
           >
             {sending ? (

@@ -1,5 +1,6 @@
 import "server-only";
 
+import mongoose from "mongoose";
 import { z } from "zod";
 
 import { dbConnect } from "@/lib/db";
@@ -285,6 +286,54 @@ const SEGMENT_LABELS: Record<BroadcastSegmentType, string> = {
   PENDING_ORDERS: "Pending orders",
   IMPORTED: "Imported list",
 };
+
+export async function countRecipientsForSegment(
+  segmentType: BroadcastSegmentType,
+  productId?: string
+): Promise<number> {
+  await dbConnect();
+
+  if (segmentType === "ALL_USERS") {
+    return User.countDocuments({ role: { $ne: "admin" } });
+  }
+  if (segmentType === "COURSE_ENROLLEES") {
+    const ids = await Enrollment.distinct("userId", {
+      status: "ACTIVE",
+      ...(productId ? { courseId: productId } : {}),
+    });
+    return ids.length;
+  }
+  if (segmentType === "SESSION_REGISTRANTS") {
+    const emails = await Booking.distinct("customerEmail", {
+      status: { $nin: [...NOT_PARSABLE] },
+      ...(productId
+        ? { productId: new mongoose.Types.ObjectId(productId) }
+        : {}),
+    });
+    return emails.length;
+  }
+  if (segmentType === "PENDING_ORDERS") {
+    const orders = await Order.find({ status: "PENDING" })
+      .select("customerEmail items")
+      .lean()
+      .exec();
+    const emails = new Set<string>();
+    for (const order of orders) {
+      const email = order.customerEmail?.trim().toLowerCase();
+      if (!email) continue;
+      if (productId) {
+        const hasProduct = order.items.some((item) =>
+          String(item.productId) === String(productId)
+        );
+        if (!hasProduct) continue;
+      }
+      emails.add(email);
+    }
+    return emails.size;
+  }
+  return 0;
+}
+
 
 export function segmentLabel(
   segmentType: BroadcastSegmentType,

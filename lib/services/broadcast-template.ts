@@ -85,7 +85,7 @@ ${BODY_CSS}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${PAPER};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" class="email-shell" style="width:600px;max-width:600px;">
-<tr><td style="background:${INK};border-radius:16px 16px 0 0;padding:18px 28px 16px;">
+<tr><td style="background:${INK};border-radius:16px 16px 0 0;padding:8px 16px 6px;">
 ${brandLogoHtml()}
 </td></tr>
 <tr><td style="background:#ffffff;border:1px solid ${BORDER};border-top:0;padding:32px;" class="email-pad">

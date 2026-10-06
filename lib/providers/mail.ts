@@ -23,6 +23,7 @@ export type EmailTemplateKey =
   | "mvp_inquiry_received"
   | "new_lead_notification"
   | "fulfillment_failure_alert"
+  | "sequence_step"
   | "refund_processed"
   | "support_acknowledgement";
 
@@ -100,7 +101,7 @@ function logoCandidatePaths(): string[] {
 function emailBrandLogo(): string {
   const src = emailLogoSrc();
   if (!src) return "";
-  return `<img src="${src}" alt="Rapid Launch" width="120" height="55" style="display:block;margin:0 0 10px;width:120px;height:auto;" />`;
+  return `<img src="${src}" alt="Rapid Launch" width="80" height="36" style="display:block;margin:0 0 10px;width:80px;height:auto;" />`;
 }
 
 function emailLogoSrc(): string | null {
@@ -161,6 +162,13 @@ function emailHeader(title: string): string {
   ${emailBrandLogo()}
   <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
 </div>`;
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+function emailFooter(): string {
+  return `<div style="padding:20px 32px 28px;background:#fcfaf8;border-top:1px solid #f3efe8;"><p style="font-size:13px;line-height:1.6;margin:0;color:#74778c;">Questions? Reply to this email or contact our support team.</p></div>`;
 }
 
 function buildTemplate(
@@ -415,6 +423,16 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
 </div>`;
       const text = `Your session is rescheduled: ${itemTitle}\n\n${greeting}\n\nYour one-on-one session ${itemTitle} has been moved to a new time.\n\nNew time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nView your account: ${appUrl}/account/sessions`;
       return { subject, html, text };
+    }
+    case "sequence_step": {
+      const subjectSeq = String(variables.subject ?? "Update from Rapid Launch");
+      const bodyHtmlSeq = String(variables.body ?? variables.html ?? "");
+      const titleSeq = String(variables.title ?? subjectSeq);
+      return {
+        subject: subjectSeq,
+        html: `${emailHeader(titleSeq)}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;">${bodyHtmlSeq}</div>${emailFooter()}</div></div>`,
+        text: stripHtml(bodyHtmlSeq),
+      };
     }
     default:
       return {
