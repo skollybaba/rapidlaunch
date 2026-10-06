@@ -53,7 +53,6 @@ export function BroadcastComposer({
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   const segments: SegmentCard[] = [
@@ -110,21 +109,13 @@ export function BroadcastComposer({
   const [previewSubject, setPreviewSubject] = useState("");
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (previewOpen) {
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
-    }
+    if (!previewOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [previewOpen]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    const onClose = () => setPreviewOpen(false);
-    dialog?.addEventListener("close", onClose);
-    return () => dialog?.removeEventListener("close", onClose);
-  }, []);
 
   function selectSegment(type: SegmentType) {
     setSegmentType(type);
@@ -627,39 +618,47 @@ export function BroadcastComposer({
         </div>
       </section>
 
-      <dialog
-        ref={dialogRef}
-        aria-label="Email preview"
-        className="fixed inset-0 m-auto flex h-[85dvh] max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl flex-col overflow-hidden rounded-[20px] bg-neutral-950 shadow-2xl"
-      >
-        <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">Preview</p>
-            <p className="mt-0.5 truncate text-xs text-white/50">
-              {previewSubject
-                ? `Subject: ${previewSubject} · To: Ada <ada@example.com>`
-                : `To: Ada <ada@example.com>`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPreviewOpen(false)}
-            aria-label="Close preview"
-            className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus:ring-[3px] focus:ring-white/30"
+      {previewOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Email preview"
+          onClick={() => setPreviewOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 md:p-6"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="flex h-[85dvh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-neutral-950 shadow-2xl"
           >
-            <X className="size-5" aria-hidden="true" />
-          </button>
+            <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">Preview</p>
+                <p className="mt-0.5 truncate text-xs text-white/50">
+                  {previewSubject
+                    ? `Subject: ${previewSubject} · To: Ada <ada@example.com>`
+                    : `To: Ada <ada@example.com>`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                aria-label="Close preview"
+                className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus:ring-[3px] focus:ring-white/30"
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 bg-[#fcfaf8]">
+              <iframe
+                title="Email preview"
+                sandbox=""
+                srcDoc={previewHtml}
+                className="block h-full w-full border-0"
+              />
+            </div>
+          </div>
         </div>
-        {previewOpen ? (
-          <iframe
-            key={previewHtml}
-            title="Email preview"
-            sandbox=""
-            srcDoc={previewHtml}
-            className="min-h-0 w-full flex-1 bg-[#fcfaf8]"
-          />
-        ) : null}
-      </dialog>
+      ) : null}
     </form>
   );
 }
