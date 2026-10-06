@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   richContentToHtml,
+  sanitizeEmailHtml,
   sanitizeRichHtml,
 } from "@/lib/rich-content";
 
@@ -59,5 +60,32 @@ describe("richContentToHtml", () => {
   it("passes through editor HTML unchanged", () => {
     const html = "<h2>Intro</h2><p>Some <strong>bold</strong> words.</p>";
     expect(richContentToHtml(html)).toBe(html);
+  });
+});
+
+describe("sanitizeEmailHtml", () => {
+  it("keeps images and h4 for marketing bodies", () => {
+    const html =
+      '<h4>Offer</h4><img src="https://res.cloudinary.com/x/image/upload/a.png" alt="Art" /><ul><li>One</li></ul>';
+    const result = sanitizeEmailHtml(html);
+    expect(result).toContain("<h4>Offer</h4>");
+    expect(result).toContain('src="https://res.cloudinary.com/x/image/upload/a.png"');
+    expect(result).toContain("<ul>");
+  });
+
+  it("strips scripts, event handlers and iframes", () => {
+    const html =
+      '<p onclick="steal()">Hi</p><script>alert("x")</script><iframe src="ev"></iframe><a href="https://ok.example">ok</a>';
+    const result = sanitizeEmailHtml(html);
+    expect(result).not.toContain("<script");
+    expect(result).not.toContain("onclick");
+    expect(result).not.toContain("iframe");
+    expect(result).toContain("<p>Hi</p>");
+    expect(result).toContain("https://ok.example");
+  });
+
+  it("keeps cid: images used by inlined brand assets", () => {
+    const result = sanitizeEmailHtml('<img src="cid:agile-logo" alt="Logo" />');
+    expect(result).toContain('src="cid:agile-logo"');
   });
 });

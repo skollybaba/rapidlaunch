@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { CheckCircle2, TriangleAlert, X } from "lucide-react";
 
-import { BroadcastModal } from "@/components/admin/broadcast-modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { requireAdmin } from "@/lib/auth/admin";
@@ -27,10 +24,6 @@ export default async function AdminUsersPage({
     q?: string;
     role?: string;
     page?: string;
-    broadcast?: string;
-    sent?: string;
-    total?: string;
-    failed?: string;
   }>;
 }) {
   await requireAdmin();
@@ -40,69 +33,16 @@ export default async function AdminUsersPage({
   const role = sp.role ?? "";
   const page = Number(sp.page) || 1;
 
-  const broadcast = sp.broadcast === "sent"
-    ? {
-        sent: Number(sp.sent) || 0,
-        total: Number(sp.total) || 0,
-        failed: Number(sp.failed) || 0,
-      }
-    : null;
-
   const data = await getAdminUsers({ q, role, page, pageSize: 25 });
 
   return (
     <div className="admin-enter space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-950">Users</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Every account on the platform.
-          </p>
-        </div>
-        <BroadcastModal />
+      <div>
+        <h1 className="text-2xl font-bold text-neutral-950">Users</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Every account on the platform.
+        </p>
       </div>
-
-      {broadcast ? (
-        <div
-          role="status"
-          className={`flex items-start gap-3 rounded-[16px] border p-5 ${
-            broadcast.failed > 0
-              ? "border-amber-200 bg-amber-50"
-              : "border-success-100 bg-success-100/50"
-          }`}
-        >
-          {broadcast.failed > 0 ? (
-            <TriangleAlert
-              className="mt-0.5 size-5 shrink-0 text-amber-600"
-              aria-hidden="true"
-            />
-          ) : (
-            <CheckCircle2
-              className="mt-0.5 size-5 shrink-0 text-success-600"
-              aria-hidden="true"
-            />
-          )}
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">
-              {broadcast.failed > 0
-                ? "Broadcast sent with some failures"
-                : "Broadcast sent"}
-            </p>
-            <p className="mt-0.5 text-sm text-neutral-600">
-              Your email was sent to {broadcast.sent} of {broadcast.total}{" "}
-              recipients
-              {broadcast.failed > 0 ? ` (${broadcast.failed} failed)` : ""}.
-            </p>
-          </div>
-          <Link
-            href="/admin/users"
-            aria-label="Dismiss notification"
-            className="ml-auto rounded-full p-2 text-neutral-500 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-100 hover:text-neutral-900"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </Link>
-        </div>
-      ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <form method="get" className="flex flex-1 flex-wrap items-end gap-3">

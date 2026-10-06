@@ -139,6 +139,23 @@ function emailAttachments(): EmailAttachmentInput[] {
   return logo ? [logo] : [];
 }
 
+/**
+ * Brand logo markup for custom (non-templated) emails. References the inline
+ * cid when the logo file is attached via {@link brandLogoAttachments},
+ * otherwise falls back to the hosted copy.
+ */
+export function brandLogoHtml(): string {
+  return emailBrandLogo();
+}
+
+/**
+ * The inline brand logo attachment. Always pair it with emails that embed
+ * {@link brandLogoHtml} so the cid reference resolves.
+ */
+export function brandLogoAttachments(): EmailAttachmentInput[] {
+  return emailAttachments();
+}
+
 function emailHeader(title: string): string {
   return `<div style="background:#141414;padding:26px 32px;">
   ${emailBrandLogo()}

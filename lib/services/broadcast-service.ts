@@ -3,8 +3,23 @@ import "server-only";
 import { z } from "zod";
 
 import { dbConnect } from "@/lib/db";
-import { createMailAdapter } from "@/lib/providers/mail";
+import { sanitizeEmailHtml } from "@/lib/rich-content";
+import { brandLogoAttachments, createMailAdapter } from "@/lib/providers/mail";
 import { readUpload } from "@/lib/storage";
+import { buildBroadcastEmail } from "@/lib/services/broadcast-template";
+import {
+  validateImportedRecipients,
+  type ParsedRecipient,
+} from "@/lib/validation/recipients";
+import {
+  BROADCAST_SEGMENT_TYPES,
+  Broadcast,
+  type BroadcastSegmentType,
+} from "@/models/Broadcast";
+import { Booking } from "@/models/Booking";
+import { Enrollment } from "@/models/Enrollment";
+import { Order } from "@/models/Order";
+import { Product } from "@/models/Product";
 import { User } from "@/models/User";
 
 export class BroadcastServiceError extends Error {
@@ -19,68 +34,402 @@ export class BroadcastServiceError extends Error {
   }
 }
 
-export const broadcastEmailSchema = z
-  .object({
-    title: z.string().trim().min(1, "Title is required").max(200),
-    subject: z.string().trim().min(1, "Subject is required").max(300),
-    body: z.string().trim().min(1, "Body is required").max(20000),
-    attachmentKeys: z.array(z.string().trim().min(1)).default([]),
-  })
-  .strict();
+export interface BroadcastRecipient {
+  email: string;
+  name?: string;
+}
+
+export interface SegmentProductOption {
+  id: string;
+  title: string;
+}
+
+export interface BroadcastOptions {
+  counts: {
+    allUsers: number;
+    courseEnrollees: number;
+    sessionRegistrants: number;
+    pendingOrders: number;
+  };
+  courses: SegmentProductOption[];
+  sessions: SegmentProductOption[];
+  orderProducts: SegmentProductOption[];
+}
 
 export interface BroadcastResult {
   recipients: number;
   sent: number;
   failed: number;
+  broadcastId: string;
 }
 
-export async function sendEmailToAllUsers(input: unknown): Promise<BroadcastResult> {
-  const parsed = broadcastEmailSchema.parse(input);
+export interface BroadcastActor {
+  userId: string | null;
+  email: string;
+}
+
+export interface BroadcastHistoryRow {
+  id: string;
+  title: string;
+  subject: string;
+  segmentLabel: string;
+  recipientCount: number;
+  sentCount: number;
+  failedCount: number;
+  status: string;
+  createdByEmail: string;
+  createdAt: string;
+}
+
+export const broadcastSendSchema = z
+  .object({
+    title: z.string().trim().min(1, "Title is required").max(200),
+    subject: z.string().trim().min(1, "Subject is required").max(300),
+    bodyHtml: z.string().trim().min(1, "Body is required").max(40000),
+    segmentType: z.enum(BROADCAST_SEGMENT_TYPES),
+    productId: z.string().trim().min(1).optional(),
+    importedRecipients: z.unknown().optional(),
+    attachmentKeys: z.array(z.string().trim().min(1)).max(5).default([]),
+    attachmentName: z.string().trim().max(200).optional(),
+  })
+  .strict();
+
+const NOT_PARSABLE = ["CANCELLED", "FAILED"] as const;
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function mergeRecipients(lists: BroadcastRecipient[][]): BroadcastRecipient[] {
+  const byEmail = new Map<string, BroadcastRecipient>();
+  for (const list of lists) {
+    for (const recipient of list) {
+      const email = normalizeEmail(recipient.email);
+      if (!email) continue;
+      const name = recipient.name?.trim();
+      const existing = byEmail.get(email);
+      if (!existing) {
+        byEmail.set(email, name ? { email, name } : { email });
+      } else if (!existing.name && name) {
+        existing.name = name;
+      }
+    }
+  }
+  return [...byEmail.values()];
+}
+
+async function resolveSegment(
+  segmentType: BroadcastSegmentType,
+  productId?: string
+): Promise<BroadcastRecipient[]> {
+  if (segmentType === "ALL_USERS") {
+    const users = await User.find({ role: { $ne: "admin" } })
+      .select("email name")
+      .lean()
+      .exec();
+    return users.map((u) => ({ email: u.email, name: u.name ?? undefined }));
+  }
+
+  if (segmentType === "COURSE_ENROLLEES") {
+    const enrollments = await Enrollment.find({
+      status: "ACTIVE",
+      ...(productId ? { courseId: productId } : {}),
+    })
+      .select("userId")
+      .lean()
+      .exec();
+    const userIds = enrollments
+      .map((e) => e.userId)
+      .filter((id): id is NonNullable<typeof id> => Boolean(id));
+    if (userIds.length === 0) return [];
+    const users = await User.find({ _id: { $in: userIds } })
+      .select("email name")
+      .lean()
+      .exec();
+    return users.map((u) => ({ email: u.email, name: u.name ?? undefined }));
+  }
+
+  if (segmentType === "SESSION_REGISTRANTS") {
+    const bookings = await Booking.find({
+      status: { $nin: [...NOT_PARSABLE] },
+      ...(productId ? { productId } : {}),
+    })
+      .select("customerEmail customerName")
+      .lean()
+      .exec();
+    return bookings.map((b) => ({
+      email: b.customerEmail,
+      name: b.customerName ?? undefined,
+    }));
+  }
+
+  if (segmentType === "PENDING_ORDERS") {
+    const orders = await Order.find({
+      status: "PENDING",
+      ...(productId ? { "items.productId": productId } : {}),
+    })
+      .select("customerEmail userId")
+      .lean()
+      .exec();
+    const userIds = orders
+      .map((o) => o.userId)
+      .filter((id): id is NonNullable<typeof id> => Boolean(id));
+    const namesByEmail = new Map<string, string>();
+    if (userIds.length > 0) {
+      const users = await User.find({ _id: { $in: userIds } })
+        .select("email name")
+        .lean()
+        .exec();
+      for (const u of users) {
+        if (u.name) namesByEmail.set(normalizeEmail(u.email), u.name);
+      }
+    }
+    return orders.map((o) => {
+      const name = namesByEmail.get(normalizeEmail(o.customerEmail));
+      return name ? { email: o.customerEmail, name } : { email: o.customerEmail };
+    });
+  }
+
+  throw new BroadcastServiceError(
+    "UNKNOWN_SEGMENT",
+    "Unknown audience segment.",
+    400
+  );
+}
+
+async function segmentCount(segmentType: BroadcastSegmentType): Promise<number> {
+  switch (segmentType) {
+    case "ALL_USERS":
+      return User.countDocuments({ role: { $ne: "admin" } });
+    case "COURSE_ENROLLEES": {
+      const ids = await Enrollment.distinct("userId", { status: "ACTIVE" });
+      return ids.length;
+    }
+    case "SESSION_REGISTRANTS": {
+      const emails = await Booking.distinct("customerEmail", {
+        status: { $nin: [...NOT_PARSABLE] },
+      });
+      return emails.length;
+    }
+    case "PENDING_ORDERS": {
+      const emails = await Order.distinct("customerEmail", {
+        status: "PENDING",
+      });
+      return emails.length;
+    }
+    default:
+      return 0;
+  }
+}
+
+function serializeProduct(doc: { _id: unknown; title: string }): SegmentProductOption {
+  return { id: String(doc._id), title: doc.title };
+}
+
+/** Audience counts and dropdown data for the segment picker. */
+export async function getBroadcastOptions(): Promise<BroadcastOptions> {
   await dbConnect();
 
-  const users = await User.find({ role: { $ne: "admin" } })
-    .select("email name")
+  const [allUsers, courseEnrollees, sessionRegistrants, pendingOrders] =
+    await Promise.all([
+      segmentCount("ALL_USERS"),
+      segmentCount("COURSE_ENROLLEES"),
+      segmentCount("SESSION_REGISTRANTS"),
+      segmentCount("PENDING_ORDERS"),
+    ]);
+
+  const courses = await Product.find({ type: "COURSE" })
+    .select("title")
+    .sort({ title: 1 })
+    .lean()
+    .exec();
+  const sessions = await Product.find({ type: "CONSULTATION" })
+    .select("title")
+    .sort({ title: 1 })
+    .lean()
+    .exec();
+  const pendingOrderDocs = await Order.find({ status: "PENDING" })
+    .select("items.productId")
     .lean()
     .exec();
 
-  const recipients = users.map((u) => u.email);
+  const pendingProductIds = [
+    ...new Set(
+      pendingOrderDocs.flatMap((order) =>
+        order.items.map((item) => String(item.productId))
+      )
+    ),
+  ];
+  const orderProducts = pendingProductIds.length
+    ? (
+        await Product.find({ _id: { $in: pendingProductIds } })
+          .select("title")
+          .sort({ title: 1 })
+          .lean()
+          .exec()
+      ).map(serializeProduct)
+    : [];
+
+  return {
+    counts: { allUsers, courseEnrollees, sessionRegistrants, pendingOrders },
+    courses: courses.map(serializeProduct),
+    sessions: sessions.map(serializeProduct),
+    orderProducts,
+  };
+}
+
+const SEGMENT_LABELS: Record<BroadcastSegmentType, string> = {
+  ALL_USERS: "All users",
+  COURSE_ENROLLEES: "Course enrollees",
+  SESSION_REGISTRANTS: "Session registrants",
+  PENDING_ORDERS: "Pending orders",
+  IMPORTED: "Imported list",
+};
+
+export function segmentLabel(
+  segmentType: BroadcastSegmentType,
+  productTitle?: string | null
+): string {
+  if (
+    productTitle &&
+    segmentType !== "ALL_USERS" &&
+    segmentType !== "IMPORTED"
+  ) {
+    return `${SEGMENT_LABELS[segmentType]}: ${productTitle}`;
+  }
+  return SEGMENT_LABELS[segmentType];
+}
+
+/**
+ * Replaces `{{name}}` and `{{email}}` tokens. Pass `html: true` when the
+ * surrounding string is HTML so names cannot inject markup.
+ */
+export function applyPersonalization(
+  template: string,
+  recipient: BroadcastRecipient,
+  options: { html?: boolean } = {}
+): string {
+  const rawName = (recipient.name ?? "").trim();
+  const name = rawName || "there";
+  const escape = options.html
+    ? (value: string) =>
+        value
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+    : (value: string) => value;
+  return template
+    .replace(/\{\{\s*name\s*\}\}/gi, () => escape(name))
+    .replace(/\{\{\s*email\s*\}\}/gi, () => escape(recipient.email));
+}
+
+/** Sanitizes editor HTML and wraps it in the brand shell. Used by preview. */
+export function renderBroadcastEmail(input: {
+  title: string;
+  bodyHtml: string;
+}): { html: string; text: string } {
+  const bodyHtml = sanitizeEmailHtml(input.bodyHtml);
+  return buildBroadcastEmail({ headline: input.title, bodyHtml });
+}
+
+export async function sendBroadcast(
+  input: unknown,
+  actor: BroadcastActor
+): Promise<BroadcastResult> {
+  const parsed = broadcastSendSchema.parse(input);
+  await dbConnect();
+
+  const bodyHtml = sanitizeEmailHtml(parsed.bodyHtml);
+  if (!bodyHtml.trim()) {
+    throw new BroadcastServiceError(
+      "EMPTY_BODY",
+      "The email body is empty after sanitizing.",
+      400
+    );
+  }
+
+  let imported: ParsedRecipient[] | undefined;
+  if (parsed.segmentType === "IMPORTED") {
+    try {
+      imported = validateImportedRecipients(parsed.importedRecipients);
+    } catch (error) {
+      throw new BroadcastServiceError(
+        "INVALID_IMPORT",
+        error instanceof Error ? error.message : "Imported list is invalid.",
+        400
+      );
+    }
+  } else if (parsed.importedRecipients !== undefined) {
+    throw new BroadcastServiceError(
+      "UNEXPECTED_IMPORT",
+      "Imported recipients are only allowed for the imported-list segment.",
+      400
+    );
+  }
+
+  const resolved =
+    parsed.segmentType === "IMPORTED"
+      ? []
+      : await resolveSegment(parsed.segmentType, parsed.productId);
+  const recipients = mergeRecipients(imported ? [imported, resolved] : [resolved]);
   if (recipients.length === 0) {
     throw new BroadcastServiceError(
       "NO_RECIPIENTS",
-      "There are no customers to email yet.",
+      "There are no recipients in this audience yet.",
       400
     );
+  }
+
+  let segmentProductTitle: string | null = null;
+  if (parsed.productId && parsed.segmentType !== "IMPORTED") {
+    const product = await Product.findById(parsed.productId).select("title").lean().exec();
+    segmentProductTitle = product?.title ?? null;
   }
 
   const attachments = [];
   for (const key of parsed.attachmentKeys) {
     const data = await readUpload(key);
-    const name = key.split(".")[0] ?? "attachment";
     if (!data) {
       throw new BroadcastServiceError(
         "ATTACHMENT_MISSING",
-        `Attachment ${name} could not be loaded.`,
+        `Attachment ${parsed.attachmentName ?? key} could not be loaded.`,
         400
       );
     }
-    attachments.push({ filename: name, content: data });
+    attachments.push({
+      filename: parsed.attachmentName ?? key,
+      content: data,
+      ...(key.toLowerCase().endsWith(".pdf")
+        ? { contentType: "application/pdf" }
+        : {}),
+    });
   }
 
   const mail = createMailAdapter();
-
-  const html = bodyToHtml(parsed.body);
-  const text = parsed.body;
+  const logoAttachments = brandLogoAttachments();
 
   let sent = 0;
   let failed = 0;
-  for (const to of recipients) {
+  for (const recipient of recipients) {
     try {
+      const subject = applyPersonalization(parsed.subject, recipient);
+      const personalizedBody = applyPersonalization(bodyHtml, recipient, {
+        html: true,
+      });
+      const personalizedTitle = applyPersonalization(parsed.title, recipient, {
+        html: true,
+      });
+      const { html, text } = buildBroadcastEmail({
+        headline: personalizedTitle,
+        bodyHtml: personalizedBody,
+      });
       await mail.sendEmail({
-        to,
-        subject: parsed.subject,
+        to: recipient.email,
+        subject,
         html,
         text,
-        attachments,
+        attachments: [...logoAttachments, ...attachments],
       });
       sent++;
     } catch {
@@ -88,21 +437,53 @@ export async function sendEmailToAllUsers(input: unknown): Promise<BroadcastResu
     }
   }
 
-  return { recipients: recipients.length, sent, failed };
+  const status = failed === 0 ? "COMPLETED" : sent === 0 ? "FAILED" : "PARTIAL";
+
+  const broadcast = await Broadcast.create({
+    title: parsed.title,
+    subject: parsed.subject,
+    bodyPreview: bodyHtml
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 400),
+    segmentType: parsed.segmentType,
+    segmentProductTitle,
+    recipientCount: recipients.length,
+    sentCount: sent,
+    failedCount: failed,
+    status,
+    createdByUserId: actor.userId,
+    createdByEmail: actor.email,
+  });
+
+  return {
+    recipients: recipients.length,
+    sent,
+    failed,
+    broadcastId: String(broadcast._id),
+  };
 }
 
-function bodyToHtml(body: string): string {
-  const escaped = body
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br />");
-  const brand = process.env.MAIL_FROM_NAME
-    ? process.env.MAIL_FROM_NAME
-    : "Rapid Launch";
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#fcfaf8">
-    <div style="max-width:600px;margin:0 auto;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#11121d">
-      <div style="font-size:18px;font-weight:bold;margin-bottom:16px">${brand}</div>
-      <div style="background:#ffffff;border:1px solid #d7d9e5;border-radius:12px;padding:24px;line-height:1.6">${escaped}</div>
-    </div></body></html>`;
+/** Recent campaign log for the history table. */
+export async function listBroadcasts(limit = 20): Promise<BroadcastHistoryRow[]> {
+  await dbConnect();
+  const rows = await Broadcast.find()
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean()
+    .exec();
+
+  return rows.map((row) => ({
+    id: String(row._id),
+    title: row.title,
+    subject: row.subject,
+    segmentLabel: segmentLabel(row.segmentType, row.segmentProductTitle),
+    recipientCount: row.recipientCount,
+    sentCount: row.sentCount,
+    failedCount: row.failedCount,
+    status: row.status,
+    createdByEmail: row.createdByEmail,
+    createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : "",
+  }));
 }

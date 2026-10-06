@@ -1,9 +1,24 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Bold, Heading2, Italic, List, ListOrdered, Quote, Redo2, Undo2 } from "lucide-react";
+import Image from "@tiptap/extension-image";
+import {
+  Bold,
+  Heading2,
+  ImagePlus,
+  Italic,
+  List,
+  ListOrdered,
+  Loader2,
+  Quote,
+  Redo2,
+  Undo2,
+} from "lucide-react";
+
+import { readApiError } from "@/lib/feedback";
 
 function ToolbarButton({
   onClick,
@@ -48,8 +63,12 @@ export function RichTextEditor({
   onChange: (html: string) => void;
   placeholder?: string;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState("");
+
   const editor = useEditor({
-    extensions: [StarterKit, Placeholder.configure({ placeholder })],
+    extensions: [StarterKit, Placeholder.configure({ placeholder }), Image],
     content: value,
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     editorProps: {
@@ -59,6 +78,41 @@ export function RichTextEditor({
       },
     },
   });
+
+  async function handleImageFile(file: File) {
+    if (!editor || uploading) return;
+    setImageError("");
+    if (!file.type.startsWith("image/")) {
+      setImageError("Choose an image file (PNG, JPG, GIF, WebP or SVG).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await response.json();
+      if (!json.ok) {
+        throw new Error(readApiError(json, "Image upload failed"));
+      }
+      const stored = json.data as { url: string };
+      editor
+        .chain()
+        .focus()
+        .insertContent(`<img src="${stored.url}" alt="" />`)
+        .run();
+    } catch (err) {
+      setImageError(
+        err instanceof Error ? err.message : "Image upload failed."
+      );
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   if (!editor) {
     return (
@@ -114,6 +168,30 @@ export function RichTextEditor({
           <Quote className="h-4 w-4" />
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-neutral-200" />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageFile(file);
+          }}
+        />
+        <ToolbarButton
+          label="Insert image"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+        >
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ImagePlus className="h-4 w-4" aria-hidden="true" />
+          )}
+        </ToolbarButton>
+        <span className="mx-1 h-5 w-px bg-neutral-200" />
         <ToolbarButton
           label="Undo"
           disabled={!editor.can().chain().focus().undo().run()}
@@ -129,6 +207,14 @@ export function RichTextEditor({
           <Redo2 className="h-4 w-4" />
         </ToolbarButton>
       </div>
+      {imageError ? (
+        <p
+          role="alert"
+          className="border-b border-danger-100 bg-danger-100/50 px-4 py-2 text-xs font-medium text-danger-700"
+        >
+          {imageError}
+        </p>
+      ) : null}
       <EditorContent editor={editor} />
     </div>
   );

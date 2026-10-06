@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { apiError, apiOk, newRequestId } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth/session";
-import { sendEmailToAllUsers } from "@/lib/services/broadcast-service";
+import { sendBroadcast } from "@/lib/services/broadcast-service";
 import { writeUpload } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -27,18 +27,49 @@ export async function POST(request: NextRequest) {
 
   const title = (form.get("title") as string | null) ?? "";
   const subject = (form.get("subject") as string | null) ?? "";
-  const body = (form.get("body") as string | null) ?? "";
-  const file = form.get("attachment");
+  const bodyHtml = (form.get("bodyHtml") as string | null) ?? "";
+  const segmentType = (form.get("segmentType") as string | null) ?? "";
+  const productId = (form.get("productId") as string | null) || undefined;
+  const importedJson = (form.get("importedRecipients") as string | null) || undefined;
+
+  let importedRecipients: unknown;
+  if (importedJson) {
+    try {
+      importedRecipients = JSON.parse(importedJson);
+    } catch {
+      return apiError(
+        400,
+        "INVALID_IMPORT",
+        "The imported recipient list could not be read.",
+        requestId
+      );
+    }
+  }
 
   let attachmentKeys: string[] = [];
+  let attachmentName: string | undefined;
+  const file = form.get("attachment");
   if (file instanceof File && file.size > 0) {
     const data = Buffer.from(await file.arrayBuffer());
     const stored = await writeUpload(data, file.name, file.type || "application/octet-stream");
     attachmentKeys = [stored.key];
+    attachmentName = file.name;
   }
 
   try {
-    const result = await sendEmailToAllUsers({ title, subject, body, attachmentKeys });
+    const result = await sendBroadcast(
+      {
+        title,
+        subject,
+        bodyHtml,
+        segmentType,
+        productId,
+        importedRecipients,
+        attachmentKeys,
+        attachmentName,
+      },
+      { userId: String(user._id), email: user.email }
+    );
     return apiOk(result);
   } catch (error) {
     // Reuse the standard handler mapping by importing here to avoid circular

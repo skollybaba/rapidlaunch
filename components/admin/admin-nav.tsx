@@ -13,6 +13,8 @@ import {
   LogOut,
   ExternalLink,
   Inbox,
+  Mail,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +41,16 @@ const NAV_LINKS: NavLink[] = [
   { href: "/admin/submissions", label: "Submissions", icon: Inbox },
   { href: "/admin/enrollees", label: "Enrollees", icon: Users },
   { href: "/admin/resources", label: "Resources", icon: FolderOpen },
+  {
+    href: "/admin/email-broadcast",
+    label: "Email & Broadcasting",
+    icon: Mail,
+  },
+  {
+    href: "/admin/automation",
+    label: "Automation & Sequences",
+    icon: Workflow,
+  },
 ];
 
 export function AdminNav() {
