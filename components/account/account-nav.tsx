@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -16,7 +16,6 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/account/overview", label: "Overview", icon: LayoutDashboard },
@@ -32,7 +31,17 @@ export function AccountNav() {
   const { user, logout } = useAuth();
   const toast = useToast();
   const [signingOut, setSigningOut] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function handleLogout() {
     if (signingOut) return;
@@ -53,43 +62,32 @@ export function AccountNav() {
   }
 
   function handleNavClick() {
-    if (window.innerWidth < 1024) {
-      setSidebarOpen(false);
+    if (isMobile) {
+      setMenuOpen(false);
     }
   }
 
-  return (
-    <>
-      {/* Mobile hamburger button */}
-      <button
-        type="button"
-        className="lg:hidden p-2 rounded-[10px] border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-expanded={sidebarOpen}
-        aria-controls="account-sidebar"
-        aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
-      >
-        {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden bg-black/30 animate-fade-in"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
-        id="account-sidebar"
-        className={cn(
-          "flex h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4 lg:sticky lg:top-8 lg:self-start",
-          sidebarOpen
-            ? "fixed inset-y-0 left-0 z-50 w-full max-w-[320px] shadow-xl animate-slide-in lg:static lg:inset-auto lg:shadow-none lg:max-w-none"
-            : "hidden lg:block"
-        )}
-      >
+  if (!isMobile) {
+    return (
+      <aside className="flex h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4 lg:sticky lg:top-8 lg:self-start">
         <div className="border-b border-neutral-200 px-2 pb-4">
           <p className="text-sm font-bold text-neutral-950">
             {user?.name || "My account"}
@@ -105,7 +103,6 @@ export function AccountNav() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={handleNavClick}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
                   active
@@ -135,6 +132,76 @@ export function AccountNav() {
           </button>
         </nav>
       </aside>
-    </>
+    );
+  }
+
+  return (
+    <div className="relative lg:hidden">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setMenuOpen(!menuOpen)}
+        aria-expanded={menuOpen}
+        aria-haspopup="true"
+        aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+        className="p-2 rounded-[10px] border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+      >
+        {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </button>
+
+      {menuOpen ? (
+        <div
+          ref={menuRef}
+          className="absolute right-0 top-full mt-2 z-50 w-64 origin-top-right animate-fade-in"
+        >
+          <div className="rounded-[16px] border border-neutral-300 bg-white p-3 shadow-xl">
+            <div className="border-b border-neutral-200 px-2 py-3">
+              <p className="text-sm font-bold text-neutral-950">
+                {user?.name || "My account"}
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-500">{user?.email}</p>
+            </div>
+
+            <nav aria-label="Account" className="mt-3 space-y-1">
+              {NAV_LINKS.map((link) => {
+                const active = pathname === link.href;
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={handleNavClick}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
+                      active
+                        ? "bg-lavender-100 text-ink-950"
+                        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950"
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className="h-4 w-4" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={signingOut}
+                aria-busy={signingOut}
+                className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-neutral-500 transition-colors duration-[var(--duration-fast)] hover:bg-danger-100 hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {signingOut ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger-600/30 border-t-danger-600" />
+                ) : (
+                  <LogOut aria-hidden="true" className="h-4 w-4" />
+                )}
+                {signingOut ? "Signing out…" : "Sign out"}
+              </button>
+            </nav>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
