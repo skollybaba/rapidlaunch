@@ -31,6 +31,7 @@ export interface EmailAttachmentInput {
   content: Buffer;
   contentType?: string;
   cid?: string;
+  contentDisposition?: "inline" | "attachment";
 }
 
 export interface SendEmailInput {
@@ -87,22 +88,48 @@ const EMAIL_LOGO_CID = "agile-logo";
 let emailLogoCache: EmailAttachmentInput | null | undefined;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function logoCandidatePaths(): string[] {
+  const segments = ["public", "images", "agile_logo.png"];
+  return [
+    path.join(process.cwd(), ...segments),
+    path.join(__dirname, "..", "..", ...segments),
+    path.join(__dirname, "..", "..", "..", ...segments),
+  ];
+}
+
 function emailBrandLogo(): string {
-  return `<img src="cid:${EMAIL_LOGO_CID}" alt="Rapid Launch" width="120" height="55" style="display:block;margin:0 0 10px;width:120px;height:auto;" />`;
+  const src = emailLogoSrc();
+  if (!src) return "";
+  return `<img src="${src}" alt="Rapid Launch" width="120" height="55" style="display:block;margin:0 0 10px;width:120px;height:auto;" />`;
+}
+
+function emailLogoSrc(): string | null {
+  if (emailLogoAttachment()) return `cid:${EMAIL_LOGO_CID}`;
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  return base ? `${base}/images/agile_logo.png` : null;
 }
 
 function emailLogoAttachment(): EmailAttachmentInput | null {
   if (emailLogoCache !== undefined) return emailLogoCache;
-  try {
-    const file = path.join(__dirname, "..", "..", "public", "images", "agile_logo.png");
-    emailLogoCache = {
-      filename: "agile-logo.png",
-      cid: EMAIL_LOGO_CID,
-      contentType: "image/png",
-      content: readFileSync(file),
-    };
-  } catch {
-    emailLogoCache = null;
+  emailLogoCache = null;
+  for (const file of logoCandidatePaths()) {
+    try {
+      emailLogoCache = {
+        filename: "agile-logo.png",
+        cid: EMAIL_LOGO_CID,
+        contentType: "image/png",
+        contentDisposition: "inline",
+        content: readFileSync(file),
+      };
+      break;
+    } catch {
+      // Try the next candidate path.
+    }
+  }
+  if (emailLogoCache === null) {
+    console.warn(
+      "[mail] Brand logo file not found on disk; emails will reference the hosted copy instead."
+    );
   }
   return emailLogoCache;
 }
@@ -428,6 +455,8 @@ export class SmtpMailAdapter implements MailAdapter {
           filename: a.filename,
           content: a.content,
           contentType: a.contentType,
+          cid: a.cid,
+          contentDisposition: a.contentDisposition,
         })),
       });
       return {

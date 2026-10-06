@@ -85,8 +85,46 @@ describe("SmtpMailAdapter", () => {
       expect.objectContaining({
         filename: "agile-logo.png",
         contentType: "image/png",
+        cid: "agile-logo",
+        contentDisposition: "inline",
+        content: expect.any(Buffer),
       }),
     ]);
+    expect(payload.attachments[0].content.length).toBeGreaterThan(0);
+  });
+
+  it("falls back to the hosted logo URL when the logo file cannot be read", async () => {
+    vi.resetModules();
+    vi.doMock("node:fs", () => ({
+      readFileSync: () => {
+        throw new Error("ENOENT");
+      },
+    }));
+    process.env.NEXT_PUBLIC_APP_URL = "https://example.com";
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fresh = await import("@/lib/providers/mail");
+      const freshAdapter = new fresh.SmtpMailAdapter(CONFIG);
+      await freshAdapter.sendTemplateEmail({
+        templateKey: "account_welcome",
+        to: "student@gmail.com",
+        variables: { name: "Ade", appUrl: "https://example.com" },
+      });
+
+      const payload = sendMail.mock.calls[0][0];
+      expect(payload.html).toContain(
+        'src="https://example.com/images/agile_logo.png"'
+      );
+      expect(payload.html).not.toContain("cid:agile-logo");
+      expect(payload.attachments).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Brand logo file not found")
+      );
+    } finally {
+      warnSpy.mockRestore();
+      vi.doUnmock("node:fs");
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    }
   });
 
   it("maps a provider failure to a retryable MailProviderError", async () => {
