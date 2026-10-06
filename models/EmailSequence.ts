@@ -20,7 +20,19 @@ const EmailSequenceStepSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    triggerType: {
+      type: String,
+      required: true,
+      enum: ['immediate', 'after_hours'],
+      default: 'after_hours',
+    },
     delayHours: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    sendAtHours: {
       type: Number,
       required: true,
       min: 0,
@@ -54,21 +66,7 @@ const EmailSequenceSchema = new mongoose.Schema(
       min: 1,
       max: 50,
     },
-    intervalValue: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    intervalUnit: {
-      type: String,
-      required: true,
-      enum: ['hours', 'days'],
-    },
-    intervalHours: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
+
     steps: {
       type: [EmailSequenceStepSchema],
       required: true,

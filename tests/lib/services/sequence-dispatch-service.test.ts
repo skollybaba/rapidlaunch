@@ -56,7 +56,6 @@ function dueSubscription(overrides: Record<string, unknown> = {}) {
     sequenceId: {
       active: true,
       totalSteps: 3,
-      intervalHours: 24,
       steps: [
         { index: 0, subject: "One", title: "", body: "<p>first</p>", delayHours: 0 },
         { index: 1, subject: "Two", title: "", body: "<p>second</p>", delayHours: 24 },
@@ -109,14 +108,38 @@ describe("dispatchEmailSequenceSteps", () => {
     );
   });
 
+  it("schedules the next step from the subscription date, not from the previous send", async () => {
+    const subscribedAt = new Date("2026-01-01T00:00:00.000Z");
+    const sub = dueSubscription({
+      subscribedAt,
+      sequenceId: {
+        active: true,
+        totalSteps: 2,
+        steps: [
+          { index: 0, subject: "One", body: "<p>a</p>", triggerType: "immediate", delayHours: 0, sendAtHours: 0 },
+          { index: 1, subject: "Two", body: "<p>b</p>", triggerType: "after_hours", delayHours: 48, sendAtHours: 48 },
+        ],
+      },
+    });
+    findMock.mockReturnValueOnce(chain([sub]));
+    findOneAndUpdate.mockReturnValueOnce(claim({ ...sub, dispatchingAt: new Date() }));
+
+    await dispatchEmailSequenceSteps();
+
+    const call = updateOne.mock.calls.find(
+      (c) => c[0]._id === "SUB1" && c[1].$set?.nextSendAt
+    );
+    const nextSendAt = call?.[1].$set.nextSendAt as Date;
+    expect(nextSendAt.toISOString()).toBe("2026-01-03T00:00:00.000Z");
+  });
+
   it("completes the subscription on the last step", async () => {
     const sub = dueSubscription({
       currentStepIndex: 2,
       sequenceId: {
         active: true,
         totalSteps: 3,
-        intervalHours: 24,
-        steps: [
+          steps: [
           { index: 0, subject: "One", body: "", delayHours: 0 },
           { index: 1, subject: "Two", body: "", delayHours: 24 },
           { index: 2, subject: "Three", body: "<p>last</p>", delayHours: 24 },

@@ -9,13 +9,15 @@ interface SequenceStepDoc {
   subject: string;
   title?: string;
   body: string;
+  triggerType?: "immediate" | "after_hours";
   delayHours?: number;
+  sendAtHours?: number;
 }
 
 interface SequenceDoc {
   active: boolean;
   totalSteps: number;
-  intervalHours?: number;
+
   steps?: SequenceStepDoc[];
 }
 
@@ -145,6 +147,10 @@ async function runDispatch(): Promise<DispatchResult> {
       sent += 1;
       const isLastStep = currentStepIndex >= (sequence.totalSteps - 1) || currentStepIndex >= steps.length - 1;
 
+      const base = subscription.subscribedAt
+        ? new Date(subscription.subscribedAt)
+        : new Date(subscription.createdAt ?? now);
+
       if (isLastStep) {
         await releaseClaim(subscription._id, {
           completedAt: now,
@@ -154,8 +160,13 @@ async function runDispatch(): Promise<DispatchResult> {
       } else {
         const nextStepIndex = currentStepIndex + 1;
         const nextStep = steps.find((s) => s.index === nextStepIndex);
-        const nextDelay = nextStep?.delayHours ?? sequence.intervalHours ?? 24;
-        const nextSendAt = new Date(now.getTime() + nextDelay * 60 * 60 * 1000);
+        // Delay is measured from when the user entered the sequence, not from the
+        // previous email: a step "at 48 hours" fires 48h after subscription.
+        const nextDelayHours =
+          nextStep && nextStep.triggerType !== "immediate"
+            ? nextStep.sendAtHours ?? nextStep.delayHours ?? 0
+            : 0;
+        const nextSendAt = new Date(base.getTime() + nextDelayHours * 60 * 60 * 1000);
 
         await releaseClaim(subscription._id, {
           currentStepIndex: nextStepIndex,

@@ -44,27 +44,22 @@ export async function createSequence(data: {
   name: string;
   productId: string;
   totalSteps: number;
-  intervalValue: number;
-  intervalUnit: 'hours' | 'days';
   steps: EmailSequenceStep[];
 }): Promise<EmailSequenceType> {
   await dbConnect();
-
-  const intervalHours = data.intervalUnit === 'days' ? data.intervalValue * 24 : data.intervalValue;
 
   const sequence = await EmailSequence.create({
     name: data.name,
     productId: data.productId,
     totalSteps: data.totalSteps,
-    intervalValue: data.intervalValue,
-    intervalUnit: data.intervalUnit,
-    intervalHours,
     steps: data.steps.map((step, i) => ({
       index: step.index ?? i,
       subject: step.subject,
       title: step.title || '',
       body: step.body,
-      delayHours: step.delayHours ?? 0,
+      triggerType: step.triggerType || 'after_hours',
+      delayHours: step.delayHours ?? step.sendAtHours ?? 0,
+      sendAtHours: step.sendAtHours ?? step.delayHours ?? 0,
     })),
     active: false,
   });
@@ -78,8 +73,7 @@ export async function updateSequence(
     name: string;
     productId: string;
     totalSteps: number;
-    intervalValue: number;
-    intervalUnit: 'hours' | 'days';
+
     steps: EmailSequenceStep[];
     active: boolean;
   }>
@@ -87,17 +81,7 @@ export async function updateSequence(
   await dbConnect();
 
   const update: Record<string, unknown> = { ...data };
-  if (data.intervalValue !== undefined && data.intervalUnit !== undefined) {
-    update.intervalHours =
-      data.intervalUnit === 'days' ? data.intervalValue * 24 : data.intervalValue;
-  } else if (data.intervalValue !== undefined && data.intervalUnit === undefined) {
-    // fetch current to compute
-    const current = await EmailSequence.findById(id).lean();
-    if (current) {
-      update.intervalHours =
-        current.intervalUnit === 'days' ? data.intervalValue * 24 : data.intervalValue;
-    }
-  }
+
 
   const sequence = await EmailSequence.findByIdAndUpdate(id, update, {
     new: true,
@@ -144,8 +128,13 @@ export async function subscribeToSequence(data: {
   const firstStep = Array.isArray(sequence.steps)
     ? sequence.steps.find((s: EmailSequenceStep) => s.index === 0) || sequence.steps[0]
     : null;
-  const delay = firstStep?.delayHours ?? sequence.intervalHours ?? 0;
-  const nextSendAt = new Date(Date.now() + delay * 60 * 60 * 1000);
+  // Delay is measured from the moment the user subscribes.
+  const delay =
+    firstStep && firstStep.triggerType !== "immediate"
+      ? firstStep.sendAtHours ?? firstStep.delayHours ?? 0
+      : 0;
+  const subscribedAt = new Date();
+  const nextSendAt = new Date(subscribedAt.getTime() + delay * 60 * 60 * 1000);
 
   const sub = await EmailSequenceSubscription.create({
     email: data.email,
@@ -153,6 +142,7 @@ export async function subscribeToSequence(data: {
     sequenceId: data.sequenceId,
     productId: data.productId || sequence.productId,
     currentStepIndex: 0,
+    subscribedAt,
     nextSendAt,
   });
 

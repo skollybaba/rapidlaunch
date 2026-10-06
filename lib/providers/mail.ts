@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import nodemailer, { type Transporter } from "nodemailer";
 
+import { sanitizeEmailHtml } from "@/lib/rich-content";
+
 export type EmailTemplateKey =
   | "welcome"
   | "account_welcome"
@@ -158,7 +160,7 @@ export function brandLogoAttachments(): EmailAttachmentInput[] {
 }
 
 function emailHeader(title: string): string {
-  return `<div style="background:#141414;padding:26px 32px;">
+  return `<div style="background:#141414;padding:8px 16px 6px;">
   ${emailBrandLogo()}
   <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
 </div>`;
@@ -426,7 +428,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
     }
     case "sequence_step": {
       const subjectSeq = String(variables.subject ?? "Update from Rapid Launch");
-      const bodyHtmlSeq = String(variables.body ?? variables.html ?? "");
+      const bodyHtmlSeq = sanitizeEmailHtml(String(variables.body ?? variables.html ?? ""));
       const titleSeq = String(variables.title ?? subjectSeq);
       return {
         subject: subjectSeq,

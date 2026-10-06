@@ -3,7 +3,9 @@ export type EmailSequenceStep = {
   subject: string;
   title?: string;
   body: string;
+  triggerType: 'immediate' | 'after_hours';
   delayHours: number;
+  sendAtHours: number;
 };
 
 export type EmailSequence = {
@@ -12,9 +14,6 @@ export type EmailSequence = {
   productId: string | { _id: string; title: string; slug: string };
   active: boolean;
   totalSteps: number;
-  intervalValue: number;
-  intervalUnit: 'hours' | 'days';
-  intervalHours: number;
   steps: EmailSequenceStep[];
   createdAt: string;
   updatedAt: string;

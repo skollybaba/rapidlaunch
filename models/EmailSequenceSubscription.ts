@@ -28,6 +28,11 @@ const EmailSequenceSubscriptionSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    subscribedAt: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
     nextSendAt: {
       type: Date,
       required: true,

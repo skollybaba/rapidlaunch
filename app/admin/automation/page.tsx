@@ -11,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 
 interface ProductChoice {
   id: string;
@@ -26,7 +26,9 @@ interface SequenceStep {
   subject: string;
   title?: string;
   body: string;
+  triggerType: "immediate" | "after_hours";
   delayHours: number;
+  sendAtHours: number;
 }
 
 interface EmailSequence {
@@ -35,11 +37,16 @@ interface EmailSequence {
   productId: string | { _id: string; title: string; slug: string };
   active: boolean;
   totalSteps: number;
-  intervalValue: number;
-  intervalUnit: "hours" | "days";
   steps: SequenceStep[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface SequenceForm {
+  name: string;
+  productId: string;
+  totalSteps: number;
+  steps: SequenceStep[];
 }
 
 export default function AutomationPage() {
@@ -49,16 +56,14 @@ export default function AutomationPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SequenceForm>({
     name: "",
     productId: "",
     totalSteps: 3,
-    intervalValue: 24,
-    intervalUnit: "hours" as "hours" | "days",
     steps: [
-      { index: 0, subject: "", title: "", body: "", delayHours: 0 },
-      { index: 1, subject: "", title: "", body: "", delayHours: 24 },
-      { index: 2, subject: "", title: "", body: "", delayHours: 48 },
+      { index: 0, subject: "", title: "", body: "", triggerType: "immediate", delayHours: 0, sendAtHours: 0 },
+      { index: 1, subject: "", title: "", body: "", triggerType: "after_hours", delayHours: 24, sendAtHours: 24 },
+      { index: 2, subject: "", title: "", body: "", triggerType: "after_hours", delayHours: 48, sendAtHours: 48 },
     ],
   });
   const [openAccordions, setOpenAccordions] = useState<string[]>(["step-0"]);
@@ -94,31 +99,38 @@ export default function AutomationPage() {
     return p?.title || "Unknown Product";
   };
 
+  const emptySteps = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      index: i,
+      subject: "",
+      title: "",
+      body: "",
+      triggerType: (i === 0 ? "immediate" : "after_hours") as "immediate" | "after_hours",
+      delayHours: i * 24,
+      sendAtHours: i * 24,
+    }));
+
   const handleStepCountChange = (count: number) => {
     const newSteps = Array.from({ length: count }, (_, i) => {
-      const existing = form.steps[i];
-      if (existing) return existing;
-      const prevDelay = form.steps[form.steps.length - 1]?.delayHours || 0;
-      return {
-        index: i,
-        subject: "",
-        title: "",
-        body: "",
-        delayHours: prevDelay + (form.intervalUnit === "days" ? form.intervalValue * 24 : form.intervalValue),
-      };
-    }).map((step, i) => ({ ...step, index: i }));
+      const existing = form.steps[i] as SequenceStep | undefined;
+      if (existing) {
+        return {
+          ...existing,
+          index: i,
+          triggerType: existing.triggerType || (i === 0 ? "immediate" : "after_hours"),
+          sendAtHours: existing.sendAtHours ?? existing.delayHours ?? 0,
+        };
+      }
+      return emptySteps(count)[i];
+    });
     setForm({ ...form, totalSteps: count, steps: newSteps });
     setOpenAccordions(Array.from({ length: count }, (_, i) => `step-${i}`));
   };
 
-  const handleStepChange = (index: number, field: string, value: unknown) => {
+  const handleStepChange = (index: number, field: keyof SequenceStep, value: unknown) => {
     const steps = [...form.steps];
-    (steps[index] as Record<string, unknown>)[field] = value;
+    steps[index] = { ...steps[index], [field]: value } as SequenceStep;
     setForm({ ...form, steps });
-  };
-
-  const handleIntervalChange = (value: number, unit: "hours" | "days") => {
-    setForm({ ...form, intervalValue: value, intervalUnit: unit });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,13 +151,7 @@ export default function AutomationPage() {
           name: "",
           productId: "",
           totalSteps: 3,
-          intervalValue: 24,
-          intervalUnit: "hours",
-          steps: [
-            { index: 0, subject: "", title: "", body: "", delayHours: 0 },
-            { index: 1, subject: "", title: "", body: "", delayHours: 24 },
-            { index: 2, subject: "", title: "", body: "", delayHours: 48 },
-          ],
+          steps: emptySteps(3),
         });
         fetchData();
       }
@@ -160,14 +166,16 @@ export default function AutomationPage() {
       name: seq.name,
       productId: typeof seq.productId === "object" ? seq.productId._id : seq.productId,
       totalSteps: seq.totalSteps,
-      intervalValue: seq.intervalValue,
-      intervalUnit: seq.intervalUnit,
+      
+      
       steps: seq.steps.map((s) => ({
         index: s.index,
         subject: s.subject,
         title: s.title || "",
         body: s.body,
+        triggerType: s.triggerType || "after_hours",
         delayHours: s.delayHours,
+        sendAtHours: s.sendAtHours ?? s.delayHours,
       })),
     });
     setShowForm(true);
@@ -312,26 +320,7 @@ export default function AutomationPage() {
                   className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Send Every</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.intervalValue}
-                    onChange={(e) => handleIntervalChange(parseInt(e.target.value) || 1, form.intervalUnit)}
-                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg"
-                  />
-                  <select
-                    value={form.intervalUnit}
-                    onChange={(e) => handleIntervalChange(form.intervalValue, e.target.value as "hours" | "days")}
-                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg"
-                  >
-                    <option value="hours">Hour(s)</option>
-                    <option value="days">Day(s)</option>
-                  </select>
-                </div>
-              </div>
+
             </div>
 
             <div>
@@ -376,16 +365,52 @@ export default function AutomationPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">Delay (hours from start)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={step.delayHours}
-                          onChange={(e) => handleStepChange(idx, "delayHours", parseInt(e.target.value) || 0)}
+                        <label className="block text-sm font-medium mb-2">Send this email at</label>
+                        <select
+                          value={step.triggerType || "after_hours"}
+                          onChange={(e) => {
+                            const t = e.target.value as "immediate" | "after_hours";
+                            setForm((f) => ({
+                              ...f,
+                              steps: f.steps.map((s, si) =>
+                                si === idx
+                                  ? {
+                                      ...s,
+                                      triggerType: t,
+                                      sendAtHours: t === "immediate" ? 0 : s.sendAtHours || s.delayHours || 0,
+                                      delayHours: t === "immediate" ? 0 : s.sendAtHours || s.delayHours || 0,
+                                    }
+                                  : s
+                              ),
+                            }));
+                          }}
                           className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
-                        />
+                        >
+                          <option value="immediate">Immediately when user subscribes</option>
+                          <option value="after_hours">After specific hours since subscription</option>
+                        </select>
+                        {step.triggerType === "after_hours" && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={step.sendAtHours ?? step.delayHours ?? 0}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value) || 0;
+                                setForm((f) => ({
+                                  ...f,
+                                  steps: f.steps.map((s, si) =>
+                                    si === idx ? { ...s, sendAtHours: v, delayHours: v } : s
+                                  ),
+                                }));
+                              }}
+                              className="w-24 px-3 py-2 border border-neutral-300 rounded-lg"
+                            />
+                            <span className="text-sm text-neutral-500">hours after subscription</span>
+                          </div>
+                        )}
                         <p className="text-xs text-neutral-500 mt-1">
-                          When to send this email (0 for immediately after trigger)
+                          Timing is measured from when the user enters this sequence.
                         </p>
                       </div>
                       <div>
@@ -394,7 +419,6 @@ export default function AutomationPage() {
                           value={step.body}
                           onChange={(value) => handleStepChange(idx, "body", value)}
                           placeholder="Write your email content..."
-                          minHeight="min-h-[200px]"
                         />
                       </div>
                     </AccordionContent>
@@ -434,7 +458,7 @@ export default function AutomationPage() {
                   <div>
                     <h3 className="text-lg font-semibold">{seq.name}</h3>
                     <p className="text-sm text-neutral-500 mt-1">
-                      Product: {getProductName(seq.productId)} • {seq.totalSteps} emails • Every {seq.intervalValue} {seq.intervalUnit}
+                      Product: {getProductName(seq.productId)} • {seq.totalSteps} emails
                     </p>
                     <div className="mt-2">
                       <span
