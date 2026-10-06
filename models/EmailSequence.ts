@@ -73,7 +73,7 @@ const EmailSequenceSchema = new mongoose.Schema(
       type: [EmailSequenceStepSchema],
       required: true,
       validate: {
-        validator: (steps: any[]) => steps.length >= 1,
+        validator: (steps: unknown[]) => Array.isArray(steps) && steps.length >= 1,
         message: 'At least one step is required',
       },
     },

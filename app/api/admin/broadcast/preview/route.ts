@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return apiError(403, "FORBIDDEN", "Admins only.", requestId);
   }
 
-  let payload: { title?: unknown; bodyHtml?: unknown };
+  let payload: { title?: unknown; bodyHtml?: unknown; subject?: unknown };
   try {
     payload = await request.json();
   } catch {
