@@ -3,8 +3,12 @@ export async function register() {
     return;
   }
 
-  // Only run in the server process that owns the app (dev / next start).
-  if (process.env.NEXT_PHASE !== "phase-production-server" && process.env.NEXT_PHASE !== "phase-development-server") {
+  // Run in the server process that owns the app (dev / next start), but not in
+  // the build worker (NEXT_PHASE=phase-production-build). `next start` leaves
+  // NEXT_PHASE unset, so an undefined phase must be allowed through — otherwise
+  // no scheduler ever runs in production.
+  const phase = process.env.NEXT_PHASE;
+  if (phase === "phase-production-build" || phase === "phase-production-compile") {
     return;
   }
 
