@@ -354,6 +354,21 @@
   animation: slide-in var(--motion-standard) var(--vp-ease-standard) forwards;
 }
 
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down var(--motion-standard) var(--vp-ease-standard) forwards;
+}
+
 /* Reduced motion */
 /* Mobile-specific motion (DESIGN §Motion): smaller reveal travel and a
    faster settling transition so content is readable sooner on small screens.

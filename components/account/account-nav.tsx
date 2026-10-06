@@ -25,6 +25,15 @@ const NAV_LINKS = [
   { href: "/account/profile", label: "Profile", icon: Settings },
 ];
 
+const FALLBACK_HEADER_HEIGHT = 88;
+
+function measureHeaderHeight() {
+  const bar = document.querySelector<HTMLElement>("header > div");
+  return bar
+    ? Math.round(bar.getBoundingClientRect().height)
+    : FALLBACK_HEADER_HEIGHT;
+}
+
 export function AccountNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -32,16 +41,9 @@ export function AccountNav() {
   const toast = useToast();
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(true);
+  const [headerHeight, setHeaderHeight] = useState(FALLBACK_HEADER_HEIGHT);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 1024);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   async function handleLogout() {
     if (signingOut) return;
@@ -61,14 +63,13 @@ export function AccountNav() {
     }
   }
 
-  function handleNavClick() {
-    if (isMobile) {
-      setMenuOpen(false);
-    }
+  function toggleMenu() {
+    if (!menuOpen) setHeaderHeight(measureHeaderHeight());
+    setMenuOpen(!menuOpen);
   }
 
-  // Close menu when clicking outside
   useEffect(() => {
+    if (!menuOpen) return;
     function handleClickOutside(event: MouseEvent) {
       if (
         menuRef.current &&
@@ -79,15 +80,29 @@ export function AccountNav() {
         setMenuOpen(false);
       }
     }
-    if (menuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  if (!isMobile) {
-    return (
-      <aside className="flex h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4 lg:sticky lg:top-8 lg:self-start">
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [menuOpen]);
+
+  const currentLink = NAV_LINKS.find((link) => pathname === link.href);
+  const CurrentIcon = currentLink?.icon ?? Settings;
+  const currentLabel = currentLink?.label ?? "My account";
+
+  return (
+    <>
+      <aside className="hidden h-fit flex-col rounded-[16px] border border-neutral-300 bg-white p-4 lg:sticky lg:top-8 lg:flex lg:self-start">
         <div className="border-b border-neutral-200 px-2 pb-4">
           <p className="text-sm font-bold text-neutral-950">
             {user?.name || "My account"}
@@ -132,76 +147,98 @@ export function AccountNav() {
           </button>
         </nav>
       </aside>
-    );
-  }
 
-  return (
-    <div className="relative lg:hidden">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setMenuOpen(!menuOpen)}
-        aria-expanded={menuOpen}
-        aria-haspopup="true"
-        aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-        className="p-2 rounded-[10px] border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
-      >
-        {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
-
-      {menuOpen ? (
-        <div
-          ref={menuRef}
-          className="absolute right-0 top-full mt-2 z-50 w-64 origin-top-right animate-fade-in"
+      <div className="lg:hidden">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={toggleMenu}
+          aria-expanded={menuOpen}
+          aria-label={`${menuOpen ? "Close" : "Open"} account navigation: ${currentLabel}`}
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-[16px] border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-50"
         >
-          <div className="rounded-[16px] border border-neutral-300 bg-white p-3 shadow-xl">
-            <div className="border-b border-neutral-200 px-2 py-3">
-              <p className="text-sm font-bold text-neutral-950">
-                {user?.name || "My account"}
-              </p>
-              <p className="mt-0.5 text-xs text-neutral-500">{user?.email}</p>
+          <span className="flex items-center gap-3">
+            <CurrentIcon aria-hidden="true" className="h-4 w-4 text-neutral-500" />
+            {currentLabel}
+          </span>
+          {menuOpen ? (
+            <X aria-hidden="true" className="h-4 w-4 text-neutral-500" />
+          ) : (
+            <Menu aria-hidden="true" className="h-4 w-4 text-neutral-500" />
+          )}
+        </button>
+
+        {menuOpen ? (
+          <div
+            id="account-mobile-menu"
+            ref={menuRef}
+            style={{
+              top: headerHeight,
+              maxHeight: `calc(100dvh - ${headerHeight}px)`,
+            }}
+            className="animate-slide-down fixed inset-x-0 z-40 overflow-y-auto border-b border-neutral-300 bg-white shadow-xl"
+          >
+            <div className="mx-auto w-[98%] px-6 py-4 md:w-[min(83%,96rem)]">
+              <div className="flex items-start justify-between gap-3 border-b border-neutral-200 pb-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-neutral-950">
+                    {user?.name || "My account"}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-neutral-500">
+                    {user?.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close account navigation"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-neutral-500 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-100 hover:text-neutral-950"
+                >
+                  <X aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+
+              <nav aria-label="Account" className="mt-3 space-y-1">
+                {NAV_LINKS.map((link) => {
+                  const active = pathname === link.href;
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
+                        active
+                          ? "bg-lavender-100 text-ink-950"
+                          : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950"
+                      }`}
+                    >
+                      <Icon aria-hidden="true" className="h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={signingOut}
+                  aria-busy={signingOut}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-neutral-500 transition-colors duration-[var(--duration-fast)] hover:bg-danger-100 hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {signingOut ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger-600/30 border-t-danger-600" />
+                  ) : (
+                    <LogOut aria-hidden="true" className="h-4 w-4" />
+                  )}
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              </nav>
             </div>
-
-            <nav aria-label="Account" className="mt-3 space-y-1">
-              {NAV_LINKS.map((link) => {
-                const active = pathname === link.href;
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={handleNavClick}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-colors duration-[var(--duration-fast)] ${
-                      active
-                        ? "bg-lavender-100 text-ink-950"
-                        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950"
-                    }`}
-                  >
-                    <Icon aria-hidden="true" className="h-4 w-4" />
-                    {link.label}
-                  </Link>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={signingOut}
-                aria-busy={signingOut}
-                className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-neutral-500 transition-colors duration-[var(--duration-fast)] hover:bg-danger-100 hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {signingOut ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-danger-600/30 border-t-danger-600" />
-                ) : (
-                  <LogOut aria-hidden="true" className="h-4 w-4" />
-                )}
-                {signingOut ? "Signing out…" : "Sign out"}
-              </button>
-            </nav>
           </div>
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </>
   );
 }
