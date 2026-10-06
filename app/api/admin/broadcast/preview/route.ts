@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
   }
 
   const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const subject =
+    typeof payload.subject === "string" ? payload.subject.trim() : "";
   const bodyHtml = typeof payload.bodyHtml === "string" ? payload.bodyHtml : "";
   if (!title || !bodyHtml.trim()) {
     return apiError(
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const rendered = await renderBroadcastEmail({ title, bodyHtml });
+    const rendered = await renderBroadcastEmail({ title, bodyHtml, subject });
     return apiOk(rendered);
   } catch (error) {
     return handleApiError(error, requestId);

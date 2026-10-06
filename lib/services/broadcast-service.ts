@@ -324,13 +324,45 @@ export function applyPersonalization(
     .replace(/\{\{\s*email\s*\}\}/gi, () => escape(recipient.email));
 }
 
-/** Sanitizes editor HTML and wraps it in the brand shell. Used by preview. */
+const SAMPLE_PREVIEW_RECIPIENT: BroadcastRecipient = {
+  name: "Ada",
+  email: "ada@example.com",
+};
+
+function hostedLogoUrl(): string | null {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  return base ? `${base}/images/agile_logo.png` : null;
+}
+
+/**
+ * Sanitizes editor HTML and wraps it in the brand shell with a sample
+ * recipient. Used by preview, so `{{name}}`/`{{email}}` tokens and the logo
+ * render the way a real recipient would see them.
+ */
 export function renderBroadcastEmail(input: {
   title: string;
   bodyHtml: string;
-}): { html: string; text: string } {
+  subject?: string;
+}): { html: string; text: string; subject: string } {
+  const recipient = SAMPLE_PREVIEW_RECIPIENT;
   const bodyHtml = sanitizeEmailHtml(input.bodyHtml);
-  return buildBroadcastEmail({ headline: input.title, bodyHtml });
+  const headline = applyPersonalization(input.title, recipient, {
+    html: true,
+  });
+  const personalizedBody = applyPersonalization(bodyHtml, recipient, {
+    html: true,
+  });
+  const subject = applyPersonalization(input.subject ?? "", recipient);
+  const { html, text } = buildBroadcastEmail({
+    headline,
+    bodyHtml: personalizedBody,
+  });
+  const hosted = hostedLogoUrl();
+  return {
+    html: hosted ? html.replaceAll("cid:agile-logo", hosted) : html,
+    text,
+    subject,
+  };
 }
 
 export async function sendBroadcast(

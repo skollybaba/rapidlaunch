@@ -12,9 +12,11 @@ const {
   createMailAdapterMock,
   sendEmailMock,
   brandLogoAttachmentsMock,
+  brandLogoHtmlMock,
 } = vi.hoisted(() => {
   const sendEmailMock = vi.fn();
   const brandLogoAttachmentsMock = vi.fn().mockReturnValue([]);
+  const brandLogoHtmlMock = vi.fn().mockReturnValue("<img alt='logo' />");
   return {
     dbConnectMock: vi.fn().mockResolvedValue({}),
     userModelMock: { find: vi.fn(), countDocuments: vi.fn() },
@@ -31,6 +33,7 @@ const {
     })),
     sendEmailMock,
     brandLogoAttachmentsMock,
+    brandLogoHtmlMock,
   };
 });
 
@@ -54,7 +57,7 @@ vi.mock("@/lib/storage", () => ({ readUpload: readUploadMock }));
 vi.mock("@/lib/providers/mail", () => ({
   createMailAdapter: createMailAdapterMock,
   brandLogoAttachments: brandLogoAttachmentsMock,
-  brandLogoHtml: vi.fn().mockReturnValue("<img alt='logo' />"),
+  brandLogoHtml: brandLogoHtmlMock,
 }));
 
 import {
@@ -462,6 +465,36 @@ describe("renderBroadcastEmail", () => {
     expect(html).toContain("email-body");
     expect(html).not.toContain("onerror");
     expect(text).toContain("It's live!");
+  });
+
+  it("personalises tokens with a sample recipient and returns the subject", () => {
+    const rendered = renderBroadcastEmail({
+      title: "Hello {{name}}",
+      subject: "For {{name}}",
+      bodyHtml: "<p>Hi {{name}}, your email is {{email}}.</p>",
+    });
+    expect(rendered.html).toContain("Hello Ada");
+    expect(rendered.html).toContain("Hi Ada, your email is ada@example.com.");
+    expect(rendered.html).not.toContain("{{name}}");
+    expect(rendered.subject).toBe("For Ada");
+  });
+
+  it("swaps the inline logo cid for a hosted URL so the preview renders", () => {
+    const previous = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+    brandLogoHtmlMock.mockReturnValue(
+      "<img src='cid:agile-logo' alt='logo' />"
+    );
+    const { html } = renderBroadcastEmail({
+      title: "News",
+      bodyHtml: "<p>Hi</p>",
+    });
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previous;
+    expect(html).toContain(
+      "<img src='https://app.example.com/images/agile_logo.png'"
+    );
+    expect(html).not.toContain("cid:agile-logo");
   });
 });
 

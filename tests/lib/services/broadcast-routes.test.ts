@@ -215,6 +215,7 @@ describe("POST /api/admin/broadcast/preview", () => {
     const response = await postPreview(
       await jsonRequest("/api/admin/broadcast/preview", {
         title: "Launch",
+        subject: "Hello Ada",
         bodyHtml: "<p>Go</p>",
       })
     );
@@ -223,6 +224,7 @@ describe("POST /api/admin/broadcast/preview", () => {
     expect(json.data.html).toContain("<html>");
     expect(renderBroadcastEmailMock).toHaveBeenCalledWith({
       title: "Launch",
+      subject: "Hello Ada",
       bodyHtml: "<p>Go</p>",
     });
   });

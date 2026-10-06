@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -105,7 +105,26 @@ export function BroadcastComposer({
   const [error, setError] = useState("");
   const [result, setResult] = useState<BroadcastSendResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
+  const [previewSubject, setPreviewSubject] = useState("");
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (previewOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [previewOpen]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const onClose = () => setPreviewOpen(false);
+    dialog?.addEventListener("close", onClose);
+    return () => dialog?.removeEventListener("close", onClose);
+  }, []);
 
   function selectSegment(type: SegmentType) {
     setSegmentType(type);
@@ -170,14 +189,15 @@ export function BroadcastComposer({
       const response = await fetch("/api/admin/broadcast/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, bodyHtml }),
+        body: JSON.stringify({ title, subject, bodyHtml }),
       });
       const json = await response.json();
       if (!json.ok) {
         throw new Error(readApiError(json, "Could not render preview"));
       }
       setPreviewHtml(json.data.html as string);
-      dialogRef.current?.showModal();
+      setPreviewSubject((json.data.subject as string) ?? "");
+      setPreviewOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not render preview.");
     } finally {
@@ -613,22 +633,32 @@ export function BroadcastComposer({
         className="fixed inset-0 m-auto flex h-[85dvh] max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl flex-col overflow-hidden rounded-[20px] bg-neutral-950 shadow-2xl"
       >
         <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-4">
-          <p className="text-sm font-semibold text-white">Preview</p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">Preview</p>
+            <p className="mt-0.5 truncate text-xs text-white/50">
+              {previewSubject
+                ? `Subject: ${previewSubject} · To: Ada <ada@example.com>`
+                : `To: Ada <ada@example.com>`}
+            </p>
+          </div>
           <button
             type="button"
-            onClick={() => dialogRef.current?.close()}
+            onClick={() => setPreviewOpen(false)}
             aria-label="Close preview"
             className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus:ring-[3px] focus:ring-white/30"
           >
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
-        <iframe
-          title="Email preview"
-          sandbox=""
-          srcDoc={previewHtml}
-          className="min-h-0 w-full flex-1 bg-[#fcfaf8]"
-        />
+        {previewOpen ? (
+          <iframe
+            key={previewHtml}
+            title="Email preview"
+            sandbox=""
+            srcDoc={previewHtml}
+            className="min-h-0 w-full flex-1 bg-[#fcfaf8]"
+          />
+        ) : null}
       </dialog>
     </form>
   );
