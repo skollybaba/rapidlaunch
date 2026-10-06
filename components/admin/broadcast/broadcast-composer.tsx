@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  CalendarClock,
   CheckCircle2,
+  ChevronDown,
   Download,
   Mail,
   Paperclip,
@@ -15,9 +17,11 @@ import {
 } from "lucide-react";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { ScheduleSendDialog } from "@/components/admin/broadcast/schedule-send-dialog";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { readApiError } from "@/lib/feedback";
+import { formatDateTime } from "@/lib/utils";
 import { parseRecipientsFile } from "@/lib/validation/recipients";
 import type { ParsedRecipient } from "@/lib/validation/recipients";
 import type { BroadcastOptions } from "@/lib/services/broadcast-service";
@@ -43,6 +47,8 @@ export interface BroadcastSendResult {
   recipients: number;
   sent: number;
   failed: number;
+  status?: string;
+  scheduledFor?: string;
 }
 
 export function BroadcastComposer({
@@ -108,6 +114,10 @@ export function BroadcastComposer({
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewSubject, setPreviewSubject] = useState("");
 
+  const [sendMenuOpen, setSendMenuOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const sendMenuRef = useRef<HTMLDivElement>(null);
+
 
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
@@ -122,6 +132,29 @@ export function BroadcastComposer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [previewOpen]);
+
+  useEffect(() => {
+    if (!sendMenuOpen) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (
+        sendMenuRef.current &&
+        !sendMenuRef.current.contains(event.target as Node)
+      ) {
+        setSendMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSendMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [sendMenuOpen]);
 
 
   useEffect(() => {
@@ -238,6 +271,11 @@ export function BroadcastComposer({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await performSubmit(null);
+  }
+
+  /** Shared by the Send button and the schedule dialog; only the target time differs. */
+  async function performSubmit(scheduledForIso: string | null) {
     if (sending) return;
     setError("");
     setResult(null);
@@ -252,12 +290,22 @@ export function BroadcastComposer({
       return;
     }
 
-    const ok = await confirm({
-      title: `Send email to ${count.toLocaleString()} recipients?`,
-      description: `Audience: ${segmentName()}. This sends immediately — personalisation tokens are filled per recipient.`,
-      confirmLabel: "Send now",
-      tone: "primary",
-    });
+    const scheduledDate = scheduledForIso ? new Date(scheduledForIso) : null;
+    const ok = await confirm(
+      scheduledDate
+        ? {
+            title: `Schedule this email for ${count.toLocaleString()} recipients?`,
+            description: `Audience: ${segmentName()}. It will be sent automatically on ${formatDateTime(scheduledDate)} — you can watch it on the Scheduled tab.`,
+            confirmLabel: "Schedule email",
+            tone: "primary",
+          }
+        : {
+            title: `Send email to ${count.toLocaleString()} recipients?`,
+            description: `Audience: ${segmentName()}. This sends immediately — personalisation tokens are filled per recipient.`,
+            confirmLabel: "Send now",
+            tone: "primary",
+          }
+    );
     if (!ok) return;
 
     const formData = new FormData();
@@ -266,6 +314,7 @@ export function BroadcastComposer({
     formData.append("bodyHtml", bodyHtml);
     formData.append("segmentType", segmentType);
     if (productId) formData.append("productId", productId);
+    if (scheduledForIso) formData.append("scheduledFor", scheduledForIso);
     if (segmentType === "IMPORTED" && imported.length > 0) {
       formData.append("importedRecipients", JSON.stringify(imported));
     }
@@ -281,7 +330,12 @@ export function BroadcastComposer({
       });
       const json = await response.json();
       if (!json.ok) {
-        throw new Error(readApiError(json, "Could not send broadcast"));
+        throw new Error(
+          readApiError(
+            json,
+            scheduledDate ? "Could not schedule broadcast" : "Could not send broadcast"
+          )
+        );
       }
       const r = json.data as BroadcastSendResult;
       setResult(r);
@@ -292,14 +346,25 @@ export function BroadcastComposer({
       setImportIssues([]);
       setImportFileName("");
       if (attachmentRef.current) attachmentRef.current.value = "";
-      toast.success({
-        title: "Broadcast sent",
-        description: `${r.sent.toLocaleString()} delivered, ${r.failed.toLocaleString()} failed of ${r.recipients.toLocaleString()}.`,
-      });
+      if (r.scheduledFor) {
+        toast.success({
+          title: "Broadcast scheduled",
+          description: `This email goes out on ${formatDateTime(r.scheduledFor)}. Track it on the Scheduled tab.`,
+        });
+      } else {
+        toast.success({
+          title: "Broadcast sent",
+          description: `${r.sent.toLocaleString()} delivered, ${r.failed.toLocaleString()} failed of ${r.recipients.toLocaleString()}.`,
+        });
+      }
       router.refresh();
     } catch (err) {
       const reason =
-        err instanceof Error ? err.message : "Could not send broadcast.";
+        err instanceof Error
+          ? err.message
+          : scheduledDate
+            ? "Could not schedule broadcast."
+            : "Could not send broadcast.";
       setError(reason);
       toast.error({ title: reason });
     } finally {
@@ -609,17 +674,29 @@ export function BroadcastComposer({
             )}
             <div>
               <p className="text-sm font-semibold text-neutral-900">
-                {result.failed > 0
-                  ? "Broadcast sent with some failures"
-                  : "Broadcast sent"}
+                {result.scheduledFor
+                  ? "Broadcast scheduled"
+                  : result.failed > 0
+                    ? "Broadcast sent with some failures"
+                    : "Broadcast sent"}
               </p>
               <p className="mt-0.5 text-sm text-neutral-600">
-                Sent to {result.sent.toLocaleString()} of{" "}
-                {result.recipients.toLocaleString()} recipients
-                {result.failed > 0
-                  ? ` (${result.failed.toLocaleString()} failed)`
-                  : ""}
-                . Check the history below.
+                {result.scheduledFor ? (
+                  <>
+                    Goes out on {formatDateTime(result.scheduledFor)} to{" "}
+                    {result.recipients.toLocaleString()} recipients. Track it
+                    under Send history → Scheduled.
+                  </>
+                ) : (
+                  <>
+                    Sent to {result.sent.toLocaleString()} of{" "}
+                    {result.recipients.toLocaleString()} recipients
+                    {result.failed > 0
+                      ? ` (${result.failed.toLocaleString()} failed)`
+                      : ""}
+                    . Check the history below.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -635,22 +712,83 @@ export function BroadcastComposer({
             <Mail className="size-4" aria-hidden="true" />
             {previewing ? "Rendering…" : "Preview email"}
           </button>
-          <button
-            type="submit"
-            disabled={sending || recipientCount() === 0}
-            className="inline-flex h-[46px] items-center gap-2 rounded-pill bg-terracotta-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {sending ? (
-              <Send className="size-4 animate-pulse" aria-hidden="true" />
-            ) : (
-              <Send className="size-4" aria-hidden="true" />
-            )}
-            {sending
-              ? "Sending…"
-              : `Send to ${recipientCount().toLocaleString()} recipient${
-                  recipientCount() === 1 ? "" : "s"
-                }`}
-          </button>
+
+          <div className="relative" ref={sendMenuRef}>
+            <div className="flex items-stretch">
+              <button
+                type="submit"
+                disabled={sending || recipientCount() === 0}
+                className="inline-flex h-[46px] items-center gap-2 rounded-l-[999px] border border-r-0 border-transparent bg-terracotta-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {sending ? (
+                  <Send className="size-4 animate-pulse" aria-hidden="true" />
+                ) : (
+                  <Send className="size-4" aria-hidden="true" />
+                )}
+                {sending
+                  ? "Sending…"
+                  : `Send to ${recipientCount().toLocaleString()} recipient${
+                      recipientCount() === 1 ? "" : "s"
+                    }`}
+              </button>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={sendMenuOpen}
+                aria-label="More send options"
+                disabled={sending || recipientCount() === 0}
+                onClick={() => setSendMenuOpen((value) => !value)}
+                className="inline-flex h-[46px] w-11 items-center justify-center rounded-r-[999px] border border-l border-terracotta-500 bg-terracotta-600 text-white shadow-sm transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-500 disabled:pointer-events-none disabled:opacity-50"
+              >
+                <ChevronDown className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            {sendMenuOpen ? (
+              <div
+                role="menu"
+                aria-label="Send options"
+                className="absolute bottom-[calc(100%+8px)] right-0 z-40 w-64 overflow-hidden rounded-[12px] border border-neutral-300 bg-white shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    void performSubmit(null);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-neutral-700 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-50"
+                >
+                  <Send className="size-4 shrink-0 text-terracotta-600" aria-hidden="true" />
+                  Send now
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSendMenuOpen(false);
+                    setScheduleOpen(true);
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-3 text-left text-sm font-medium text-neutral-700 transition-colors duration-[var(--duration-fast)] hover:bg-neutral-50"
+                >
+                  <CalendarClock className="size-4 shrink-0 text-terracotta-600" aria-hidden="true" />
+                  Schedule send…
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <ScheduleSendDialog
+            open={scheduleOpen}
+            onClose={() => setScheduleOpen(false)}
+            onConfirm={(iso) => {
+              setScheduleOpen(false);
+              void performSubmit(iso);
+            }}
+            recipientCount={recipientCount()}
+            submitting={sending}
+          />
+
           <span className="ml-auto flex items-center gap-1.5 text-xs text-neutral-500">
             <Users className="size-3.5" aria-hidden="true" />
             {segmentName()}

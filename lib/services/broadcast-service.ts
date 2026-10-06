@@ -16,6 +16,7 @@ import {
   BROADCAST_SEGMENT_TYPES,
   Broadcast,
   type BroadcastSegmentType,
+  type BroadcastStatus,
 } from "@/models/Broadcast";
 import { Booking } from "@/models/Booking";
 import { Enrollment } from "@/models/Enrollment";
@@ -62,6 +63,9 @@ export interface BroadcastResult {
   sent: number;
   failed: number;
   broadcastId: string;
+  status: BroadcastStatus;
+  /** ISO timestamp, present when the campaign was scheduled rather than sent. */
+  scheduledFor?: string;
 }
 
 export interface BroadcastActor {
@@ -82,6 +86,17 @@ export interface BroadcastHistoryRow {
   createdAt: string;
 }
 
+export interface BroadcastScheduledRow {
+  id: string;
+  title: string;
+  subject: string;
+  segmentLabel: string;
+  recipientCount: number;
+  status: string;
+  scheduledFor: string;
+  createdByEmail: string;
+}
+
 export const broadcastSendSchema = z
   .object({
     title: z.string().trim().min(1, "Title is required").max(200),
@@ -92,6 +107,11 @@ export const broadcastSendSchema = z
     importedRecipients: z.unknown().optional(),
     attachmentKeys: z.array(z.string().trim().min(1)).max(5).default([]),
     attachmentName: z.string().trim().max(200).optional(),
+    scheduledFor: z
+      .string()
+      .trim()
+      .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid schedule time")
+      .optional(),
   })
   .strict();
 
@@ -414,6 +434,101 @@ export function renderBroadcastEmail(input: {
   };
 }
 
+interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
+/**
+ * Loads stored attachment keys. Missing files abort the request by default;
+ * dispatch passes `tolerateMissing` so one lost file cannot wedge a campaign
+ * in retries forever (it is logged instead).
+ */
+async function loadAttachments(
+  keys: string[],
+  attachmentName: string | null | undefined,
+  options: { tolerateMissing?: boolean } = {}
+): Promise<MailAttachment[]> {
+  const attachments: MailAttachment[] = [];
+  for (const key of keys) {
+    const data = await readUpload(key);
+    if (!data) {
+      if (options.tolerateMissing) {
+        console.error("Broadcast attachment missing", { key });
+        continue;
+      }
+      throw new BroadcastServiceError(
+        "ATTACHMENT_MISSING",
+        `Attachment ${attachmentName ?? key} could not be loaded.`,
+        400
+      );
+    }
+    attachments.push({
+      filename: attachmentName ?? key,
+      content: data,
+      ...(key.toLowerCase().endsWith(".pdf")
+        ? { contentType: "application/pdf" }
+        : {}),
+    });
+  }
+  return attachments;
+}
+
+/** Personalises and delivers one campaign body to every resolved recipient. */
+async function deliverToRecipients(params: {
+  title: string;
+  subject: string;
+  bodyHtml: string;
+  recipients: BroadcastRecipient[];
+  attachments: MailAttachment[];
+}): Promise<{ sent: number; failed: number }> {
+  const mail = createMailAdapter();
+  const logoAttachments = brandLogoAttachments();
+
+  let sent = 0;
+  let failed = 0;
+  for (const recipient of params.recipients) {
+    try {
+      const subject = applyPersonalization(params.subject, recipient);
+      const personalizedBody = applyPersonalization(params.bodyHtml, recipient, {
+        html: true,
+      });
+      const personalizedTitle = applyPersonalization(params.title, recipient, {
+        html: true,
+      });
+      const { html, text } = buildBroadcastEmail({
+        headline: personalizedTitle,
+        bodyHtml: personalizedBody,
+      });
+      await mail.sendEmail({
+        to: recipient.email,
+        subject,
+        html,
+        text,
+        attachments: [...logoAttachments, ...params.attachments],
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+  return { sent, failed };
+}
+
+function bodyPreviewOf(bodyHtml: string): string {
+  return bodyHtml
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 400);
+}
+
+/**
+ * Sends a campaign now, or — when `scheduledFor` is in the future — stores it
+ * as a SCHEDULED broadcast for the dispatch runner to fire later. Recipients
+ * are always resolved up front so an empty audience fails fast at compose time.
+ */
 export async function sendBroadcast(
   input: unknown,
   actor: BroadcastActor
@@ -426,6 +541,17 @@ export async function sendBroadcast(
     throw new BroadcastServiceError(
       "EMPTY_BODY",
       "The email body is empty after sanitizing.",
+      400
+    );
+  }
+
+  const scheduledDate = parsed.scheduledFor
+    ? new Date(parsed.scheduledFor)
+    : null;
+  if (scheduledDate && scheduledDate.getTime() <= Date.now()) {
+    throw new BroadcastServiceError(
+      "SCHEDULED_IN_PAST",
+      "Pick a date and time in the future to schedule this email.",
       400
     );
   }
@@ -468,74 +594,63 @@ export async function sendBroadcast(
     segmentProductTitle = product?.title ?? null;
   }
 
-  const attachments = [];
-  for (const key of parsed.attachmentKeys) {
-    const data = await readUpload(key);
-    if (!data) {
-      throw new BroadcastServiceError(
-        "ATTACHMENT_MISSING",
-        `Attachment ${parsed.attachmentName ?? key} could not be loaded.`,
-        400
-      );
-    }
-    attachments.push({
-      filename: parsed.attachmentName ?? key,
-      content: data,
-      ...(key.toLowerCase().endsWith(".pdf")
-        ? { contentType: "application/pdf" }
-        : {}),
-    });
-  }
+  // Validated now so a bad key surfaces at compose time, not at send time.
+  const attachments = await loadAttachments(
+    parsed.attachmentKeys,
+    parsed.attachmentName
+  );
 
-  const mail = createMailAdapter();
-  const logoAttachments = brandLogoAttachments();
-
-  let sent = 0;
-  let failed = 0;
-  for (const recipient of recipients) {
-    try {
-      const subject = applyPersonalization(parsed.subject, recipient);
-      const personalizedBody = applyPersonalization(bodyHtml, recipient, {
-        html: true,
-      });
-      const personalizedTitle = applyPersonalization(parsed.title, recipient, {
-        html: true,
-      });
-      const { html, text } = buildBroadcastEmail({
-        headline: personalizedTitle,
-        bodyHtml: personalizedBody,
-      });
-      await mail.sendEmail({
-        to: recipient.email,
-        subject,
-        html,
-        text,
-        attachments: [...logoAttachments, ...attachments],
-      });
-      sent++;
-    } catch {
-      failed++;
-    }
-  }
-
-  const status = failed === 0 ? "COMPLETED" : sent === 0 ? "FAILED" : "PARTIAL";
-
-  const broadcast = await Broadcast.create({
+  const baseDoc = {
     title: parsed.title,
     subject: parsed.subject,
-    bodyPreview: bodyHtml
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 400),
+    bodyPreview: bodyPreviewOf(bodyHtml),
+    bodyHtml,
     segmentType: parsed.segmentType,
     segmentProductTitle,
+    segmentProductId: parsed.productId ?? null,
+    importedRecipients:
+      parsed.segmentType === "IMPORTED" ? (imported ?? null) : null,
+    attachmentKeys: parsed.attachmentKeys,
+    attachmentName: parsed.attachmentName ?? null,
     recipientCount: recipients.length,
+    createdByUserId: actor.userId,
+    createdByEmail: actor.email,
+  };
+
+  if (scheduledDate) {
+    const broadcast = await Broadcast.create({
+      ...baseDoc,
+      sentCount: 0,
+      failedCount: 0,
+      status: "SCHEDULED",
+      scheduledFor: scheduledDate,
+    });
+    return {
+      recipients: recipients.length,
+      sent: 0,
+      failed: 0,
+      broadcastId: String(broadcast._id),
+      status: "SCHEDULED",
+      scheduledFor: scheduledDate.toISOString(),
+    };
+  }
+
+  const { sent, failed } = await deliverToRecipients({
+    title: parsed.title,
+    subject: parsed.subject,
+    bodyHtml,
+    recipients,
+    attachments,
+  });
+
+  const status: BroadcastStatus =
+    failed === 0 ? "COMPLETED" : sent === 0 ? "FAILED" : "PARTIAL";
+
+  const broadcast = await Broadcast.create({
+    ...baseDoc,
     sentCount: sent,
     failedCount: failed,
     status,
-    createdByUserId: actor.userId,
-    createdByEmail: actor.email,
   });
 
   return {
@@ -543,19 +658,165 @@ export async function sendBroadcast(
     sent,
     failed,
     broadcastId: String(broadcast._id),
+    status,
   };
 }
 
-/** Recent campaign log for the history table. */
-export async function listBroadcasts(limit = 20): Promise<BroadcastHistoryRow[]> {
+export interface DeliverScheduledResult {
+  delivered: boolean;
+  /** Another runner owns the claim, or the broadcast already left SCHEDULED. */
+  skipped: boolean;
+  recipients: number;
+  sent: number;
+  failed: number;
+  /** Terminal reason when the campaign can no longer go out. */
+  error?: string;
+}
+
+/**
+ * Fires one scheduled broadcast. Atomically claims it first so the in-process
+ * timer, the cron endpoint and any manual trigger cannot double-send; the
+ * audience is re-resolved at send time because segments are live.
+ */
+export async function deliverScheduledBroadcast(
+  broadcastId: string
+): Promise<DeliverScheduledResult> {
   await dbConnect();
-  const rows = await Broadcast.find()
-    .sort({ createdAt: -1 })
-    .limit(limit)
+
+  const claimed = await Broadcast.findOneAndUpdate(
+    { _id: broadcastId, status: "SCHEDULED", dispatchingAt: null },
+    { $set: { dispatchingAt: new Date() } },
+    { new: true }
+  )
+    .select("+bodyHtml")
     .lean()
     .exec();
 
-  return rows.map((row) => ({
+  if (!claimed) {
+    return { delivered: false, skipped: true, recipients: 0, sent: 0, failed: 0 };
+  }
+
+  const release = async (set: Record<string, unknown>): Promise<void> => {
+    await Broadcast.updateOne(
+      { _id: claimed._id },
+      { $set: { ...set, dispatchingAt: null } }
+    );
+  };
+
+  try {
+    const bodyHtml = (claimed.bodyHtml ?? "").trim();
+    if (!bodyHtml) {
+      await release({ status: "FAILED" });
+      return {
+        delivered: false,
+        skipped: false,
+        recipients: 0,
+        sent: 0,
+        failed: 0,
+        error: "The email body is missing.",
+      };
+    }
+
+    let imported: ParsedRecipient[] | undefined;
+    if (claimed.segmentType === "IMPORTED") {
+      try {
+        imported = validateImportedRecipients(claimed.importedRecipients);
+      } catch (error) {
+        await release({ status: "FAILED" });
+        return {
+          delivered: false,
+          skipped: false,
+          recipients: 0,
+          sent: 0,
+          failed: 0,
+          error:
+            error instanceof Error
+              ? error.message
+              : "The imported list is no longer valid.",
+        };
+      }
+    }
+
+    const resolved =
+      claimed.segmentType === "IMPORTED"
+        ? []
+        : await resolveSegment(claimed.segmentType, claimed.segmentProductId ?? undefined);
+    const recipients = mergeRecipients(
+      imported ? [imported, resolved] : [resolved]
+    );
+    if (recipients.length === 0) {
+      await release({ status: "FAILED", recipientCount: 0 });
+      return {
+        delivered: false,
+        skipped: false,
+        recipients: 0,
+        sent: 0,
+        failed: 0,
+        error: "There are no recipients in this audience.",
+      };
+    }
+
+    const attachments = await loadAttachments(
+      claimed.attachmentKeys ?? [],
+      claimed.attachmentName,
+      { tolerateMissing: true }
+    );
+
+    const { sent, failed } = await deliverToRecipients({
+      title: claimed.title,
+      subject: claimed.subject,
+      bodyHtml,
+      recipients,
+      attachments,
+    });
+
+    const status: BroadcastStatus =
+      failed === 0 ? "COMPLETED" : sent === 0 ? "FAILED" : "PARTIAL";
+
+    await Broadcast.updateOne(
+      { _id: claimed._id },
+      {
+        $set: {
+          status,
+          recipientCount: recipients.length,
+          sentCount: sent,
+          failedCount: failed,
+          dispatchingAt: null,
+        },
+      }
+    );
+
+    return {
+      delivered: true,
+      skipped: false,
+      recipients: recipients.length,
+      sent,
+      failed,
+    };
+  } catch (error) {
+    // Free the claim so a later tick retries, but never swallow the error.
+    await Broadcast.updateOne(
+      { _id: claimed._id },
+      { $set: { dispatchingAt: null } }
+    );
+    throw error;
+  }
+}
+
+function mapHistoryRow(row: {
+  _id: unknown;
+  title: string;
+  subject: string;
+  segmentType: BroadcastSegmentType;
+  segmentProductTitle: string | null;
+  recipientCount: number;
+  sentCount: number;
+  failedCount: number;
+  status: string;
+  createdByEmail: string;
+  createdAt?: Date;
+}): BroadcastHistoryRow {
+  return {
     id: String(row._id),
     title: row.title,
     subject: row.subject,
@@ -566,5 +827,48 @@ export async function listBroadcasts(limit = 20): Promise<BroadcastHistoryRow[]>
     status: row.status,
     createdByEmail: row.createdByEmail,
     createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : "",
+  };
+}
+
+/** Recent campaign log for the history table, excluding pending scheduled sends. */
+export async function listBroadcasts(limit = 20): Promise<BroadcastHistoryRow[]> {
+  await dbConnect();
+  const rows = await Broadcast.find({ status: { $ne: "SCHEDULED" } })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean()
+    .exec();
+
+  return rows.map(mapHistoryRow);
+}
+
+/** Scheduled campaigns that have not gone out yet, soonest first. */
+export async function listScheduledBroadcasts(
+  limit = 20
+): Promise<BroadcastScheduledRow[]> {
+  await dbConnect();
+  const rows = await Broadcast.find({ status: "SCHEDULED" })
+    .sort({ scheduledFor: 1 })
+    .limit(limit)
+    .lean()
+    .exec();
+
+  return rows.map((row) => ({
+    id: String(row._id),
+    title: row.title,
+    subject: row.subject,
+    segmentLabel: segmentLabel(row.segmentType, row.segmentProductTitle),
+    recipientCount: row.recipientCount,
+    status: row.status,
+    scheduledFor: row.scheduledFor
+      ? new Date(row.scheduledFor).toISOString()
+      : "",
+    createdByEmail: row.createdByEmail,
   }));
+}
+
+/** Drives the pending badge on the Scheduled tab. */
+export async function countPendingScheduledBroadcasts(): Promise<number> {
+  await dbConnect();
+  return Broadcast.countDocuments({ status: "SCHEDULED" });
 }

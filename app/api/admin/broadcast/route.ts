@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
   const bodyHtml = (form.get("bodyHtml") as string | null) ?? "";
   const segmentType = (form.get("segmentType") as string | null) ?? "";
   const productId = (form.get("productId") as string | null) || undefined;
+  const scheduledFor = (form.get("scheduledFor") as string | null) || undefined;
   const importedJson = (form.get("importedRecipients") as string | null) || undefined;
 
   let importedRecipients: unknown;
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
         bodyHtml,
         segmentType,
         productId,
+        scheduledFor,
         importedRecipients,
         attachmentKeys,
         attachmentName,

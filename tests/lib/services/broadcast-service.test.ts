@@ -24,7 +24,14 @@ const {
     bookingModelMock: { find: vi.fn(), distinct: vi.fn() },
     orderModelMock: { find: vi.fn(), distinct: vi.fn() },
     productModelMock: { find: vi.fn(), findById: vi.fn() },
-    broadcastModelMock: { find: vi.fn(), create: vi.fn() },
+    broadcastModelMock: {
+      find: vi.fn(),
+      create: vi.fn(),
+      findOneAndUpdate: vi.fn(),
+      updateOne: vi.fn(),
+      updateMany: vi.fn(),
+      countDocuments: vi.fn(),
+    },
     readUploadMock: vi.fn(),
     createMailAdapterMock: vi.fn(() => ({
       sendEmail: sendEmailMock,
@@ -62,8 +69,11 @@ vi.mock("@/lib/providers/mail", () => ({
 
 import {
   applyPersonalization,
+  countPendingScheduledBroadcasts,
+  deliverScheduledBroadcast,
   getBroadcastOptions,
   listBroadcasts,
+  listScheduledBroadcasts,
   renderBroadcastEmail,
   sendBroadcast,
   BroadcastServiceError,
@@ -446,11 +456,248 @@ describe("listBroadcasts", () => {
 
     const rows = await listBroadcasts();
 
+    // Pending scheduled sends belong on their own tab, not in the sent log.
+    expect(broadcastModelMock.find).toHaveBeenCalledWith({
+      status: { $ne: "SCHEDULED" },
+    });
     expect(rows[0]).toMatchObject({
       id: "BC1",
       segmentLabel: "Course enrollees: AI Course",
       recipientCount: 5,
       createdAt: "2026-09-01T10:00:00.000Z",
+    });
+  });
+});
+
+const FUTURE_ISO = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+describe("sendBroadcast — scheduling", () => {
+  it("stores a SCHEDULED broadcast without sending anything", async () => {
+    userModelMock.find.mockReturnValue(
+      chain([{ _id: "U1", email: "ada@example.com", name: "Ada" }])
+    );
+    broadcastModelMock.create.mockResolvedValue({ _id: "BCS1" });
+
+    const result = await sendBroadcast(
+      baseInput({ scheduledFor: FUTURE_ISO }),
+      actor
+    );
+
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(broadcastModelMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "SCHEDULED",
+        scheduledFor: new Date(FUTURE_ISO),
+        sentCount: 0,
+        failedCount: 0,
+        recipientCount: 1,
+        bodyHtml: expect.stringContaining("Hi"),
+        segmentProductId: null,
+      })
+    );
+    expect(result).toMatchObject({
+      status: "SCHEDULED",
+      sent: 0,
+      failed: 0,
+      broadcastId: "BCS1",
+      scheduledFor: FUTURE_ISO,
+    });
+  });
+
+  it("rejects a schedule time in the past", async () => {
+    const past = new Date(Date.now() - 60 * 1000).toISOString();
+
+    await expect(
+      sendBroadcast(baseInput({ scheduledFor: past }), actor)
+    ).rejects.toMatchObject({ code: "SCHEDULED_IN_PAST", status: 400 });
+
+    expect(broadcastModelMock.create).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("still rejects an empty audience before scheduling", async () => {
+    userModelMock.find.mockReturnValue(chain([]));
+
+    await expect(
+      sendBroadcast(baseInput({ scheduledFor: FUTURE_ISO }), actor)
+    ).rejects.toMatchObject({ code: "NO_RECIPIENTS", status: 400 });
+    expect(broadcastModelMock.create).not.toHaveBeenCalled();
+  });
+});
+
+function scheduledBroadcastDoc(overrides: Record<string, unknown> = {}) {
+  return {
+    _id: "BCS1",
+    title: "Big news",
+    subject: "Hello {{name}}",
+    bodyHtml: "<p>Hi {{name}}</p>",
+    segmentType: "ALL_USERS",
+    segmentProductTitle: null,
+    segmentProductId: null,
+    importedRecipients: null,
+    attachmentKeys: [],
+    attachmentName: null,
+    recipientCount: 2,
+    status: "SCHEDULED",
+    scheduledFor: new Date(Date.now() - 1000),
+    dispatchingAt: new Date(),
+    createdByEmail: "admin@example.com",
+    ...overrides,
+  };
+}
+
+function rejectingChain(error: Error): never {
+  const query: Record<string, unknown> = {};
+  query.select = () => query;
+  query.sort = () => query;
+  query.limit = () => query;
+  query.lean = () => query;
+  query.exec = () => Promise.reject(error);
+  return query as never;
+}
+
+describe("deliverScheduledBroadcast", () => {
+  it("claims the broadcast, sends it and records the outcome", async () => {
+    broadcastModelMock.findOneAndUpdate.mockReturnValue(
+      chain(scheduledBroadcastDoc())
+    );
+    userModelMock.find.mockReturnValue(
+      chain([
+        { _id: "U1", email: "ada@example.com", name: "Ada" },
+        { _id: "U2", email: "tunde@example.com" },
+      ])
+    );
+    broadcastModelMock.updateOne.mockResolvedValue({ modifiedCount: 1 });
+
+    const result = await deliverScheduledBroadcast("BCS1");
+
+    expect(broadcastModelMock.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "BCS1", status: "SCHEDULED", dispatchingAt: null },
+      { $set: { dispatchingAt: expect.any(Date) } },
+      { new: true }
+    );
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      delivered: true,
+      recipients: 2,
+      sent: 2,
+      failed: 0,
+    });
+    expect(broadcastModelMock.updateOne).toHaveBeenCalledWith(
+      { _id: "BCS1" },
+      {
+        $set: expect.objectContaining({
+          status: "COMPLETED",
+          recipientCount: 2,
+          sentCount: 2,
+          failedCount: 0,
+          dispatchingAt: null,
+        }),
+      }
+    );
+  });
+
+  it("skips when another runner already holds the claim", async () => {
+    broadcastModelMock.findOneAndUpdate.mockReturnValue(chain(null));
+
+    const result = await deliverScheduledBroadcast("BCS1");
+
+    expect(result).toMatchObject({ delivered: false, skipped: true });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(broadcastModelMock.updateOne).not.toHaveBeenCalled();
+  });
+
+  it("marks the campaign FAILED when the stored body is missing", async () => {
+    broadcastModelMock.findOneAndUpdate.mockReturnValue(
+      chain(scheduledBroadcastDoc({ bodyHtml: "" }))
+    );
+
+    const result = await deliverScheduledBroadcast("BCS1");
+
+    expect(result.delivered).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(broadcastModelMock.updateOne).toHaveBeenCalledWith(
+      { _id: "BCS1" },
+      { $set: expect.objectContaining({ status: "FAILED", dispatchingAt: null }) }
+    );
+  });
+
+  it("marks the campaign FAILED when the audience has emptied out", async () => {
+    broadcastModelMock.findOneAndUpdate.mockReturnValue(
+      chain(scheduledBroadcastDoc())
+    );
+    userModelMock.find.mockReturnValue(chain([]));
+
+    const result = await deliverScheduledBroadcast("BCS1");
+
+    expect(result).toMatchObject({ delivered: false, skipped: false });
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(broadcastModelMock.updateOne).toHaveBeenCalledWith(
+      { _id: "BCS1" },
+      {
+        $set: expect.objectContaining({
+          status: "FAILED",
+          recipientCount: 0,
+          dispatchingAt: null,
+        }),
+      }
+    );
+  });
+
+  it("releases the claim and rethrows when resolution fails", async () => {
+    broadcastModelMock.findOneAndUpdate.mockReturnValue(
+      chain(scheduledBroadcastDoc())
+    );
+    userModelMock.find.mockReturnValue(rejectingChain(new Error("db down")));
+
+    await expect(deliverScheduledBroadcast("BCS1")).rejects.toThrow("db down");
+
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    expect(broadcastModelMock.updateOne).toHaveBeenCalledWith(
+      { _id: "BCS1" },
+      { $set: { dispatchingAt: null } }
+    );
+  });
+});
+
+describe("scheduled broadcast listings", () => {
+  it("maps scheduled rows with their send time", async () => {
+    broadcastModelMock.find.mockReturnValue(
+      chain([
+        {
+          _id: "BC2",
+          title: "Later",
+          subject: "Soon",
+          segmentType: "ALL_USERS",
+          segmentProductTitle: null,
+          recipientCount: 3,
+          status: "SCHEDULED",
+          scheduledFor: new Date("2026-10-10T09:00:00.000Z"),
+          createdByEmail: "admin@example.com",
+        },
+      ])
+    );
+
+    const rows = await listScheduledBroadcasts();
+
+    expect(broadcastModelMock.find).toHaveBeenCalledWith({
+      status: "SCHEDULED",
+    });
+    expect(rows[0]).toMatchObject({
+      id: "BC2",
+      status: "SCHEDULED",
+      scheduledFor: "2026-10-10T09:00:00.000Z",
+      segmentLabel: "All users",
+    });
+  });
+
+  it("counts pending scheduled broadcasts for the tab badge", async () => {
+    broadcastModelMock.countDocuments.mockResolvedValue(1);
+
+    await expect(countPendingScheduledBroadcasts()).resolves.toBe(1);
+    expect(broadcastModelMock.countDocuments).toHaveBeenCalledWith({
+      status: "SCHEDULED",
     });
   });
 });

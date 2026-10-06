@@ -14,10 +14,14 @@ export async function register() {
 
   const REMINDER_INTERVAL_MS = 15 * 60 * 1000;
   const SEQUENCE_INTERVAL_MS = 5 * 60 * 1000;
+  // Scheduled broadcasts carry a specific clock time, so this tick is the
+  // shortest of the three.
+  const BROADCAST_INTERVAL_MS = 60 * 1000;
 
   const globals = globalThis as typeof globalThis & {
     __bookingReminderTimer?: ReturnType<typeof setInterval>;
     __emailSequenceTimer?: ReturnType<typeof setInterval>;
+    __broadcastDispatchTimer?: ReturnType<typeof setInterval>;
   };
 
   if (globals.__bookingReminderTimer) return;
@@ -27,6 +31,9 @@ export async function register() {
   );
   const { dispatchEmailSequenceSteps } = await import(
     "@/lib/services/sequence-dispatch-service"
+  );
+  const { dispatchDueBroadcasts } = await import(
+    "@/lib/services/broadcast-dispatch-service"
   );
 
   async function runReminders() {
@@ -54,10 +61,32 @@ export async function register() {
     }
   }
 
+  async function runScheduledBroadcasts() {
+    try {
+      const result = await dispatchDueBroadcasts();
+      if (result.delivered > 0 || result.failed > 0) {
+        console.info("Scheduled broadcast dispatch", {
+          processed: result.processed,
+          delivered: result.delivered,
+          failed: result.failed,
+        });
+      }
+    } catch (error) {
+      // Scheduled sends are best-effort per tick; the claim is released so
+      // the next tick retries.
+      console.error("Scheduled broadcast runner failed", { error });
+    }
+  }
+
   void runReminders();
   globals.__bookingReminderTimer = setInterval(() => {
     void runReminders();
   }, REMINDER_INTERVAL_MS);
+
+  void runScheduledBroadcasts();
+  globals.__broadcastDispatchTimer = setInterval(() => {
+    void runScheduledBroadcasts();
+  }, BROADCAST_INTERVAL_MS);
 
   // Delay the first sequence tick so it does not compete with the reminder
   // tick and DB connection on cold start.
@@ -74,5 +103,6 @@ export async function register() {
 
   console.info("Background schedulers registered", {
     reminderMinutes: REMINDER_INTERVAL_MS / 60000,
+    broadcastSeconds: BROADCAST_INTERVAL_MS / 1000,
   });
 }

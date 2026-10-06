@@ -4,8 +4,10 @@ import { BroadcastComposer } from "@/components/admin/broadcast/broadcast-compos
 import { BroadcastHistory } from "@/components/admin/broadcast/broadcast-history";
 import { requireAdmin } from "@/lib/auth/admin";
 import {
+  countPendingScheduledBroadcasts,
   getBroadcastOptions,
   listBroadcasts,
+  listScheduledBroadcasts,
 } from "@/lib/services/broadcast-service";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +16,24 @@ export const metadata: Metadata = {
   title: "Email & Broadcasting | Rapid Launch Back office",
 };
 
-export default async function EmailBroadcastPage() {
+interface BroadcastPageProps {
+  searchParams: Promise<{ tab?: string | string[] } | null>;
+}
+
+export default async function EmailBroadcastPage({
+  searchParams,
+}: BroadcastPageProps) {
   await requireAdmin();
 
-  const [options, history] = await Promise.all([
+  const sp = await searchParams;
+  const tabParam = Array.isArray(sp?.tab) ? sp?.tab[0] : sp?.tab;
+  const activeTab = tabParam === "scheduled" ? "scheduled" : "sent";
+
+  const [options, history, scheduled, pendingCount] = await Promise.all([
     getBroadcastOptions(),
     listBroadcasts(20),
+    listScheduledBroadcasts(20),
+    countPendingScheduledBroadcasts(),
   ]);
 
   return (
@@ -35,7 +49,12 @@ export default async function EmailBroadcastPage() {
 
       <BroadcastComposer options={options} />
 
-      <BroadcastHistory rows={history} />
+      <BroadcastHistory
+        rows={history}
+        scheduledRows={scheduled}
+        pendingCount={pendingCount}
+        activeTab={activeTab}
+      />
     </div>
   );
 }

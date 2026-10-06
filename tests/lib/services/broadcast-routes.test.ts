@@ -113,6 +113,31 @@ describe("POST /api/admin/broadcast", () => {
     );
   });
 
+  it("passes a schedule time through so the broadcast is stored, not sent", async () => {
+    const scheduledFor = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const form = formData({
+      title: "Big news",
+      subject: "Hello",
+      bodyHtml: "<p>Hi</p>",
+      segmentType: "ALL_USERS",
+      scheduledFor,
+    });
+    const response = await postBroadcast(
+      new NextRequest("http://localhost/api/admin/broadcast", {
+        method: "POST",
+        body: form,
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(sendBroadcastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledFor }),
+      { userId: "A1", email: "admin@example.com" }
+    );
+  });
+
   it("uploads and passes an attachment through", async () => {
     const form = formData({
       title: "News",
