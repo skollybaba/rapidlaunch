@@ -122,6 +122,41 @@ describe("SmtpMailAdapter", () => {
     expect(payload.text).toContain("Customer: buyer&seller@example.com");
   });
 
+  it("renders sequence steps in the shared broadcast shell", async () => {
+    await adapter.sendTemplateEmail({
+      templateKey: "sequence_step",
+      to: "student@gmail.com",
+      variables: {
+        subject: "Your first lesson is ready",
+        title: "Welcome to the course",
+        body: '<p>Start here.</p><img src="https://example.com/lesson.png" width="900" />',
+      },
+    });
+
+    const payload = sendMail.mock.calls[0][0];
+    expect(payload.subject).toBe("Your first lesson is ready");
+
+    // Same shell as broadcasts: 600px card with a logo-only dark header.
+    expect(payload.html).toContain('class="email-shell"');
+    expect(payload.html).toContain("max-width:600px");
+
+    // The headline sits in the white content card, never inside the header.
+    expect(payload.html).toMatch(/<h1[^>]*>Welcome to the course<\/h1>/);
+    const headerStart = payload.html.indexOf("background:#141414");
+    const headlineStart = payload.html.indexOf("<h1");
+    expect(headerStart).toBeGreaterThan(-1);
+    expect(headlineStart).toBeGreaterThan(headerStart);
+    expect(payload.html.slice(headerStart, headlineStart)).not.toContain(
+      "Welcome to the course"
+    );
+
+    // Wide images are capped to the container instead of overflowing.
+    expect(payload.html).toContain(".email-body img");
+    expect(payload.html).toContain("max-width:100%; height:auto;");
+    expect(payload.html).toContain("Manrope");
+    expect(payload.text).toContain("Start here.");
+  });
+
   it("falls back to the hosted logo URL when the logo file cannot be read", async () => {
     vi.resetModules();
     vi.doMock("node:fs", () => ({

@@ -50,6 +50,37 @@ describe("GET /api/admin/email-sequences/[id]/subscribers", () => {
     expect(listSequenceSubscribersMock).toHaveBeenCalledWith("SEQ1", { limit: 10, skip: 0 });
   });
 
+  it("passes search and status filters through to the service", async () => {
+    const res = await GET(getRequest("?q=ada&status=pending&limit=50"), context());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(listSequenceSubscribersMock).toHaveBeenCalledWith("SEQ1", {
+      limit: 50,
+      q: "ada",
+      status: "pending",
+    });
+  });
+
+  it("rejects an unsupported status filter", async () => {
+    const res = await GET(getRequest("?status=archived"), context());
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.ok).toBe(false);
+    expect(listSequenceSubscribersMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a search term longer than 100 characters", async () => {
+    const res = await GET(getRequest(`?q=${"a".repeat(101)}`), context());
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.ok).toBe(false);
+    expect(listSequenceSubscribersMock).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid sequence id", async () => {
     const res = await GET(getRequest(), context(""));
     const body = await res.json();

@@ -61,6 +61,10 @@ vi.mock("@/models/Broadcast", () => ({
   ],
 }));
 vi.mock("@/lib/storage", () => ({ readUpload: readUploadMock }));
+vi.mock("@/lib/email-brand", () => ({
+  brandLogoHtml: brandLogoHtmlMock,
+  brandLogoAttachments: brandLogoAttachmentsMock,
+}));
 vi.mock("@/lib/providers/mail", () => ({
   createMailAdapter: createMailAdapterMock,
   brandLogoAttachments: brandLogoAttachmentsMock,

@@ -142,10 +142,30 @@ function toIso(value: unknown): string {
     : new Date(value as string).toISOString();
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export interface SequenceSubscriberCounts {
+  all: number;
+  pending: number;
+  completed: number;
+  cancelled: number;
+}
+
 export async function listSequenceSubscribers(
   sequenceId: string,
-  pagination: { limit?: number; skip?: number } = {}
-): Promise<{ total: number; subscribers: SequenceSubscriber[] }> {
+  pagination: {
+    limit?: number;
+    skip?: number;
+    q?: string;
+    status?: SequenceSubscriberStatus;
+  } = {}
+): Promise<{
+  total: number;
+  subscribers: SequenceSubscriber[];
+  counts: SequenceSubscriberCounts;
+}> {
   await dbConnect();
 
   const limit = Math.min(
@@ -153,16 +173,57 @@ export async function listSequenceSubscribers(
     SUBSCRIBER_PAGE_SIZE_MAX
   );
   const skip = Math.max(pagination.skip ?? 0, 0);
+  const q = (pagination.q ?? '').trim();
+  const status = pagination.status;
 
-  const [subscriptions, total] = await Promise.all([
-    EmailSequenceSubscription.find({ sequenceId })
-      .populate('userId', 'name')
-      .sort({ subscribedAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    EmailSequenceSubscription.countDocuments({ sequenceId }),
-  ]);
+  const filter: Record<string, unknown> = { sequenceId };
+  if (status === 'pending') {
+    filter.completedAt = null;
+    filter.cancelledAt = null;
+  } else if (status === 'completed') {
+    filter.completedAt = { $ne: null };
+  } else if (status === 'cancelled') {
+    filter.completedAt = null;
+    filter.cancelledAt = { $ne: null };
+  }
+  if (q) {
+    const rx = new RegExp(escapeRegExp(q), 'i');
+    const matchingUsers = await User.find({ name: rx })
+      .select('_id')
+      .limit(200)
+      .lean();
+    filter.$or = [
+      { email: rx },
+      { firstName: rx },
+      { userId: { $in: matchingUsers.map((user) => user._id) } },
+    ];
+  }
+
+  const [subscriptions, total, all, pending, completed, cancelled] =
+    await Promise.all([
+      EmailSequenceSubscription.find(filter)
+        .populate('userId', 'name')
+        .sort({ subscribedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      EmailSequenceSubscription.countDocuments(filter),
+      EmailSequenceSubscription.countDocuments({ sequenceId }),
+      EmailSequenceSubscription.countDocuments({
+        sequenceId,
+        completedAt: null,
+        cancelledAt: null,
+      }),
+      EmailSequenceSubscription.countDocuments({
+        sequenceId,
+        completedAt: { $ne: null },
+      }),
+      EmailSequenceSubscription.countDocuments({
+        sequenceId,
+        completedAt: null,
+        cancelledAt: { $ne: null },
+      }),
+    ]);
 
   const subscribers: SequenceSubscriber[] = subscriptions.map((sub) => {
     const user = sub.userId as { name?: string } | null | undefined;
@@ -181,7 +242,13 @@ export async function listSequenceSubscribers(
     };
   });
 
-  return { total, subscribers };
+  return {
+    total,
+    subscribers,
+    // Counts always describe the whole sequence so the status tabs keep
+    // their totals while a tab or search narrows the list below.
+    counts: { all, pending, completed, cancelled },
+  };
 }
 
 export type SequenceSubscriptionInput = {

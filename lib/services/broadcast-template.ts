@@ -1,9 +1,9 @@
 import "server-only";
 
-import { brandLogoHtml } from "@/lib/providers/mail";
+import { brandLogoHtml } from "@/lib/email-brand";
 
 const FONT_STACK =
-  "font-family:Helvetica,Arial,sans-serif;";
+  "font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
 const INK = "#141414";
 const PAPER = "#fcfaf8";
 const TERRACOTTA = "#c75d3c";
@@ -74,6 +74,7 @@ export function buildBroadcastEmail(content: BroadcastEmailContent): {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${headline}</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 ${BODY_CSS}
 @media only screen and (max-width:600px) {
   .email-shell { width:100% !important; }

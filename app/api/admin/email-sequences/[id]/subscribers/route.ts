@@ -11,6 +11,8 @@ const paramsSchema = z.object({
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   skip: z.coerce.number().int().min(0).optional(),
+  q: z.string().trim().max(100).optional(),
+  status: z.enum(['pending', 'completed', 'cancelled']).optional(),
 });
 
 export async function GET(
@@ -32,6 +34,8 @@ export async function GET(
     const parsedQuery = querySchema.safeParse({
       limit: url.searchParams.get('limit') ?? undefined,
       skip: url.searchParams.get('skip') ?? undefined,
+      q: url.searchParams.get('q') ?? undefined,
+      status: url.searchParams.get('status') ?? undefined,
     });
     if (!parsedQuery.success) {
       return NextResponse.json(

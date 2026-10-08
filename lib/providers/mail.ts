@@ -1,12 +1,17 @@
 import "server-only";
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import nodemailer, { type Transporter } from "nodemailer";
 
+import {
+  brandLogoAttachments,
+  brandLogoHtml,
+  type EmailAttachmentInput,
+} from "@/lib/email-brand";
 import { sanitizeEmailHtml } from "@/lib/rich-content";
+import { buildBroadcastEmail } from "@/lib/services/broadcast-template";
+
+export { brandLogoAttachments, brandLogoHtml };
+export type { EmailAttachmentInput };
 
 export type EmailTemplateKey =
   | "welcome"
@@ -29,14 +34,6 @@ export type EmailTemplateKey =
   | "sequence_step"
   | "refund_processed"
   | "support_acknowledgement";
-
-export interface EmailAttachmentInput {
-  filename: string;
-  content: Buffer;
-  contentType?: string;
-  cid?: string;
-  contentDisposition?: "inline" | "attachment";
-}
 
 export interface SendEmailInput {
   to: string;
@@ -88,87 +85,14 @@ export class MailProviderError extends Error {
   }
 }
 
-const EMAIL_LOGO_CID = "agile-logo";
-let emailLogoCache: EmailAttachmentInput | null | undefined;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function logoCandidatePaths(): string[] {
-  const segments = ["public", "images", "agile_logo.png"];
-  return [
-    path.join(process.cwd(), ...segments),
-    path.join(__dirname, "..", "..", ...segments),
-    path.join(__dirname, "..", "..", "..", ...segments),
-  ];
-}
-
-function emailBrandLogo(): string {
-  const src = emailLogoSrc();
-  if (!src) return "";
-  return `<img src="${src}" alt="Rapid Launch" width="80" height="36" style="display:block;margin:0 0 10px;width:80px;height:auto;" />`;
-}
-
-function emailLogoSrc(): string | null {
-  if (emailLogoAttachment()) return `cid:${EMAIL_LOGO_CID}`;
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
-  return base ? `${base}/images/agile_logo.png` : null;
-}
-
-function emailLogoAttachment(): EmailAttachmentInput | null {
-  if (emailLogoCache !== undefined) return emailLogoCache;
-  emailLogoCache = null;
-  for (const file of logoCandidatePaths()) {
-    try {
-      emailLogoCache = {
-        filename: "agile-logo.png",
-        cid: EMAIL_LOGO_CID,
-        contentType: "image/png",
-        contentDisposition: "inline",
-        content: readFileSync(file),
-      };
-      break;
-    } catch {
-      // Try the next candidate path.
-    }
-  }
-  if (emailLogoCache === null) {
-    console.warn(
-      "[mail] Brand logo file not found on disk; emails will reference the hosted copy instead."
-    );
-  }
-  return emailLogoCache;
-}
-
-function emailAttachments(): EmailAttachmentInput[] {
-  const logo = emailLogoAttachment();
-  return logo ? [logo] : [];
-}
-
-/**
- * Brand logo markup for custom (non-templated) emails. References the inline
- * cid when the logo file is attached via {@link brandLogoAttachments},
- * otherwise falls back to the hosted copy.
- */
-export function brandLogoHtml(): string {
-  return emailBrandLogo();
-}
-
-/**
- * The inline brand logo attachment. Always pair it with emails that embed
- * {@link brandLogoHtml} so the cid reference resolves.
- */
-export function brandLogoAttachments(): EmailAttachmentInput[] {
-  return emailAttachments();
-}
+const FONT_STACK =
+  "font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
 
 function emailHeader(title: string): string {
   return `<div style="background:#141414;padding:8px 16px 6px;">
-  ${emailBrandLogo()}
+  ${brandLogoHtml()}
   <p style="margin:4px 0 0;font-size:20px;font-weight:700;color:#ffffff;">${title}</p>
 </div>`;
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 }
 
 /** Escapes a value before it is interpolated into template HTML. */
@@ -179,9 +103,6 @@ function esc(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-function emailFooter(): string {
-  return `<div style="padding:20px 32px 28px;background:#fcfaf8;border-top:1px solid #f3efe8;"><p style="font-size:13px;line-height:1.6;margin:0;color:#74778c;">Questions? Reply to this email or contact our support team.</p></div>`;
 }
 
 function buildTemplate(
@@ -230,7 +151,7 @@ ${answerStage ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;b
 ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">What do you need help with?</td><td style="padding:12px 20px;font-size:13px;font-weight:600;color:#11121d;text-align:right;">${answerHelp}</td></tr>` : ""}
 </table>`
         : "";
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Payment confirmed")}
   <div style="padding:28px 32px;">
@@ -262,7 +183,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const schedulingUrl = variables.schedulingUrl ?? "";
       const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
       const subject = `Next step: book your ${itemTitle}`;
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Book your session")}
   <div style="padding:28px 32px;">
@@ -299,7 +220,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
 <p style="font-size:13px;line-height:1.6;margin:0 0 12px;color:#74778c;">The call runs over Google Meet. Click the button above at the scheduled time.</p>`
         : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your session starts at <strong style="color:#11121d;">${scheduledAt}</strong>. We will send the meeting link before the call.</p>`;
 
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader(`${detailLabel}`)}
   <div style="padding:28px 32px;">
@@ -320,7 +241,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const checkoutUrl = variables.checkoutUrl ?? "";
       const greeting = customerName ? `Hi ${customerName},` : "Hi there,";
       const subject = `You can still complete your purchase — ${itemTitle}`;
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Your purchase is waiting")}
   <div style="padding:28px 32px;">
@@ -338,7 +259,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const name = variables.name ?? "there";
       const appUrl = variables.appUrl ?? "#";
       const subject = "Welcome to Rapid Launch";
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Welcome aboard")}
   <div style="padding:28px 32px;">
@@ -357,7 +278,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const resetUrl = variables.resetUrl ?? "#";
       const appUrl = variables.appUrl ?? "#";
       const subject = "Reset your password";
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Reset your password")}
   <div style="padding:28px 32px;">
@@ -380,7 +301,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const courseButton = courseUrl
         ? `<a href="${courseUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Open your course</a>`
         : `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your course is available now. Open your account and go to Courses to find the class.</p>`;
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("You're enrolled")}
   <div style="padding:28px 32px;">
@@ -398,7 +319,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
     case "course_access_action_required": {
       const courseTitle = variables.courseTitle ?? variables.itemTitle ?? "your course";
       const subject = `Action needed for ${courseTitle}`;
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("One more step")}
   <div style="padding:28px 32px;">
@@ -423,7 +344,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
         ? `<p style="font-size:14px;line-height:1.6;margin:0 0 12px;color:#35374a;">Your session is now at <strong style="color:#11121d;">${scheduledAt}</strong>.</p>
 <a href="${meetingUrl}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">Join your session</a>`
         : `<p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">Your session is now at <strong style="color:#11121d;">${scheduledAt}</strong>. We will send the meeting link before the call.</p>`;
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Session rescheduled")}
   <div style="padding:28px 32px;">
@@ -441,10 +362,13 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       const subjectSeq = String(variables.subject ?? "Update from Rapid Launch");
       const bodyHtmlSeq = sanitizeEmailHtml(String(variables.body ?? variables.html ?? ""));
       const titleSeq = String(variables.title ?? subjectSeq);
+      // Sequence emails share the broadcast shell exactly: dark logo-only
+      // header, headline and body in the white card, branded footer.
+      const shell = buildBroadcastEmail({ headline: titleSeq, bodyHtml: bodyHtmlSeq });
       return {
         subject: subjectSeq,
-        html: `${emailHeader(titleSeq)}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;">${bodyHtmlSeq}</div>${emailFooter()}</div></div>`,
-        text: stripHtml(bodyHtmlSeq),
+        html: shell.html,
+        text: shell.text,
       };
     }
     case "admin_order_alert": {
@@ -482,7 +406,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
         })
         .join("");
 
-      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("New sale")}
   <div style="padding:28px 32px;">
@@ -612,7 +536,7 @@ export class SmtpMailAdapter implements MailAdapter {
       subject: template.subject,
       html: template.html,
       text: template.text,
-      attachments: emailAttachments(),
+      attachments: brandLogoAttachments(),
     });
   }
 
@@ -620,9 +544,9 @@ export class SmtpMailAdapter implements MailAdapter {
     await this.sendEmail({
       to: this.fromEmail ?? this.config.user ?? "",
       subject: "Rapid Launch test email",
-      html: `${emailHeader("Rapid Launch test email")}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Rapid Launch.</p></div></div></div>`,
+      html: `${emailHeader("Rapid Launch test email")}<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Rapid Launch.</p></div></div></div>`,
       text: "This is a test email from Rapid Launch.",
-      attachments: emailAttachments(),
+      attachments: brandLogoAttachments(),
     });
   }
 }

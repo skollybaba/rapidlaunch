@@ -23,6 +23,7 @@ const {
   },
   userModelMock: {
     findById: vi.fn(),
+    find: vi.fn(),
   },
 }));
 
@@ -255,6 +256,72 @@ describe("listSequenceSubscribers", () => {
     });
     expect(result.subscribers[1]).toMatchObject({ name: "Bola Tinubu", status: "completed" });
     expect(result.subscribers[2]).toMatchObject({ name: "Chi", status: "cancelled" });
+  });
+
+  it("returns status counts for the whole sequence", async () => {
+    const isNeNull = (value: unknown) =>
+      typeof value === "object" &&
+      value !== null &&
+      "$ne" in value &&
+      (value as { $ne: unknown }).$ne === null;
+
+    subscriptionModelMock.find.mockReturnValue(chain([]));
+    subscriptionModelMock.countDocuments.mockImplementation(
+      async (filter: Record<string, unknown>) => {
+        if (filter.completedAt === null && filter.cancelledAt === null) return 2;
+        if (isNeNull(filter.completedAt)) return 5;
+        if (isNeNull(filter.cancelledAt)) return 1;
+        return 8;
+      }
+    );
+
+    const result = await listSequenceSubscribers("SEQ1");
+
+    expect(result.counts).toEqual({ all: 8, pending: 2, completed: 5, cancelled: 1 });
+  });
+
+  it("filters the list by status", async () => {
+    subscriptionModelMock.find.mockReturnValue(chain([]));
+    subscriptionModelMock.countDocuments.mockResolvedValue(0);
+
+    await listSequenceSubscribers("SEQ1", { status: "pending" });
+    expect(subscriptionModelMock.find).toHaveBeenLastCalledWith({
+      sequenceId: "SEQ1",
+      completedAt: null,
+      cancelledAt: null,
+    });
+
+    await listSequenceSubscribers("SEQ1", { status: "completed" });
+    expect(subscriptionModelMock.find).toHaveBeenLastCalledWith({
+      sequenceId: "SEQ1",
+      completedAt: { $ne: null },
+    });
+
+    await listSequenceSubscribers("SEQ1", { status: "cancelled" });
+    expect(subscriptionModelMock.find).toHaveBeenLastCalledWith({
+      sequenceId: "SEQ1",
+      completedAt: null,
+      cancelledAt: { $ne: null },
+    });
+  });
+
+  it("searches by email, first name, and registered user name", async () => {
+    subscriptionModelMock.find.mockReturnValue(chain([]));
+    subscriptionModelMock.countDocuments.mockResolvedValue(0);
+    userModelMock.find.mockReturnValue(chain([{ _id: "U9" }]));
+
+    const result = await listSequenceSubscribers("SEQ1", { q: "  ada+ " });
+
+    expect(userModelMock.find).toHaveBeenCalledWith({ name: expect.any(RegExp) });
+    const filter = subscriptionModelMock.find.mock.calls[0][0] as {
+      $or: { email: RegExp; firstName: RegExp; userId: { $in: string[] } }[];
+    };
+    expect(filter.$or).toHaveLength(3);
+    expect(filter.$or[0].email.source).toBe("ada\\+");
+    expect(filter.$or[0].email.ignoreCase).toBe(true);
+    expect(filter.$or[1].firstName.source).toBe("ada\\+");
+    expect(filter.$or[2].userId.$in).toEqual(["U9"]);
+    expect(result.subscribers).toEqual([]);
   });
 
   it("clamps pagination to sane bounds", async () => {

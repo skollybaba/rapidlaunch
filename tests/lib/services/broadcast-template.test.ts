@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/providers/mail", () => ({
+vi.mock("@/lib/email-brand", () => ({
   brandLogoHtml: vi.fn().mockReturnValue("<img src='cid:agile-logo' alt='brand' />"),
 }));
 
