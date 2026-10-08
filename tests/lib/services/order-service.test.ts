@@ -92,6 +92,11 @@ vi.mock("@/lib/services/lms-service", () => ({
   grantCourseAccess: vi.fn().mockResolvedValue({ id: "ENR1", created: true }),
 }));
 
+vi.mock("@/lib/services/coupon-service", () => ({
+  applyCouponToCheckout: vi.fn(),
+  releaseCouponReservation: vi.fn().mockResolvedValue(undefined),
+}));
+
 import axios from "axios";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -104,6 +109,10 @@ import { createClassroomAdapter } from "@/lib/providers/classroom";
 import { grantCourseAccess } from "@/lib/services/lms-service";
 import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
 import { subscribeBuyerToOrderSequences } from "@/lib/services/sequence-service";
+import {
+  applyCouponToCheckout,
+  releaseCouponReservation,
+} from "@/lib/services/coupon-service";
 import {
   createCheckoutSession,
   initializeCheckoutPayment,
@@ -323,6 +332,92 @@ describe("createCheckoutSession", () => {
     await expect(
       createCheckoutSession({ productId: "PROD1", customerEmail: "not-an-email" })
     ).rejects.toBeInstanceOf(Error);
+  });
+
+  it("applies a coupon and discounts the order when a code is provided", async () => {
+    vi.mocked(Product.findOne).mockReturnValue(lean(productDoc));
+    vi.mocked(applyCouponToCheckout).mockResolvedValue({
+      couponId: "CPN1",
+      code: "LAUNCH50",
+      discountPercent: 50,
+      discountMinor: 2_500_000,
+      subtotalMinor: 5_000_000,
+      totalMinor: 2_500_000,
+    } as never);
+    vi.mocked(Order.create).mockResolvedValue({
+      ...orderDoc,
+      discountMinor: 2_500_000,
+      totalMinor: 2_500_000,
+    } as never);
+
+    const result = await createCheckoutSession({
+      productId: "PROD1",
+      customerEmail: " Buyer@Example.com ",
+      couponCode: "launch50",
+    });
+
+    expect(applyCouponToCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "LAUNCH50",
+        productType: "COURSE",
+        customerEmail: "buyer@example.com",
+        subtotalMinor: 5_000_000,
+      })
+    );
+    expect(vi.mocked(Order.create).mock.calls[0][0]).toMatchObject({
+      subtotalMinor: 5_000_000,
+      discountMinor: 2_500_000,
+      totalMinor: 2_500_000,
+      metadata: expect.objectContaining({
+        coupon: {
+          code: "LAUNCH50",
+          discountPercent: 50,
+          discountMinor: 2_500_000,
+        },
+      }),
+    });
+    expect(result.orderReference).toBe("QL-XYZ123");
+  });
+
+  it("does not reserve a coupon when no code is provided", async () => {
+    vi.mocked(Product.findOne).mockReturnValue(lean(productDoc));
+    vi.mocked(Order.create).mockResolvedValue(orderDoc as never);
+
+    await createCheckoutSession({
+      productId: "PROD1",
+      customerEmail: "a@b.com",
+    });
+
+    expect(applyCouponToCheckout).not.toHaveBeenCalled();
+    expect(vi.mocked(Order.create).mock.calls[0][0]).toMatchObject({
+      discountMinor: 0,
+      totalMinor: 5_000_000,
+    });
+  });
+
+  it("releases the coupon reservation when the order cannot be created", async () => {
+    vi.mocked(Product.findOne).mockReturnValue(lean(productDoc));
+    vi.mocked(applyCouponToCheckout).mockResolvedValue({
+      couponId: "CPN1",
+      code: "LAUNCH50",
+      discountPercent: 50,
+      discountMinor: 2_500_000,
+      subtotalMinor: 5_000_000,
+      totalMinor: 2_500_000,
+    } as never);
+    vi.mocked(Order.create).mockRejectedValue(new Error("dup"));
+
+    await expect(
+      createCheckoutSession({
+        productId: "PROD1",
+        customerEmail: "a@b.com",
+        couponCode: "LAUNCH50",
+      })
+    ).rejects.toThrow("dup");
+
+    expect(releaseCouponReservation).toHaveBeenCalledWith(
+      expect.stringMatching(/^QL-/)
+    );
   });
 });
 
@@ -674,6 +769,31 @@ describe("verifyCheckoutPayment", () => {
     expect(result).toMatchObject({ paymentStatus: "ABANDONED" });
     expect(vi.mocked(Order.updateOne)).not.toHaveBeenCalled();
     expect(vi.mocked(Fulfillment.findOneAndUpdate)).not.toHaveBeenCalled();
+  });
+
+  it("releases a coupon reservation when the payment is abandoned or failed", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: {
+          reference: "QL-PAY-ABC",
+          status: "abandoned",
+          amount: 0,
+          currency: "NGN",
+        },
+      },
+    });
+    vi.mocked(Order.findById).mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockReturnThis(),
+      exec: vi.fn().mockResolvedValue({ orderReference: "QL-XYZ123" }),
+    } as never);
+
+    const result = await verifyCheckoutPayment("QL-PAY-ABC");
+
+    expect(result).toMatchObject({ paymentStatus: "ABANDONED" });
+    await vi.waitFor(() =>
+      expect(releaseCouponReservation).toHaveBeenCalledWith("QL-XYZ123")
+    );
   });
 
   it("is idempotent when the payment is already paid", async () => {

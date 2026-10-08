@@ -15,6 +15,7 @@ import {
   Inbox,
   Mail,
   Workflow,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const NAV_LINKS: NavLink[] = [
   { href: "/admin/submissions", label: "Submissions", icon: Inbox },
   { href: "/admin/enrollees", label: "Enrollees", icon: Users },
   { href: "/admin/resources", label: "Resources", icon: FolderOpen },
+  { href: "/admin/coupons", label: "Discount codes", icon: Tag },
   {
     href: "/admin/email-broadcast",
     label: "Email & Broadcasting",

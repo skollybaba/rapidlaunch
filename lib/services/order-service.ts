@@ -36,6 +36,10 @@ import { PaymentEvent } from "@/models/PaymentEvent";
 import { Product } from "@/models/Product";
 import { User } from "@/models/User";
 import { grantCourseAccess } from "@/lib/services/lms-service";
+import {
+  applyCouponToCheckout,
+  releaseCouponReservation,
+} from "@/lib/services/coupon-service";
 import type { FulfillmentType, PaymentDoc } from "@/types/payment";
 import type { OrderDoc, OrderPublicSummary } from "@/types/order";
 
@@ -155,6 +159,20 @@ async function resolveSessionUser(): Promise<{
   }
 }
 
+async function releaseCouponForOrder(orderId: unknown): Promise<void> {
+  try {
+    const order = await Order.findById(orderId)
+      .select("orderReference")
+      .lean()
+      .exec();
+    if (order?.orderReference) {
+      await releaseCouponReservation(order.orderReference);
+    }
+  } catch (error) {
+    console.error("Failed to release coupon reservation", { error });
+  }
+}
+
 export async function createCheckoutSession(
   input: unknown
 ): Promise<{ orderReference: string; itemTitle: string; bookingId?: string }> {
@@ -199,6 +217,19 @@ export async function createCheckoutSession(
   const customerEmail = sessionUser.email ?? parsed.customerEmail;
   const userId = sessionUser.id;
 
+  const appliedCoupon = parsed.couponCode
+    ? await applyCouponToCheckout({
+        code: parsed.couponCode,
+        productType: product.type,
+        customerEmail,
+        orderReference,
+        subtotalMinor: unitPriceMinor,
+      })
+    : null;
+  const discountMinor = appliedCoupon?.discountMinor ?? 0;
+  const subtotalMinor = unitPriceMinor;
+  const totalMinor = subtotalMinor - discountMinor;
+
   let bundleCourseIds: string[] = [];
   let bundleCourseTitles: string[] = [];
   if (
@@ -220,53 +251,72 @@ export async function createCheckoutSession(
     bundleCourseTitles = bundleCourseIds.map((id) => byId.get(id)!);
   }
 
-  const order = await Order.create({
-    orderReference,
-    customerEmail,
-    userId,
-    items: [
-      {
-        productId: product._id,
-        titleSnapshot: product.title,
-        typeSnapshot: product.type,
-        unitPriceMinor,
-        quantity: 1,
+  let order;
+  try {
+    order = await Order.create({
+      orderReference,
+      customerEmail,
+      userId,
+      items: [
+        {
+          productId: product._id,
+          titleSnapshot: product.title,
+          typeSnapshot: product.type,
+          unitPriceMinor,
+          quantity: 1,
+        },
+      ],
+      subtotalMinor,
+      discountMinor,
+      totalMinor,
+      currency: product.currency,
+      metadata: {
+        ...(parsed.metadata ?? {}),
+        productId: String(product._id),
+        productType: product.type,
+        productFulfillmentMode: product.fulfillmentMode,
+        productSlug: product.slug,
+        classroomCourseId: product.courseDetails?.classroomCourseId,
+        courseJoinUrl: product.courseDetails?.courseJoinUrl,
+        bundleCourseIds,
+        bundleCourseTitles,
+        productDurationMinutes:
+          product.type === "CONSULTATION"
+            ? product.consultationDetails?.durationMinutes ?? 90
+            : undefined,
+        ...(appliedCoupon
+          ? {
+              coupon: {
+                code: appliedCoupon.code,
+                discountPercent: appliedCoupon.discountPercent,
+                discountMinor: appliedCoupon.discountMinor,
+              },
+            }
+          : {}),
       },
-    ],
-    subtotalMinor: unitPriceMinor,
-    discountMinor: 0,
-    totalMinor: unitPriceMinor,
-    currency: product.currency,
-    metadata: {
-      ...(parsed.metadata ?? {}),
-      productId: String(product._id),
-      productType: product.type,
-      productFulfillmentMode: product.fulfillmentMode,
-      productSlug: product.slug,
-      classroomCourseId: product.courseDetails?.classroomCourseId,
-      courseJoinUrl: product.courseDetails?.courseJoinUrl,
-      bundleCourseIds,
-      bundleCourseTitles,
-      productDurationMinutes:
-        product.type === "CONSULTATION"
-          ? product.consultationDetails?.durationMinutes ?? 90
-          : undefined,
-    },
-  });
+    });
+  } catch (error) {
+    if (appliedCoupon) {
+      await releaseCouponReservation(orderReference).catch(() => undefined);
+    }
+    throw error;
+  }
 
   if (isBookableEngagement({
       type: product.type,
       fulfillmentMode: product.fulfillmentMode,
     }) && parsed.session) {
-    const booking = await Booking.create({
-      orderId: order._id,
-      productId: product._id,
-      customerEmail,
-      customerName: parsed.session.customerName,
-      answers: {
-        whatYouAreBuilding: parsed.session.whatYouAreBuilding,
-        currentStage: parsed.session.currentStage,
-        helpNeeded: parsed.session.helpNeeded,
+    let booking;
+    try {
+      booking = await Booking.create({
+        orderId: order._id,
+        productId: product._id,
+        customerEmail,
+        customerName: parsed.session.customerName,
+        answers: {
+          whatYouAreBuilding: parsed.session.whatYouAreBuilding,
+          currentStage: parsed.session.currentStage,
+          helpNeeded: parsed.session.helpNeeded,
       },
       timezone: parsed.session.timezone,
       requestedStartTime: parsed.session.requestedStartTime
@@ -285,6 +335,12 @@ export async function createCheckoutSession(
       status: "PENDING",
       attempts: 0,
     });
+    } catch (error) {
+      if (appliedCoupon) {
+        await releaseCouponReservation(orderReference).catch(() => undefined);
+      }
+      throw error;
+    }
     return {
       orderReference: order.orderReference,
       itemTitle: product.title,
@@ -474,6 +530,7 @@ export async function verifyCheckoutPayment(
             },
           }
         );
+        await releaseCouponForOrder(payment.orderId);
       }
       return {
         id: String(payment.orderId),
@@ -542,6 +599,7 @@ export async function verifyCheckoutPayment(
           },
         }
       );
+      await releaseCouponForOrder(payment.orderId);
     }
     return {
       id: String(payment.orderId),

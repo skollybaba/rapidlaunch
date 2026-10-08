@@ -13,6 +13,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useToast } from "@/components/ui/toast";
 import { readApiError } from "@/lib/feedback";
 import { readApiJson } from "@/lib/http";
+import { formatPrice } from "@/lib/utils";
 
 interface CheckoutFormProps {
   productId: string;
@@ -44,6 +45,17 @@ export function CheckoutForm({
   const [slotStatus, setSlotStatus] = useState<SlotStatus>(
     isSession ? "loading" : "idle",
   );
+  const [couponInput, setCouponInput] = useState("");
+  const [couponState, setCouponState] = useState<"idle" | "checking">("idle");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [appliedPreview, setAppliedPreview] = useState<{
+    discountPercent: number;
+    discountMinor: number;
+    subtotalMinor: number;
+    totalMinor: number;
+    currency: string;
+  } | null>(null);
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const toast = useToast();
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
@@ -95,6 +107,7 @@ export function CheckoutForm({
     return JSON.stringify({
       productId,
       customerEmail,
+      ...(appliedCode ? { couponCode: appliedCode } : {}),
       ...(isSession
         ? {
             session: {
@@ -110,6 +123,45 @@ export function CheckoutForm({
           }
         : {}),
     });
+  }
+
+  async function applyCoupon() {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setCouponMessage("Enter a discount code first.");
+      return;
+    }
+    setCouponState("checking");
+    setCouponMessage(null);
+    try {
+      const response = await fetch("/api/checkout/coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ couponCode: code, productId }),
+      });
+      const json = await response.json();
+      if (!json.ok) {
+        setCouponMessage(
+          readApiError(json, "This discount code could not be applied."),
+        );
+        return;
+      }
+      setAppliedCode(code);
+      setAppliedPreview(json.data.coupon);
+      setCouponInput(code);
+      setCouponMessage(null);
+    } catch {
+      setCouponMessage("Could not check the code right now. Try again.");
+    } finally {
+      setCouponState("idle");
+    }
+  }
+
+  function clearCoupon() {
+    setAppliedCode(null);
+    setAppliedPreview(null);
+    setCouponInput("");
+    setCouponMessage(null);
   }
 
   async function runCheckout() {
@@ -427,6 +479,108 @@ export function CheckoutForm({
             </div>
           </>
         ) : null}
+
+        <div>
+          <label
+            htmlFor="checkout-coupon"
+            className="text-sm font-semibold text-neutral-950"
+          >
+            Discount code{" "}
+            <span className="font-normal text-neutral-500">(optional)</span>
+          </label>
+
+          {appliedCode && appliedPreview ? (
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-[12px] border border-neutral-200 bg-white px-4 py-3">
+              <div className="text-sm">
+                <span className="font-semibold text-neutral-950">
+                  {appliedCode}
+                </span>
+                <span className="text-neutral-500">
+                  {" "}
+                  — {appliedPreview.discountPercent}% off
+                </span>
+                <p className="mt-1 leading-relaxed text-neutral-500">
+                  You save{" "}
+                  {formatPrice(
+                    appliedPreview.discountMinor,
+                    appliedPreview.currency,
+                  )}
+                  . Total to pay:{" "}
+                  <span className="font-semibold text-neutral-950">
+                    {formatPrice(
+                      appliedPreview.totalMinor,
+                      appliedPreview.currency,
+                    )}
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearCoupon}
+                disabled={
+                  disabled || state === "submitting" || state === "redirecting"
+                }
+                className="shrink-0 text-sm font-medium text-terracotta-600 hover:text-terracotta-500 disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <input
+                id="checkout-coupon"
+                name="couponCode"
+                type="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                placeholder="e.g. LAUNCH50"
+                disabled={
+                  disabled ||
+                  state === "submitting" ||
+                  state === "redirecting" ||
+                  couponState === "checking"
+                }
+                value={couponInput}
+                onChange={(event) =>
+                  setCouponInput(event.target.value.toUpperCase())
+                }
+                className={`${inputClasses} uppercase sm:flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => void applyCoupon()}
+                disabled={
+                  disabled ||
+                  state === "submitting" ||
+                  state === "redirecting" ||
+                  couponState === "checking" ||
+                  couponInput.trim().length === 0
+                }
+                className={buttonStyles({
+                  variant: "secondary",
+                  size: "md",
+                  className: "shrink-0 uppercase",
+                })}
+              >
+                {couponState === "checking" ? "Checking…" : "Apply"}
+              </button>
+            </div>
+          )}
+
+          {couponMessage ? (
+            <p
+              role="status"
+              className="mt-2 text-sm leading-relaxed text-danger-600"
+            >
+              {couponMessage}
+            </p>
+          ) : null}
+
+          <p className="mt-2 text-xs leading-relaxed text-neutral-500">
+            Enter a code before paying. The discount is applied when you create
+            your order.
+          </p>
+        </div>
 
         <button
           type="submit"

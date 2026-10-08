@@ -28,6 +28,12 @@ export const createCheckoutSessionSchema = z
       .trim()
       .toLowerCase()
       .email("Please enter a valid email address"),
+    couponCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9][A-Z0-9-]{1,39}$/, "Invalid discount code")
+      .optional(),
     session: sessionDetailsSchema,
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
