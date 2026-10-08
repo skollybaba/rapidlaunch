@@ -38,7 +38,7 @@ const lessonSchema = z
     id: contentId,
     title: z.string().trim().min(1, "Title is required").max(160),
     type: z.enum(LESSON_TYPES),
-    description: z.string().trim().max(2000).optional(),
+    description: z.string().trim().max(20000).optional(),
     youtubeUrl: z.string().trim().optional(),
     documentUrl: safeHttpUrl.optional(),
     documentFileName: z.string().trim().max(255).optional(),
@@ -109,7 +109,7 @@ const lessonSchema = z
 export const courseModuleSchema = z.object({
   id: contentId,
   title: z.string().trim().min(1, "Module title is required").max(160),
-  description: z.string().trim().max(2000).optional(),
+  description: z.string().trim().max(20000).optional(),
   lessons: z.array(lessonSchema).max(200, "Too many lessons in one module"),
   isOrientation: z.boolean().optional(),
 });

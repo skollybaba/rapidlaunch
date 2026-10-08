@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   richContentToHtml,
+  sanitizeCourseContentHtml,
+  sanitizeCourseDescription,
   sanitizeEmailHtml,
   sanitizeRichHtml,
 } from "@/lib/rich-content";
@@ -100,5 +102,63 @@ describe("sanitizeEmailHtml", () => {
       '<a href="mailto:help@example.com" rel="noopener noreferrer" target="_blank">help@example.com</a>'
     );
     expect(result).not.toContain("javascript:");
+  });
+});
+
+describe("sanitizeCourseContentHtml", () => {
+  it("keeps formatting, links and images authored in lesson notes", () => {
+    const html =
+      '<h3>Lesson outline</h3><p>Watch <strong>step one</strong>, then read the <a href="https://example.com/guide">guide</a>.</p><img src="https://cdn.example.com/diagram.png" alt="Funnel diagram" />';
+    const result = sanitizeCourseContentHtml(html);
+    expect(result).toContain("<h3>Lesson outline</h3>");
+    expect(result).toContain("<strong>step one</strong>");
+    expect(result).toContain('href="https://example.com/guide"');
+    expect(result).toContain('rel="noopener noreferrer"');
+    expect(result).toContain('src="https://cdn.example.com/diagram.png"');
+    expect(result).toContain('alt="Funnel diagram"');
+  });
+
+  it("strips scripts, event handlers and unsafe image sources", () => {
+    const html =
+      '<p onclick="steal()">Hi</p><script>alert("x")</script><img src="data:text/html,boom" alt="x" onerror="boom()" />';
+    const result = sanitizeCourseContentHtml(html);
+    expect(result).not.toContain("<script");
+    expect(result).not.toContain("onclick");
+    expect(result).not.toContain("onerror");
+    expect(result).not.toContain("data:");
+    expect(result).toContain("<p>Hi</p>");
+  });
+
+  it("blocks javascript: links", () => {
+    const result = sanitizeCourseContentHtml('<a href="javascript:alert(1)">bad</a>');
+    expect(result).not.toContain("javascript:");
+  });
+});
+
+describe("sanitizeCourseDescription", () => {
+  it("returns undefined when the editor produced no readable text", () => {
+    expect(sanitizeCourseDescription(undefined)).toBeUndefined();
+    expect(sanitizeCourseDescription(null)).toBeUndefined();
+    expect(sanitizeCourseDescription("")).toBeUndefined();
+    expect(sanitizeCourseDescription("<p></p>")).toBeUndefined();
+    expect(sanitizeCourseDescription("<p><br></p>")).toBeUndefined();
+    expect(sanitizeCourseDescription("   ")).toBeUndefined();
+  });
+
+  it("returns sanitized HTML when there is readable content", () => {
+    const html = "<p>Note on <strong>pricing</strong>.</p>";
+    expect(sanitizeCourseDescription(html)).toBe(html);
+  });
+
+  it("turns legacy plain-text notes into paragraphs with hard breaks", () => {
+    expect(sanitizeCourseDescription("Legacy typed notes")).toBe(
+      "<p>Legacy typed notes</p>"
+    );
+    expect(sanitizeCourseDescription("Line one\nLine two")).toBe(
+      "<p>Line one<br />Line two</p>"
+    );
+    expect(sanitizeCourseDescription("Para one\n\nPara two")).toBe(
+      "<p>Para one</p><p>Para two</p>"
+    );
   });
 });

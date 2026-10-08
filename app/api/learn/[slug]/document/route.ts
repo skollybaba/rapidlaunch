@@ -26,7 +26,7 @@ function inlineContentType(
 function contentDisposition(fileName: string): string {
   const safe = fileName.replace(/["\\\r\n]/g, "").trim() || "document";
   const ascii = safe.replace(/[^\x20-\x7e]/g, "_");
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(
     safe
   )}`;
 }

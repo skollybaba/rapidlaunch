@@ -584,6 +584,13 @@ dialog::backdrop {
     text-decoration: underline;
   }
 
+  .rich-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+  }
+
   .rich-content hr {
     border-color: var(--color-neutral-300);
     margin-block: 2rem;

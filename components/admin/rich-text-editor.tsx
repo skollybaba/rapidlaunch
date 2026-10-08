@@ -60,10 +60,13 @@ export function RichTextEditor({
   value,
   onChange,
   placeholder = "Write your content here…",
+  label,
 }: {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** Announced to assistive tech as the editor's accessible name. */
+  label?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -82,6 +85,7 @@ export function RichTextEditor({
       attributes: {
         class:
           "rich-content min-h-[220px] max-h-[420px] overflow-y-auto px-4 py-3 focus:outline-none",
+        ...(label ? { "aria-label": label } : {}),
       },
     },
   });

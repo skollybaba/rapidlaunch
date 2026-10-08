@@ -3,6 +3,7 @@ import "server-only";
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
 import { createMailAdapter } from "@/lib/providers/mail";
+import { sanitizeCourseDescription } from "@/lib/rich-content";
 import { Booking } from "@/models/Booking";
 import { Lead } from "@/models/Lead";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -1017,7 +1018,12 @@ export async function setCourseModules(id: string, input: unknown) {
   const orientationFlags = resolveOrientationFlags(parsed);
   const modules: CourseModule[] = parsed.map((module, index) => ({
     ...module,
+    description: sanitizeCourseDescription(module.description),
     isOrientation: orientationFlags[index] ?? false,
+    lessons: module.lessons.map((lesson) => ({
+      ...lesson,
+      description: sanitizeCourseDescription(lesson.description),
+    })),
   }));
 
   await dbConnect();

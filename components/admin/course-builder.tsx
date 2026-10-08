@@ -14,6 +14,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { buttonStyles } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -866,13 +867,17 @@ function LessonRow({
             </div>
           ) : null}
 
-          <textarea
-            value={lesson.description}
-            onChange={(e) => onChange({ description: e.target.value })}
-            placeholder="Optional lesson notes shown to the student"
-            rows={2}
-            className={cn(fieldClasses, "mt-0 sm:col-span-2")}
-          />
+          <div className="sm:col-span-2">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">
+              Lesson notes
+            </span>
+            <RichTextEditor
+              value={lesson.description}
+              onChange={(html) => onChange({ description: html })}
+              placeholder="Optional lesson notes shown to the student…"
+              label="Lesson notes"
+            />
+          </div>
           <label className="flex items-center gap-2 text-sm text-neutral-700 sm:col-span-2">
             <input
               type="checkbox"

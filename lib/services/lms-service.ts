@@ -1,6 +1,7 @@
 import "server-only";
 
 import dbConnect from "@/lib/db";
+import { sanitizeCourseDescription } from "@/lib/rich-content";
 import { Enrollment } from "@/models/Enrollment";
 import { Product } from "@/models/Product";
 import {
@@ -260,11 +261,12 @@ export async function getCourseOutlineForUser(
   const modules: ModuleView[] = storedModules.map((module, index) => ({
     id: module.id,
     title: module.title,
-    description: module.description,
+    description: sanitizeCourseDescription(module.description),
     isOrientation: orientationFlags[index] ?? false,
     lessons: module.lessons.map(
       (lesson): LessonView => ({
         ...lesson,
+        description: sanitizeCourseDescription(lesson.description),
         moduleId: module.id,
         moduleTitle: module.title,
         completed: completed.has(lesson.id),

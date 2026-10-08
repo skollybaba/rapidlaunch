@@ -22,18 +22,12 @@ import { buttonStyles } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { YouTubePlayer } from "@/components/learn/youtube-player";
 import { cn } from "@/lib/utils";
-import dynamic from "next/dynamic";
 import {
   moduleLabelsFor,
   type CourseOutline,
   type LessonView,
   type ModuleView,
 } from "@/types/lms";
-
-const PDFViewer = dynamic(
-  () => import("@/components/learn/pdf-viewer").then((mod) => mod.PDFViewer),
-  { ssr: false, loading: () => null }
-);
 
 interface CoursePlayerProps {
   outline: CourseOutline;
@@ -420,9 +414,10 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
               </div>
 
               {active.description ? (
-                <p className="mt-6 whitespace-pre-line text-sm leading-7 text-neutral-700">
-                  {active.description}
-                </p>
+                <div
+                  className="rich-content mt-6 text-sm"
+                  dangerouslySetInnerHTML={{ __html: active.description }}
+                />
               ) : null}
 
               {saveError ? (
@@ -459,12 +454,8 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
                   {saving
                     ? "Saving…"
                     : completed.has(active.id)
-                      ? activeModule?.isOrientation
-                        ? "Orientation done"
-                        : "Completed"
-                      : activeModule?.isOrientation
-                        ? "Mark as orientation"
-                        : "Mark as complete"}
+                      ? "Completed"
+                      : "Mark as complete"}
                 </button>
               </div>
 
@@ -544,9 +535,10 @@ function LessonContent({
     if (!lesson.documentUrl) {
       return <MissingSource label="This document is unavailable right now." />;
     }
+    const documentHref = `/api/learn/${encodeURIComponent(courseSlug)}/document?lessonId=${encodeURIComponent(lesson.id)}`;
     return (
       <div className="w-full">
-        <div className="mb-4 flex items-center justify-between gap-4 rounded-[12px] border border-neutral-200 bg-paper-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-[12px] border border-neutral-200 bg-paper-50 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-lavender-100 text-ink-700">
               <FileText aria-hidden="true" className="h-5 w-5" />
@@ -559,24 +551,22 @@ function LessonContent({
                 <p className="text-xs text-neutral-500">
                   {formatBytes(lesson.documentSizeBytes)}
                 </p>
-              ) : null}
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  Download this lesson&apos;s document.
+                </p>
+              )}
             </div>
           </div>
           <a
-            href={`/api/learn/${encodeURIComponent(courseSlug)}/document?lessonId=${encodeURIComponent(lesson.id)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonStyles({ variant: "secondary" })}
+            href={documentHref}
+            download={lesson.documentFileName || "document"}
+            className={buttonStyles({ variant: "primary" })}
           >
             <Download aria-hidden="true" className="h-4 w-4" />
-            Open in new tab
+            Download
           </a>
         </div>
-        <PDFViewer
-          url={`/api/learn/${encodeURIComponent(courseSlug)}/document?lessonId=${encodeURIComponent(lesson.id)}`}
-          fileName={lesson.documentFileName || "document.pdf"}
-          fallbackUrl={`/api/learn/${encodeURIComponent(courseSlug)}/document?lessonId=${encodeURIComponent(lesson.id)}`}
-        />
       </div>
     );
   }

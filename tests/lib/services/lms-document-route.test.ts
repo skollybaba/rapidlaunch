@@ -82,7 +82,7 @@ describe("GET /api/learn/[slug]/document", () => {
     expect(response.status).toBe(404);
   });
 
-  it("serves the document inline with the corrected URL", async () => {
+  it("serves the document as a download with the corrected URL", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response("PDFDATA", {
         status: 200,
@@ -99,7 +99,7 @@ describe("GET /api/learn/[slug]/document", () => {
     expect(fetchMock).toHaveBeenCalledWith(outline.modules[0].lessons[0].documentUrl);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
-    expect(response.headers.get("content-disposition")).toContain("inline");
+    expect(response.headers.get("content-disposition")).toContain("attachment");
     expect(await response.text()).toBe("PDFDATA");
   });
 
