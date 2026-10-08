@@ -54,6 +54,14 @@ vi.mock("@/lib/services/whatsapp-service", () => ({
   notifyAdminsOrderPaid: whatsAppNotifier,
 }));
 
+const subscribeBuyerToOrderSequences = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ matchedSequences: 0, subscribed: 0 })
+);
+
+vi.mock("@/lib/services/sequence-service", () => ({
+  subscribeBuyerToOrderSequences,
+}));
+
 import { dbConnect } from "@/lib/db";
 import mongoose from "mongoose";
 import { Booking } from "@/models/Booking";

@@ -82,6 +82,12 @@ vi.mock("@/lib/services/admin-alert-service", () => ({
   notifyAdminsOfSale: vi.fn().mockResolvedValue({ sent: 1, skipped: 0 }),
 }));
 
+vi.mock("@/lib/services/sequence-service", () => ({
+  subscribeBuyerToOrderSequences: vi
+    .fn()
+    .mockResolvedValue({ matchedSequences: 1, subscribed: 1 }),
+}));
+
 vi.mock("@/lib/services/lms-service", () => ({
   grantCourseAccess: vi.fn().mockResolvedValue({ id: "ENR1", created: true }),
 }));
@@ -97,6 +103,7 @@ import { createMailAdapter } from "@/lib/providers/mail";
 import { createClassroomAdapter } from "@/lib/providers/classroom";
 import { grantCourseAccess } from "@/lib/services/lms-service";
 import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
+import { subscribeBuyerToOrderSequences } from "@/lib/services/sequence-service";
 import {
   createCheckoutSession,
   initializeCheckoutPayment,
@@ -477,6 +484,13 @@ describe("verifyCheckoutPayment", () => {
     expect(vi.mocked(notifyAdminsOfSale)).toHaveBeenCalledWith(
       expect.objectContaining({ orderReference: "QL-XYZ123" }),
       expect.objectContaining({ providerReference: "QL-PAY-ABC" })
+    );
+    // Fulfillment runs as a background chain on the callback path, so the
+    // sequence subscription is observed asynchronously.
+    await vi.waitFor(() =>
+      expect(vi.mocked(subscribeBuyerToOrderSequences)).toHaveBeenCalledWith(
+        expect.objectContaining({ orderReference: "QL-XYZ123" })
+      )
     );
   });
 

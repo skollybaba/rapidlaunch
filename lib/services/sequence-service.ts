@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import EmailSequence from '@/models/EmailSequence';
 import { EmailSequenceSubscription } from '@/models/EmailSequenceSubscription';
 import { User } from '@/models/User';
+import { dispatchEmailSequenceSteps } from '@/lib/services/sequence-dispatch-service';
 import type {
   EmailSequence as EmailSequenceType,
   EmailSequenceStep,
@@ -241,4 +242,92 @@ export async function subscribeToSequence(
   });
 
   return sub.toObject();
+}
+
+export type PurchasableOrderInput = {
+  orderReference: string;
+  userId?: unknown | null;
+  customerEmail: string;
+  items: Array<{ productId: unknown }>;
+};
+
+export type OrderSequenceSubscriptionResult = {
+  matchedSequences: number;
+  subscribed: number;
+};
+
+/**
+ * Subscribes a buyer to every active sequence attached to the products they
+ * just paid for. Sequences are matched purely by productId, so every product
+ * type is covered (course, book, session, MVP service) without type checks.
+ *
+ * Safe to run more than once for the same order: `subscribeToSequence` keeps
+ * one live subscription per (sequence, email) and re-reads `active`, so a
+ * webhook redelivery or a re-verified callback cannot duplicate anything. A
+ * single failing sequence is logged and skipped so the rest still subscribe.
+ */
+export async function subscribeBuyerToOrderSequences(
+  order: PurchasableOrderInput
+): Promise<OrderSequenceSubscriptionResult> {
+  await dbConnect();
+
+  const productIds = [
+    ...new Set(
+      order.items
+        .map((item) => String(item.productId ?? '').trim())
+        .filter(Boolean)
+    ),
+  ];
+  const email = order.customerEmail?.trim().toLowerCase();
+
+  if (!productIds.length || !email) {
+    return { matchedSequences: 0, subscribed: 0 };
+  }
+
+  const sequences = await EmailSequence.find({
+    active: true,
+    productId: { $in: productIds },
+  })
+    .select({ _id: 1, productId: 1 })
+    .lean();
+
+  if (!sequences.length) {
+    return { matchedSequences: 0, subscribed: 0 };
+  }
+
+  const userId = order.userId ? String(order.userId) : undefined;
+  let subscribed = 0;
+
+  for (const sequence of sequences) {
+    try {
+      const result = await subscribeToSequence({
+        email,
+        sequenceId: String(sequence._id),
+        productId: String(sequence.productId),
+        userId,
+      });
+      if (result) subscribed += 1;
+    } catch (error) {
+      console.error(
+        'Sequence subscription failed for order',
+        order.orderReference,
+        { sequenceId: String(sequence._id), error }
+      );
+    }
+  }
+
+  // A first step marked "immediately on subscribe" should not wait for the
+  // next scheduler tick; the in-process dispatcher is already gated against
+  // overlapping runs, so this is safe to fire alongside it.
+  if (subscribed > 0) {
+    void dispatchEmailSequenceSteps().catch((error) => {
+      console.error(
+        'Immediate sequence dispatch failed for order',
+        order.orderReference,
+        { error }
+      );
+    });
+  }
+
+  return { matchedSequences: sequences.length, subscribed };
 }

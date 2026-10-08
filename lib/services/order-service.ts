@@ -25,6 +25,7 @@ import {
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
 import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
+import { subscribeBuyerToOrderSequences } from "@/lib/services/sequence-service";
 import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
@@ -716,6 +717,19 @@ export async function processFulfillmentAsync(order: LeanDoc<OrderDoc>) {
   } catch (error) {
     console.error(
       "Payment confirmation email failed for order",
+      order.orderReference,
+      { error }
+    );
+  }
+
+  // Subscribe the buyer to every active email sequence attached to the
+  // products they bought (any type: course, book, session, MVP service).
+  // Runs last so the receipt lands first, and never fails the order.
+  try {
+    await subscribeBuyerToOrderSequences(order);
+  } catch (error) {
+    console.error(
+      "Sequence subscription failed for order",
       order.orderReference,
       { error }
     );
