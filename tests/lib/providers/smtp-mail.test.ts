@@ -93,6 +93,35 @@ describe("SmtpMailAdapter", () => {
     expect(payload.attachments[0].content.length).toBeGreaterThan(0);
   });
 
+  it("renders the admin sale alert with escaped values and a dashboard link", async () => {
+    await adapter.sendTemplateEmail({
+      templateKey: "admin_order_alert",
+      to: "owner@gmail.com",
+      variables: {
+        itemTitle: "AI <script>alert(1)</script> Course",
+        itemKind: "Course",
+        orderReference: "QL-1001",
+        amount: "₦50,000.00",
+        customerEmail: "buyer&seller@example.com",
+        customerName: "",
+        paidAt: "Thursday, 8 October 2026 at 17:14",
+        paymentReference: "QL-PAY-ABC",
+        otherItems: "",
+        adminOrdersUrl: "https://example.com/admin/orders",
+      },
+    });
+
+    const payload = sendMail.mock.calls[0][0];
+    expect(payload.subject).toBe("New Course sale: AI <script>alert(1)</script> Course");
+    expect(payload.html).not.toContain("<script>alert(1)</script>");
+    expect(payload.html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(payload.html).toContain("buyer&amp;seller@example.com");
+    expect(payload.html).toContain("QL-1001");
+    expect(payload.html).toContain("https://example.com/admin/orders");
+    expect(payload.text).toContain("Order reference: QL-1001");
+    expect(payload.text).toContain("Customer: buyer&seller@example.com");
+  });
+
   it("falls back to the hosted logo URL when the logo file cannot be read", async () => {
     vi.resetModules();
     vi.doMock("node:fs", () => ({

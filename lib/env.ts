@@ -58,6 +58,15 @@ const envSchema = z.object({
   ),
   REMINDER_CRON_SECRET: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
+  /**
+   * Comma-separated addresses that receive the "new sale" back-office email
+   * whenever a course or session order is paid. Defaults to the owner's inbox
+   * so the alert works with no deployment-time configuration.
+   */
+  SALES_ALERT_EMAILS: z.preprocess(
+    (value) => emptyToUndefined(value) ?? "agilemindshubcentral@gmail.com",
+    z.string()
+  ),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),

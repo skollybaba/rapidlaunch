@@ -24,6 +24,7 @@ import {
   createGoogleCalendarAdapter,
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
+import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
 import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
@@ -643,6 +644,16 @@ async function settleVerifiedPayment(
   notifyAdminsOrderPaid(order, payment).catch((error) => {
     console.error(
       "WhatsApp notification failed for order",
+      order.orderReference,
+      { error }
+    );
+  });
+
+  // Email the owner that a course or session was sold. Same contract as the
+  // WhatsApp alert: best effort, idempotent, never blocks a verified payment.
+  notifyAdminsOfSale(order, payment).catch((error) => {
+    console.error(
+      "Admin sale alert email failed for order",
       order.orderReference,
       { error }
     );

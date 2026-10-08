@@ -78,6 +78,10 @@ vi.mock("@/lib/services/whatsapp-service", () => ({
   notifyAdminsOrderPaid: vi.fn().mockResolvedValue({ sent: 1, skipped: 0 }),
 }));
 
+vi.mock("@/lib/services/admin-alert-service", () => ({
+  notifyAdminsOfSale: vi.fn().mockResolvedValue({ sent: 1, skipped: 0 }),
+}));
+
 vi.mock("@/lib/services/lms-service", () => ({
   grantCourseAccess: vi.fn().mockResolvedValue({ id: "ENR1", created: true }),
 }));
@@ -92,6 +96,7 @@ import { Product } from "@/models/Product";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { createClassroomAdapter } from "@/lib/providers/classroom";
 import { grantCourseAccess } from "@/lib/services/lms-service";
+import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
 import {
   createCheckoutSession,
   initializeCheckoutPayment,
@@ -469,6 +474,10 @@ describe("verifyCheckoutPayment", () => {
       expect.anything(),
       expect.objectContaining({ upsert: true })
     );
+    expect(vi.mocked(notifyAdminsOfSale)).toHaveBeenCalledWith(
+      expect.objectContaining({ orderReference: "QL-XYZ123" }),
+      expect.objectContaining({ providerReference: "QL-PAY-ABC" })
+    );
   });
 
   it("enrolls the buyer into the LMS and marks the fulfillment fulfilled and emails access", async () => {
@@ -666,6 +675,7 @@ describe("verifyCheckoutPayment", () => {
     expect(result.paymentStatus).toBe("PAID");
     expect(mockGet).not.toHaveBeenCalled();
     expect(vi.mocked(Fulfillment.findOneAndUpdate)).not.toHaveBeenCalled();
+    expect(vi.mocked(notifyAdminsOfSale)).not.toHaveBeenCalled();
   });
 });
 

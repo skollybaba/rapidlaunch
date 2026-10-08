@@ -24,6 +24,7 @@ export type EmailTemplateKey =
   | "payment_reminder"
   | "mvp_inquiry_received"
   | "new_lead_notification"
+  | "admin_order_alert"
   | "fulfillment_failure_alert"
   | "sequence_step"
   | "refund_processed"
@@ -168,6 +169,16 @@ function emailHeader(title: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Escapes a value before it is interpolated into template HTML. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 function emailFooter(): string {
   return `<div style="padding:20px 32px 28px;background:#fcfaf8;border-top:1px solid #f3efe8;"><p style="font-size:13px;line-height:1.6;margin:0;color:#74778c;">Questions? Reply to this email or contact our support team.</p></div>`;
@@ -435,6 +446,81 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
         html: `${emailHeader(titleSeq)}<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;">${bodyHtmlSeq}</div>${emailFooter()}</div></div>`,
         text: stripHtml(bodyHtmlSeq),
       };
+    }
+    case "admin_order_alert": {
+      const itemTitle = variables.itemTitle ?? "A product";
+      const itemKind = variables.itemKind ?? "Sale";
+      const orderReference = variables.orderReference ?? "";
+      const amount = variables.amount ?? "";
+      const customerEmail = variables.customerEmail ?? "";
+      const customerName = variables.customerName ?? "";
+      const paidAt = variables.paidAt ?? "";
+      const paymentReference = variables.paymentReference ?? "";
+      const otherItems = variables.otherItems ?? "";
+      const adminOrdersUrl = variables.adminOrdersUrl ?? "";
+      const subject = `New ${itemKind} sale: ${itemTitle}`;
+
+      const rows = [
+        ["Item", itemTitle],
+        ["Type", itemKind],
+        ["Order reference", orderReference],
+        ["Amount paid", amount],
+        ["Customer", customerName ? `${customerName} · ${customerEmail}` : customerEmail],
+        ["Paid at", paidAt],
+        ...(paymentReference ? [["Payment reference", paymentReference]] : []),
+      ]
+        .map(([label, value], index, list) => {
+          const border =
+            index === list.length - 1
+              ? ""
+              : ";border-bottom:1px solid #eee7de";
+          return `<tr><td style="padding:13px 20px;font-size:13px;color:#74778c${border};">${esc(
+            label!
+          )}</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right${border};">${esc(
+            value!
+          )}</td></tr>`;
+        })
+        .join("");
+
+      const html = `<div style="background:#fcfaf8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
+  ${emailHeader("New sale")}
+  <div style="padding:28px 32px;">
+    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">A new <strong style="color:#11121d;">${esc(
+      itemKind
+    )}</strong> purchase just came through on Rapid Launch.</p>
+    <table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;">
+      ${rows}
+    </table>
+${
+  otherItems
+    ? `<p style="font-size:12px;line-height:1.6;margin:-14px 0 20px;color:#74778c;">Also in this order: ${esc(otherItems)}</p>`
+    : ""
+}
+${
+  adminOrdersUrl
+    ? `<a href="${esc(
+        adminOrdersUrl
+      )}" style="display:inline-block;padding:12px 20px;margin:4px 0 10px;background:#c75d3c;color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:600;">View order in the dashboard</a>`
+    : ""
+}
+    <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">This is an automatic back-office alert. Fulfillment and the customer's confirmation email are already handled.</p>
+  </div>
+</div>
+</div>`;
+
+      const text = `New ${itemKind} sale: ${itemTitle}
+
+Item: ${itemTitle}
+Type: ${itemKind}
+Order reference: ${orderReference}
+Amount paid: ${amount}
+Customer: ${customerName ? `${customerName} · ` : ""}${customerEmail}
+Paid at: ${paidAt}${paymentReference ? `\nPayment reference: ${paymentReference}` : ""}${
+        otherItems ? `\nAlso in this order: ${otherItems}` : ""
+      }${adminOrdersUrl ? `\n\nView order: ${adminOrdersUrl}` : ""}`;
+
+      return { subject, html, text };
     }
     default:
       return {
