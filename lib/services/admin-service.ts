@@ -958,15 +958,19 @@ export async function updateCourse(id: string, input: unknown) {
 
   // The course form does not manage the LMS curriculum, and this update
   // replaces courseDetails wholesale, so carry the stored modules across or a
-  // routine save would silently erase the curriculum.
+  // routine save would silently erase the curriculum. Same for the optional
+  // "Before you start" sell page.
   if (parsed.courseDetails) {
     const existing = await Product.findById(id)
-      .select("courseDetails.modules")
+      .select("courseDetails.modules courseDetails.beforeYouStart")
       .lean()
       .exec();
     if (!parsed.courseDetails.modules && existing?.courseDetails?.modules) {
       parsed.courseDetails.modules = existing.courseDetails
         .modules as CourseModule[];
+    }
+    if (!parsed.courseDetails.beforeYouStart && existing?.courseDetails?.beforeYouStart) {
+      parsed.courseDetails.beforeYouStart = existing.courseDetails.beforeYouStart;
     }
   }
 

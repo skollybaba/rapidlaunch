@@ -1,4 +1,4 @@
-import type { CourseModule } from "@/types/lms";
+import type { BeforeYouStartContent, CourseModule } from "@/types/lms";
 
 export const PRODUCT_TYPES = [
   "COURSE",
@@ -55,6 +55,12 @@ export interface ProductCourseDetails {
    */
   modules?: CourseModule[];
   previewUrl?: string;
+  /**
+   * Optional "Before you start" sell page shown to new students before the
+   * first lesson. Stored with the course so it is edited where the course is
+   * created.
+   */
+  beforeYouStart?: BeforeYouStartContent;
   classroomCourseId?: string;
   courseJoinUrl?: string;
   enrollmentMode?: "AUTOMATIC" | "MANUAL";

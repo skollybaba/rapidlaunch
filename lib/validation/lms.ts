@@ -119,6 +119,71 @@ export const courseModulesSchema = z
   .max(60, "Too many modules");
 
 /**
+ * Accepts http(s) URLs and root-relative paths for outbound CTA links, so the
+ * admin can point a button at an external page or an internal route.
+ */
+const ctaTargetSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => /^https?:\/\//i.test(value) || /^\/[^/\\]/.test(value),
+    {
+      message:
+        "Must be an http(s) URL or a root-relative path such as /account/courses",
+    }
+  );
+
+/**
+ * The optional "Before you start" sell page. When `enabled` the page needs at
+ * least a video or body copy to be worth showing; the CTA button is optional
+ * but its label and destination must travel together.
+ */
+export const beforeYouStartSchema = z
+  .object({
+    enabled: z.boolean(),
+    title: z.string().trim().max(160).optional(),
+    youtubeUrl: z.string().trim().optional(),
+    contentHtml: z.string().trim().max(20000).optional(),
+    ctaLabel: z.string().trim().max(80).optional(),
+    ctaUrl: ctaTargetSchema.optional(),
+  })
+  .superRefine((page, ctx) => {
+    if (page.youtubeUrl && !parseYouTubeId(page.youtubeUrl)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a link to a single YouTube video",
+        path: ["youtubeUrl"],
+      });
+    }
+
+    if (page.ctaUrl && !page.ctaLabel) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A call-to-action link needs a button label",
+        path: ["ctaLabel"],
+      });
+    }
+
+    if (page.ctaLabel && !page.ctaUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A call-to-action label needs a link destination",
+        path: ["ctaUrl"],
+      });
+    }
+
+    if (page.enabled && !page.youtubeUrl && !page.contentHtml) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enable the page with a video, some content, or both",
+        path: ["enabled"],
+      });
+    }
+  });
+
+export type BeforeYouStartInput = z.infer<typeof beforeYouStartSchema>;
+
+/**
  * Rejects duplicate module and lesson ids within a course.
  *
  * Progress is keyed on these ids, so a collision would make two different

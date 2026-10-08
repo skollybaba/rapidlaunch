@@ -238,6 +238,35 @@ describe("productInputSchema", () => {
   });
 });
 
+describe("productInputSchema with beforeYouStart", () => {
+  it("accepts a before-you-start sell page inside course details", () => {
+    const parsed = productInputSchema.parse({
+      ...baseInput,
+      type: "COURSE" as const,
+      courseDetails: {
+        beforeYouStart: {
+          enabled: true,
+          youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          contentHtml: "<p>Welcome.</p>",
+          ctaLabel: "Join",
+          ctaUrl: "https://chat.whatsapp.com/abc",
+        },
+      },
+    });
+    expect(parsed.courseDetails?.beforeYouStart?.enabled).toBe(true);
+  });
+
+  it("rejects an enabled before-you-start page without content", () => {
+    expect(() =>
+      productInputSchema.parse({
+        ...baseInput,
+        type: "COURSE" as const,
+        courseDetails: { beforeYouStart: { enabled: true } },
+      })
+    ).toThrow();
+  });
+});
+
 describe("productListQuerySchema", () => {
   it("defaults the limit to 50", () => {
     expect(productListQuerySchema.parse({}).limit).toBe(50);

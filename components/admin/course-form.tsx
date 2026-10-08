@@ -6,9 +6,12 @@ import { FileText, Loader2, Trash2, UploadCloud } from "lucide-react";
 
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ThumbnailUpload } from "@/components/admin/thumbnail-upload";
+import { BeforeYouStartPanel } from "@/components/learn/before-you-start-panel";
 import { useToast } from "@/components/ui/toast";
 import { readApiError } from "@/lib/feedback";
+import { parseYouTubeId } from "@/lib/youtube";
 import { PRODUCT_STATUSES, CURRICULUM_MAX_BYTES } from "@/types/product";
+import type { BeforeYouStartContent } from "@/types/lms";
 
 const fieldClasses =
   "mt-2 w-full rounded-[12px] border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-950 placeholder-neutral-300 transition-colors duration-[var(--duration-fast)] focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
@@ -47,6 +50,7 @@ interface CourseFormData {
       courseJoinUrl?: string;
       enrollmentMode?: string;
       accessInstructions?: string;
+      beforeYouStart?: BeforeYouStartContent | null;
     } | null;
     curriculum?: { fileName?: string; size?: number } | null;
   } | null;
@@ -111,6 +115,25 @@ export function CourseForm({
   const [accessInstructions, setAccessInstructions] = useState(
     cd?.accessInstructions ?? "",
   );
+  const beforeYouStart = cd?.beforeYouStart;
+  const [beforeYouStartEnabled, setBeforeYouStartEnabled] = useState(
+    beforeYouStart?.enabled ?? false,
+  );
+  const [beforeYouStartTitle, setBeforeYouStartTitle] = useState(
+    beforeYouStart?.title ?? "",
+  );
+  const [beforeYouStartVideoUrl, setBeforeYouStartVideoUrl] = useState(
+    beforeYouStart?.youtubeUrl ?? "",
+  );
+  const [beforeYouStartContent, setBeforeYouStartContent] = useState(
+    beforeYouStart?.contentHtml ?? "",
+  );
+  const [beforeYouStartCtaLabel, setBeforeYouStartCtaLabel] = useState(
+    beforeYouStart?.ctaLabel ?? "",
+  );
+  const [beforeYouStartCtaUrl, setBeforeYouStartCtaUrl] = useState(
+    beforeYouStart?.ctaUrl ?? "",
+  );
   const [bundleCourseIds, setBundleCourseIds] = useState<string[]>(
     initial?.bundleCourseIds ?? [],
   );
@@ -171,6 +194,28 @@ export function CourseForm({
       return;
     }
 
+    const beforeYouStartCtaHasLabel = Boolean(beforeYouStartCtaLabel.trim());
+    const beforeYouStartCtaHasUrl = Boolean(beforeYouStartCtaUrl.trim());
+    if (beforeYouStartCtaHasLabel !== beforeYouStartCtaHasUrl) {
+      const reason = beforeYouStartCtaHasLabel
+        ? "The call-to-action label needs a destination link."
+        : "The call-to-action link needs a button label.";
+      setError(reason);
+      toast.warning(reason);
+      return;
+    }
+    if (
+      beforeYouStartEnabled &&
+      !beforeYouStartVideoUrl.trim() &&
+      !beforeYouStartContent.trim()
+    ) {
+      const reason =
+        "A Before-you-start page needs a video, some content, or both.";
+      setError(reason);
+      toast.warning(reason);
+      return;
+    }
+
     const payload = {
       title,
       slug,
@@ -195,6 +240,14 @@ export function CourseForm({
         courseJoinUrl: courseJoinUrl || undefined,
         enrollmentMode,
         accessInstructions: accessInstructions || undefined,
+        beforeYouStart: {
+          enabled: beforeYouStartEnabled,
+          title: beforeYouStartTitle.trim() || undefined,
+          youtubeUrl: beforeYouStartVideoUrl.trim() || undefined,
+          contentHtml: beforeYouStartContent || undefined,
+          ctaLabel: beforeYouStartCtaLabel.trim() || undefined,
+          ctaUrl: beforeYouStartCtaUrl.trim() || undefined,
+        },
       },
       bundleCourseIds,
     };
@@ -588,6 +641,146 @@ export function CourseForm({
             />
           </div>
         </div>
+      </section>
+
+      <section className="rounded-[16px] border border-neutral-300 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-950">
+              Before you start
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              An optional sell page students see before their first lesson.
+              Only applies to LMS courses.
+            </p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-neutral-700">
+            <input
+              type="checkbox"
+              checked={beforeYouStartEnabled}
+              onChange={(e) => setBeforeYouStartEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 text-terracotta-600 focus:ring-terracotta-600"
+            />
+            Enabled
+          </label>
+        </div>
+
+        {beforeYouStartEnabled ? (
+          <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="space-y-5">
+              <div>
+                <label
+                  htmlFor="c-bys-title"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Page title
+                </label>
+                <input
+                  id="c-bys-title"
+                  value={beforeYouStartTitle}
+                  onChange={(e) => setBeforeYouStartTitle(e.target.value)}
+                  placeholder="Welcome to the course"
+                  className={fieldClasses}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="c-bys-video"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  YouTube video
+                </label>
+                <input
+                  id="c-bys-video"
+                  type="url"
+                  value={beforeYouStartVideoUrl}
+                  onChange={(e) => setBeforeYouStartVideoUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=…"
+                  className={fieldClasses}
+                />
+                {beforeYouStartVideoUrl.trim() ? (
+                  parseYouTubeId(beforeYouStartVideoUrl.trim()) ? (
+                    <p className="mt-2 text-sm text-success-600">
+                      Video ready — it plays in the non-downloadable player.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-danger-600">
+                      Enter a link to a single YouTube video.
+                    </p>
+                  )
+                ) : null}
+              </div>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-neutral-500">
+                  Body
+                </span>
+                <RichTextEditor
+                  value={beforeYouStartContent}
+                  onChange={setBeforeYouStartContent}
+                  placeholder="Tell the student what to expect before they begin…"
+                  label="Before-you-start page body"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="c-bys-cta-label"
+                    className="text-sm font-medium text-neutral-700"
+                  >
+                    Call-to-action label
+                  </label>
+                  <input
+                    id="c-bys-cta-label"
+                    value={beforeYouStartCtaLabel}
+                    onChange={(e) => setBeforeYouStartCtaLabel(e.target.value)}
+                    placeholder="Join my free WhatsApp group"
+                    className={fieldClasses}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="c-bys-cta-url"
+                    className="text-sm font-medium text-neutral-700"
+                  >
+                    Call-to-action link
+                  </label>
+                  <input
+                    id="c-bys-cta-url"
+                    type="url"
+                    value={beforeYouStartCtaUrl}
+                    onChange={(e) => setBeforeYouStartCtaUrl(e.target.value)}
+                    placeholder="https://… or /account/courses"
+                    className={fieldClasses}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-neutral-500">
+                Shown beside the always-visible &ldquo;Begin course&rdquo;
+                button, which opens the orientation module if there is one,
+                otherwise module 1.
+              </p>
+            </div>
+            <div>
+              <span className="mb-1 block text-xs font-medium text-neutral-500">
+                Student preview
+              </span>
+              <BeforeYouStartPanel
+                content={{
+                  enabled: true,
+                  title: beforeYouStartTitle.trim() || undefined,
+                  youtubeUrl: beforeYouStartVideoUrl.trim() || undefined,
+                  contentHtml: beforeYouStartContent || undefined,
+                  ctaLabel: beforeYouStartCtaLabel.trim() || undefined,
+                  ctaUrl: beforeYouStartCtaUrl.trim() || undefined,
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="mt-5 text-sm text-neutral-400">
+            Switch this on to build the page.
+          </p>
+        )}
       </section>
 
       <section className="rounded-[16px] border border-neutral-300 bg-white p-6">

@@ -20,10 +20,12 @@ import {
 
 import { buttonStyles } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { BeforeYouStartPanel } from "@/components/learn/before-you-start-panel";
 import { YouTubePlayer } from "@/components/learn/youtube-player";
 import { cn } from "@/lib/utils";
 import {
   moduleLabelsFor,
+  courseEntryLessonId,
   type CourseOutline,
   type LessonView,
   type ModuleView,
@@ -65,7 +67,19 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
     return lessons[0]?.id ?? null;
   }, [lessons, outline.lastLessonId]);
 
-  const [activeId, setActiveId] = useState<string | null>(firstId);
+  // The "Before you start" sell page is the opening screen until the student
+  // has engaged with the curriculum; after that the player resumes as normal.
+  const showBeforeYouStart = Boolean(
+    outline.beforeYouStart && !outline.hasStarted
+  );
+  const entryLessonId = useMemo(
+    () => (outline.beforeYouStart ? courseEntryLessonId(outline.modules) : null),
+    [outline],
+  );
+
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    showBeforeYouStart ? null : firstId
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(
     () =>
@@ -397,7 +411,15 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
         </nav>
 
         <main className="order-1 min-w-0 lg:order-2 overflow-y-auto max-h-[calc(100vh-6rem)] scrollbar-hide">
-          {active ? (
+          {showBeforeYouStart && outline.beforeYouStart ? (
+            <BeforeYouStartPanel
+              content={outline.beforeYouStart}
+              onBegin={() => {
+                if (entryLessonId) setActiveId(entryLessonId);
+                setSidebarOpen(false);
+              }}
+            />
+          ) : active ? (
             <article className="rounded-[16px] border border-neutral-300 bg-white p-5 md:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-terracotta-600">
                 {activeModuleLabel} · {active.moduleTitle}

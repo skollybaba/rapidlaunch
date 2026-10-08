@@ -5,7 +5,7 @@ import {
   PRODUCT_STATUSES,
   PRODUCT_TYPES,
 } from "@/types/product";
-import { courseModulesSchema } from "@/lib/validation/lms";
+import { beforeYouStartSchema, courseModulesSchema } from "@/lib/validation/lms";
 
 const courseDetailsInputSchema = z
   .object({
@@ -18,6 +18,7 @@ const courseDetailsInputSchema = z
     outcomes: z.array(z.string().min(1)).optional(),
     syllabus: z.array(z.string().min(1)).optional(),
     modules: courseModulesSchema.optional(),
+    beforeYouStart: beforeYouStartSchema.optional(),
     previewUrl: z.string().url().optional(),
     classroomCourseId: z.string().min(1).optional(),
     courseJoinUrl: z.string().url().optional(),

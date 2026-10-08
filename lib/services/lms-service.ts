@@ -9,6 +9,7 @@ import {
   progressPercent,
   resolveOrientationFlags,
   resumeLessonId,
+  type BeforeYouStartContent,
   type CourseModule,
   type CourseOutline,
   type EnrollmentView,
@@ -33,7 +34,10 @@ interface CourseContent {
   slug: string;
   title: string;
   thumbnailUrl?: string;
-  courseDetails?: { modules?: CourseModule[] } | null;
+  courseDetails?: {
+    modules?: CourseModule[];
+    beforeYouStart?: BeforeYouStartContent;
+  } | null;
 }
 
 function modulesOf(course: CourseContent): CourseModule[] {
@@ -51,6 +55,35 @@ function modulesOf(course: CourseContent): CourseModule[] {
       lessons: Array.isArray(mod.lessons) ? mod.lessons : [],
       isOrientation: mod.isOrientation,
     }));
+}
+
+/**
+ * Builds the student-facing sell page from the stored draft, or omits it.
+ *
+ * An enabled page needs a video or write-up to be worth showing (the admin
+ * form enforces this too); body copy is sanitized here at render time so an
+ * admin edit can never put raw HTML in front of a student. The CTA is only
+ * surfaced when the label and destination were saved together.
+ */
+function beforeYouStartView(
+  stored?: BeforeYouStartContent | null
+): CourseOutline["beforeYouStart"] {
+  if (!stored?.enabled) return undefined;
+
+  const contentHtml = sanitizeCourseDescription(stored.contentHtml);
+  const hasVideo = Boolean(stored.youtubeUrl);
+  const hasBody = Boolean(contentHtml);
+  if (!hasVideo && !hasBody) return undefined;
+
+  const hasCta = Boolean(stored.ctaLabel?.trim() && stored.ctaUrl);
+  return {
+    enabled: true,
+    title: stored.title?.trim() || undefined,
+    youtubeUrl: stored.youtubeUrl || undefined,
+    contentHtml,
+    ctaLabel: hasCta ? stored.ctaLabel?.trim() : undefined,
+    ctaUrl: hasCta ? stored.ctaUrl : undefined,
+  };
 }
 
 /**
@@ -128,7 +161,7 @@ export async function revokeCourseAccess(input: {
 
 async function loadCourseBySlug(slug: string): Promise<CourseContent | null> {
   return Product.findOne({ slug, type: "COURSE" })
-    .select("slug title thumbnailUrl courseDetails.modules")
+    .select("slug title thumbnailUrl courseDetails.modules courseDetails.beforeYouStart")
     .lean()
     .exec();
 }
@@ -292,6 +325,10 @@ export async function getCourseOutlineForUser(
       resumeLessonId(storedModules, [
         ...completed,
       ]),
+    hasStarted:
+      Boolean(enrollment.lastLessonId) ||
+      (enrollment.completedLessonIds?.length ?? 0) > 0,
+    beforeYouStart: beforeYouStartView(course.courseDetails?.beforeYouStart),
   };
 }
 

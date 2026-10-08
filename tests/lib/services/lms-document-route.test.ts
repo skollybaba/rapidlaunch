@@ -48,6 +48,7 @@ const outline: CourseOutline = {
   completedLessons: 0,
   progressPercent: 0,
   lastLessonId: null,
+  hasStarted: false,
 };
 
 function request(query = "?lessonId=l1") {

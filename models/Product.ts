@@ -1,6 +1,7 @@
 import { Schema, model, type Model } from "mongoose";
 
 import { LESSON_TYPES } from "@/types/lms";
+import type { BeforeYouStartContent } from "@/types/lms";
 import type {
   ProductCourseDetails,
   ProductCurriculumStored,
@@ -58,6 +59,18 @@ const courseModuleSchema = new Schema(
   { _id: false }
 );
 
+const beforeYouStartSchema = new Schema<BeforeYouStartContent>(
+  {
+    enabled: { type: Boolean, required: true, default: false },
+    title: String,
+    youtubeUrl: String,
+    contentHtml: String,
+    ctaLabel: String,
+    ctaUrl: String,
+  },
+  { _id: false }
+);
+
 const courseDetailsSchema = new Schema<ProductCourseDetails>(
   {
     instructor: String,
@@ -69,6 +82,7 @@ const courseDetailsSchema = new Schema<ProductCourseDetails>(
     outcomes: [String],
     syllabus: [String],
     modules: { type: [courseModuleSchema], default: [] },
+    beforeYouStart: beforeYouStartSchema,
     previewUrl: String,
     classroomCourseId: String,
     courseJoinUrl: String,

@@ -104,6 +104,26 @@ export interface ModuleView {
   lessons: LessonView[];
 }
 
+/**
+ * Optional "Before you start" sell page authored by the admin. When enabled it
+ * is the first screen a new student sees in the player, before any lesson, and
+ * is hidden as soon as the student starts engaging with the curriculum.
+ *
+ * The video is rendered through the same non-downloadable `YouTubePlayer`
+ * embed used by video lessons; the body is trusted HTML sanitized on the
+ * server; `ctaLabel`/`ctaUrl` let the admin send the student somewhere (an
+ * external link or a root-relative route). The player renders its own
+ * "Begin course" button beside them.
+ */
+export interface BeforeYouStartContent {
+  enabled: boolean;
+  title?: string;
+  youtubeUrl?: string;
+  contentHtml?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}
+
 export interface CourseOutline {
   courseId: string;
   courseSlug: string;
@@ -113,6 +133,15 @@ export interface CourseOutline {
   completedLessons: number;
   progressPercent: number;
   lastLessonId: string | null;
+  /**
+   * True once the student has engaged with the curriculum (opened a lesson or
+   * completed one). Distinct from `lastLessonId`, which is always resolved to
+   * a resume target even for a brand-new student — so the before-you-start
+   * gate keys off this flag instead.
+   */
+  hasStarted: boolean;
+  /** Present only when the admin enabled a before-you-start page for this course. */
+  beforeYouStart?: BeforeYouStartContent;
 }
 
 /**
@@ -196,6 +225,21 @@ export function resumeLessonId(
 
   const completed = new Set(completedLessonIds);
   return (lessons.find((lesson) => !completed.has(lesson.id)) ?? lessons[0]).id;
+}
+
+/**
+ * The lesson "Begin course" opens after the before-you-start page: the first
+ * playable lesson of the first module. Orientation is positional, so when a
+ * course has an orientation module it is the first module and when it does not
+ * the first module is course module 1 — neither case needs special-casing.
+ */
+export function courseEntryLessonId(
+  modules: Pick<CourseModule, "lessons">[]
+): string | null {
+  const firstModule = modules[0];
+  if (!firstModule) return null;
+  const first = firstModule.lessons.find((lesson) => !lesson.isPreview);
+  return first?.id ?? null;
 }
 
 /**
