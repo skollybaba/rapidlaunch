@@ -28,6 +28,12 @@ vi.mock("@/lib/providers/mail", () => ({
   createMailAdapter: vi.fn(() => ({ sendTemplateEmail })),
 }));
 
+const applyPersonalizationMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/services/broadcast-service", () => ({
+  applyPersonalization: applyPersonalizationMock,
+}));
+
 import { dispatchEmailSequenceSteps } from "@/lib/services/sequence-dispatch-service";
 
 type Chain = {
@@ -75,6 +81,9 @@ beforeEach(() => {
   updateMany.mockResolvedValue({ matchedCount: 0 });
   updateOne.mockResolvedValue({ modifiedCount: 1 });
   sendTemplateEmail.mockResolvedValue({ providerMessageId: "MSG1" });
+  applyPersonalizationMock.mockImplementation(
+    (template: string) => template
+  );
   // First find returns candidate ids, second returns the populated docs.
   findMock.mockReturnValueOnce(chain([{ _id: "SUB1" }]));
 });
@@ -223,5 +232,154 @@ describe("dispatchEmailSequenceSteps", () => {
 
     expect(result).toMatchObject({ processed: 0, sent: 0, skipped: 0, failed: 0 });
     expect(sendTemplateEmail).not.toHaveBeenCalled();
+  });
+
+  describe("personalization", () => {
+    type Recipient = { email: string; name: string };
+
+    function substituteFirstName(
+      template: string,
+      recipient: Recipient
+    ): string {
+      const firstName = recipient.name.trim().split(/\s+/)[0] || "there";
+      return template.replace(/\{\{\s*first_name\s*\}\}/gi, firstName);
+    }
+
+    it("personalizes subject, title and body with the snapshot first name", async () => {
+      applyPersonalizationMock.mockImplementation(substituteFirstName);
+      const sub = dueSubscription({
+        firstName: "Ada",
+        userId: { name: "Ada Lovelace" },
+        sequenceId: {
+          active: true,
+          totalSteps: 1,
+          steps: [
+            {
+              index: 0,
+              subject: "Hello {{first_name}}",
+              title: "",
+              body: "<p>Hi {{first_name}}</p>",
+              delayHours: 0,
+            },
+          ],
+        },
+      });
+      findMock.mockReturnValueOnce(chain([sub]));
+      findOneAndUpdate.mockReturnValueOnce(claim({ ...sub, dispatchingAt: new Date() }));
+
+      const result = await dispatchEmailSequenceSteps();
+
+      expect(result.sent).toBe(1);
+      expect(applyPersonalizationMock).toHaveBeenCalledWith("Hello {{first_name}}", {
+        email: "learner@example.com",
+        name: "Ada",
+      });
+      expect(applyPersonalizationMock).toHaveBeenCalledWith("<p>Hi {{first_name}}</p>", {
+        email: "learner@example.com",
+        name: "Ada",
+      }, { html: true });
+      expect(sendTemplateEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variables: {
+            subject: "Hello Ada",
+            title: "Hello Ada",
+            body: "<p>Hi Ada</p>",
+          },
+        })
+      );
+    });
+
+    it("falls back to the linked user's name for older subscriptions", async () => {
+      applyPersonalizationMock.mockImplementation(substituteFirstName);
+      const sub = dueSubscription({
+        userId: { name: "Tunde Balogun" },
+        sequenceId: {
+          active: true,
+          totalSteps: 1,
+          steps: [
+            {
+              index: 0,
+              subject: "Hey {{first_name}}",
+              title: "",
+              body: "<p>hi</p>",
+              delayHours: 0,
+            },
+          ],
+        },
+      });
+      findMock.mockReturnValueOnce(chain([sub]));
+      findOneAndUpdate.mockReturnValueOnce(claim({ ...sub, dispatchingAt: new Date() }));
+
+      await dispatchEmailSequenceSteps();
+
+      expect(applyPersonalizationMock).toHaveBeenCalledWith("Hey {{first_name}}", {
+        email: "learner@example.com",
+        name: "Tunde Balogun",
+      });
+      expect(sendTemplateEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variables: expect.objectContaining({ subject: "Hey Tunde" }),
+        })
+      );
+    });
+
+    it("prefers the snapshot first name over the current user name", async () => {
+      applyPersonalizationMock.mockImplementation(substituteFirstName);
+      const sub = dueSubscription({
+        firstName: "Ada",
+        userId: { name: "Tunde Balogun" },
+        sequenceId: {
+          active: true,
+          totalSteps: 1,
+          steps: [
+            {
+              index: 0,
+              subject: "Hello {{first_name}}",
+              title: "",
+              body: "<p>hi</p>",
+              delayHours: 0,
+            },
+          ],
+        },
+      });
+      findMock.mockReturnValueOnce(chain([sub]));
+      findOneAndUpdate.mockReturnValueOnce(claim({ ...sub, dispatchingAt: new Date() }));
+
+      await dispatchEmailSequenceSteps();
+
+      expect(applyPersonalizationMock).toHaveBeenCalledWith("Hello {{first_name}}", {
+        email: "learner@example.com",
+        name: "Ada",
+      });
+    });
+
+    it("sends an anonymous greeting when no name is known", async () => {
+      applyPersonalizationMock.mockImplementation(substituteFirstName);
+      const sub = dueSubscription({
+        sequenceId: {
+          active: true,
+          totalSteps: 1,
+          steps: [
+            {
+              index: 0,
+              subject: "Hi {{first_name}}",
+              title: "",
+              body: "<p>hi</p>",
+              delayHours: 0,
+            },
+          ],
+        },
+      });
+      findMock.mockReturnValueOnce(chain([sub]));
+      findOneAndUpdate.mockReturnValueOnce(claim({ ...sub, dispatchingAt: new Date() }));
+
+      await dispatchEmailSequenceSteps();
+
+      expect(sendTemplateEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variables: expect.objectContaining({ subject: "Hi there" }),
+        })
+      );
+    });
   });
 });

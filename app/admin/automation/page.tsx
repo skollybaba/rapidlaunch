@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Pencil, Play, Pause, Send } from "lucide-react";
+import { Plus, Trash2, Pencil, Play, Pause, Send, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { SequenceCustomersDialog } from "@/components/admin/automation/sequence-customers-dialog";
 import {
   Accordion,
   AccordionContent,
@@ -38,6 +41,7 @@ interface EmailSequence {
   active: boolean;
   totalSteps: number;
   steps: SequenceStep[];
+  subscriberCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,11 +54,17 @@ interface SequenceForm {
 }
 
 export default function AutomationPage() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [sequences, setSequences] = useState<EmailSequence[]>([]);
   const [products, setProducts] = useState<ProductChoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewingCustomers, setViewingCustomers] = useState<{
+    _id: string;
+    name: string;
+  } | null>(null);
 
   const [form, setForm] = useState<SequenceForm>({
     name: "",
@@ -154,9 +164,22 @@ export default function AutomationPage() {
           steps: emptySteps(3),
         });
         fetchData();
+        toast.success({
+          title: editingId ? "Sequence updated" : "Sequence created",
+          description: `"${form.name}" was saved successfully.`,
+        });
+      } else {
+        toast.error({
+          title: "Save failed",
+          description: data.error?.message ?? "The sequence could not be saved.",
+        });
       }
     } catch (err) {
       console.error("Error saving sequence:", err);
+      toast.error({
+        title: "Save failed",
+        description: "Unexpected error while saving the sequence.",
+      });
     }
   };
 
@@ -181,28 +204,70 @@ export default function AutomationPage() {
     setShowForm(true);
   };
 
-  const handleToggleActive = async (id: string, active: boolean) => {
+  const handleToggleActive = async (seq: EmailSequence) => {
+    const nextActive = !seq.active;
     try {
-      await fetch(`/api/admin/email-sequences/${id}`, {
+      const res = await fetch(`/api/admin/email-sequences/${seq._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !active }),
+        body: JSON.stringify({ active: nextActive }),
       });
-      fetchData();
+      const data = await res.json();
+      if (data.ok) {
+        fetchData();
+        toast.success({
+          title: nextActive ? "Automation is turned on" : "Automation is turned off",
+          description: nextActive
+            ? `"${seq.name}" will now email new subscribers.`
+            : `"${seq.name}" is paused; no new sequence emails will be sent.`,
+        });
+      } else {
+        toast.error({
+          title: "Something went wrong",
+          description: data.error?.message ?? "The sequence could not be updated.",
+        });
+      }
     } catch (err) {
       console.error("Error toggling sequence:", err);
+      toast.error({
+        title: "Something went wrong",
+        description: "Unexpected error while updating the sequence.",
+      });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this sequence?")) return;
+  const handleDelete = async (id: string, name: string) => {
     try {
-      await fetch(`/api/admin/email-sequences/${id}`, {
+      const ok = await confirm({
+        title: `Delete "${name}"?`,
+        description:
+          "Existing subscribers will stop receiving this sequence. This cannot be undone.",
+        confirmLabel: "Delete sequence",
+        tone: "danger",
+      });
+      if (!ok) return;
+      const res = await fetch(`/api/admin/email-sequences/${id}`, {
         method: "DELETE",
       });
-      fetchData();
+      const data = await res.json();
+      if (data.ok) {
+        fetchData();
+        toast.success({
+          title: "Sequence deleted",
+          description: `"${name}" was deleted.`,
+        });
+      } else {
+        toast.error({
+          title: "Delete failed",
+          description: data.error?.message ?? "The sequence could not be deleted.",
+        });
+      }
     } catch (err) {
       console.error("Error deleting sequence:", err);
+      toast.error({
+        title: "Delete failed",
+        description: "Unexpected error while deleting the sequence.",
+      });
     }
   };
 
@@ -353,6 +418,10 @@ export default function AutomationPage() {
                           placeholder="Email subject"
                           required
                         />
+                        <p className="text-xs text-neutral-500 mt-1">
+                          Personalize with {"{{first_name}}"}, {"{{name}}"} or {"{{email}}"} —
+                          for example, Hello {"{{first_name}}"}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-2">Title (Optional)</label>
@@ -455,48 +524,61 @@ export default function AutomationPage() {
             sequences.map((seq) => (
               <div key={seq._id} className="rounded-[20px] border border-neutral-300 bg-white p-6">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">{seq.name}</h3>
-                    <p className="text-sm text-neutral-500 mt-1">
-                      Product: {getProductName(seq.productId)} • {seq.totalSteps} emails
-                    </p>
-                    <div className="mt-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          seq.active
-                            ? "bg-green-100 text-green-700"
-                            : "bg-neutral-100 text-neutral-700"
-                        }`}
-                      >
-                        {seq.active ? "Active" : "Inactive"}
-                      </span>
+<div>
+                      <h3 className="text-lg font-semibold">{seq.name}</h3>
+                      <p className="text-sm text-neutral-500 mt-1">
+                        Product: {getProductName(seq.productId)} • {seq.totalSteps} emails •{" "}
+                        {seq.subscriberCount ?? 0} tracked
+                      </p>
+                      <div className="mt-2">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            seq.active
+                              ? "bg-green-100 text-green-700"
+                              : "bg-neutral-100 text-neutral-700"
+                          }`}
+                        >
+                          {seq.active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleActive(seq._id, seq.active)}
-                    >
-                      {seq.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(seq)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(seq._id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewingCustomers({ _id: seq._id, name: seq.name })}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Customers
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleActive(seq)}
+                      >
+                        {seq.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(seq)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(seq._id, seq.name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                 </div>
               </div>
             ))
           )}
         </div>
       )}
+      <SequenceCustomersDialog
+        sequence={viewingCustomers}
+        onClose={() => setViewingCustomers(null)}
+      />
     </div>
   );
 }

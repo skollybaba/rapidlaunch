@@ -8,6 +8,10 @@ const EmailSequenceSubscriptionSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    firstName: {
+      type: String,
+      trim: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

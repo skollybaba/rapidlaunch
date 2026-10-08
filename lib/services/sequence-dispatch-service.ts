@@ -3,6 +3,7 @@ import "server-only";
 import { dbConnect } from "@/lib/db";
 import { EmailSequenceSubscription } from "@/models/EmailSequenceSubscription";
 import { createMailAdapter } from "@/lib/providers/mail";
+import { applyPersonalization } from "@/lib/services/broadcast-service";
 
 interface SequenceStepDoc {
   index: number;
@@ -80,6 +81,7 @@ async function runDispatch(): Promise<DispatchResult> {
     dispatchingAt: null,
   })
     .populate("sequenceId")
+    .populate("userId", "name")
     .lean()
     .exec();
 
@@ -134,13 +136,22 @@ async function runDispatch(): Promise<DispatchResult> {
     }
 
     try {
+      const userInfo = subscription.userId as
+        | { name?: string }
+        | null
+        | undefined;
+      const recipient = {
+        email: subscription.email,
+        name: subscription.firstName || userInfo?.name || "",
+      };
+
       await adapter.sendTemplateEmail({
         templateKey: "sequence_step",
         to: subscription.email,
         variables: {
-          subject: step.subject,
-          title: step.title || step.subject,
-          body: step.body,
+          subject: applyPersonalization(step.subject, recipient),
+          title: applyPersonalization(step.title || step.subject, recipient),
+          body: applyPersonalization(step.body, recipient, { html: true }),
         },
       });
 

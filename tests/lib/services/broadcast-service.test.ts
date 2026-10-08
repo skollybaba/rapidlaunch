@@ -135,6 +135,39 @@ describe("applyPersonalization", () => {
       })
     ).toBe("<p>&lt;script&gt;x</p>");
   });
+
+  it("replaces the first_name token with only the first word of the name", () => {
+    expect(
+      applyPersonalization("Hello {{first_name}}", {
+        email: "ada@example.com",
+        name: "Ada Lovelace",
+      })
+    ).toBe("Hello Ada");
+  });
+
+  it("supports {{first_name}} with underscores, hyphens and spaces", () => {
+    expect(
+      applyPersonalization("{{first_name}} {{first-name}} {{first name}}", {
+        email: "a@b.com",
+        name: "Ada Lovelace",
+      })
+    ).toBe("Ada Ada Ada");
+  });
+
+  it("falls back to \"there\" for first_name when no name is known", () => {
+    expect(
+      applyPersonalization("Hello {{first_name}}", { email: "ada@example.com" })
+    ).toBe("Hello there");
+  });
+
+  it("escapes the first_name token in HTML output", () => {
+    expect(
+      applyPersonalization("<p>Hi {{first_name}}</p>", {
+        email: "a@b.com",
+        name: "<Ada>",
+      }, { html: true })
+    ).toBe("<p>Hi &lt;Ada&gt;</p>");
+  });
 });
 
 describe("sendBroadcast — segment resolution", () => {

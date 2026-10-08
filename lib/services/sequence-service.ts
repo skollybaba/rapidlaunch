@@ -1,12 +1,15 @@
 import 'server-only';
 import dbConnect from '@/lib/db';
 import EmailSequence from '@/models/EmailSequence';
+import { EmailSequenceSubscription } from '@/models/EmailSequenceSubscription';
+import { User } from '@/models/User';
 import type {
   EmailSequence as EmailSequenceType,
   EmailSequenceStep,
 } from '@/types/email-sequence';
 
-
+const SUBSCRIBER_PAGE_SIZE = 200;
+const SUBSCRIBER_PAGE_SIZE_MAX = 500;
 
 export async function listSequences(filters: {
   productId?: string;
@@ -27,7 +30,21 @@ export async function listSequences(filters: {
     .sort({ createdAt: -1 })
     .lean();
 
-  return sequences as EmailSequenceType[];
+  const sequenceIds = sequences.map((s) => s._id);
+  const counts = sequenceIds.length
+    ? await EmailSequenceSubscription.aggregate<{ _id: string; count: number }>([
+        { $match: { sequenceId: { $in: sequenceIds } } },
+        { $group: { _id: '$sequenceId', count: { $sum: 1 } } },
+      ])
+    : [];
+  const countBySequenceId = new Map(
+    counts.map((row) => [String(row._id), row.count] as [string, number])
+  );
+
+  return sequences.map((sequence) => ({
+    ...sequence,
+    subscriberCount: countBySequenceId.get(String(sequence._id)) ?? 0,
+  })) as EmailSequenceType[];
 }
 
 export async function getSequenceById(id: string): Promise<EmailSequenceType | null> {
@@ -100,19 +117,95 @@ export async function deleteSequence(id: string): Promise<boolean> {
 }
 
 
-export async function subscribeToSequence(data: {
+function firstNameOf(name: string | null | undefined): string | undefined {
+  const token = (name ?? '').trim().split(/\s+/)[0];
+  return token || undefined;
+}
+
+export type SequenceSubscriberStatus = 'pending' | 'completed' | 'cancelled';
+
+export interface SequenceSubscriber {
+  _id: string;
+  email: string;
+  name: string | null;
+  status: SequenceSubscriberStatus;
+  subscribedAt: string;
+  lastSentAt: string | null;
+  nextSendAt: string;
+  currentStepIndex: number;
+}
+
+function toIso(value: unknown): string {
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value as string).toISOString();
+}
+
+export async function listSequenceSubscribers(
+  sequenceId: string,
+  pagination: { limit?: number; skip?: number } = {}
+): Promise<{ total: number; subscribers: SequenceSubscriber[] }> {
+  await dbConnect();
+
+  const limit = Math.min(
+    Math.max(pagination.limit ?? SUBSCRIBER_PAGE_SIZE, 1),
+    SUBSCRIBER_PAGE_SIZE_MAX
+  );
+  const skip = Math.max(pagination.skip ?? 0, 0);
+
+  const [subscriptions, total] = await Promise.all([
+    EmailSequenceSubscription.find({ sequenceId })
+      .populate('userId', 'name')
+      .sort({ subscribedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    EmailSequenceSubscription.countDocuments({ sequenceId }),
+  ]);
+
+  const subscribers: SequenceSubscriber[] = subscriptions.map((sub) => {
+    const user = sub.userId as { name?: string } | null | undefined;
+    let status: SequenceSubscriberStatus = 'pending';
+    if (sub.completedAt) status = 'completed';
+    else if (sub.cancelledAt) status = 'cancelled';
+    return {
+      _id: String(sub._id),
+      email: sub.email,
+      name: sub.firstName || user?.name || null,
+      status,
+      subscribedAt: toIso(sub.subscribedAt),
+      lastSentAt: sub.lastSentAt ? toIso(sub.lastSentAt) : null,
+      nextSendAt: toIso(sub.nextSendAt),
+      currentStepIndex: sub.currentStepIndex ?? 0,
+    };
+  });
+
+  return { total, subscribers };
+}
+
+export type SequenceSubscriptionInput = {
   email: string;
   sequenceId: string;
   productId?: string;
   userId?: string;
-}): Promise<{ _id: string; nextSendAt: Date } | null> {
+  name?: string;
+};
+
+export async function subscribeToSequence(
+  data: SequenceSubscriptionInput
+): Promise<{ _id: string; nextSendAt: Date } | null> {
   await dbConnect();
-  const { EmailSequenceSubscription } = await import("@/models/EmailSequenceSubscription");
   const { EmailSequence } = await import("@/models/EmailSequence");
 
   const sequence = await EmailSequence.findById(data.sequenceId).lean();
   if (!sequence || !sequence.active) {
     return null;
+  }
+
+  let firstName = firstNameOf(data.name);
+  if (!firstName && data.userId) {
+    const user = await User.findById(data.userId).select('name').lean();
+    firstName = firstNameOf(user?.name);
   }
 
   const existing = await EmailSequenceSubscription.findOne({
@@ -138,6 +231,7 @@ export async function subscribeToSequence(data: {
 
   const sub = await EmailSequenceSubscription.create({
     email: data.email,
+    firstName,
     userId: data.userId || undefined,
     sequenceId: data.sequenceId,
     productId: data.productId || sequence.productId,

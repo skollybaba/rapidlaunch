@@ -370,8 +370,9 @@ export function segmentLabel(
 }
 
 /**
- * Replaces `{{name}}` and `{{email}}` tokens. Pass `html: true` when the
- * surrounding string is HTML so names cannot inject markup.
+ * Replaces `{{first_name}}`, `{{name}}` and `{{email}}` tokens. Pass
+ * `html: true` when the surrounding string is HTML so names cannot inject
+ * markup. An empty name falls back to "there".
  */
 export function applyPersonalization(
   template: string,
@@ -380,6 +381,7 @@ export function applyPersonalization(
 ): string {
   const rawName = (recipient.name ?? "").trim();
   const name = rawName || "there";
+  const firstName = rawName.split(/\s+/)[0] || "there";
   const escape = options.html
     ? (value: string) =>
         value
@@ -389,6 +391,7 @@ export function applyPersonalization(
           .replace(/"/g, "&quot;")
     : (value: string) => value;
   return template
+    .replace(/\{\{\s*first\s*[_-]?\s*name\s*\}\}/gi, () => escape(firstName))
     .replace(/\{\{\s*name\s*\}\}/gi, () => escape(name))
     .replace(/\{\{\s*email\s*\}\}/gi, () => escape(recipient.email));
 }

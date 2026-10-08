@@ -15,6 +15,20 @@ export type EmailSequence = {
   active: boolean;
   totalSteps: number;
   steps: EmailSequenceStep[];
+  subscriberCount?: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type EmailSequenceSubscriberStatus = 'pending' | 'completed' | 'cancelled';
+
+export type EmailSequenceSubscriber = {
+  _id: string;
+  email: string;
+  name: string | null;
+  status: EmailSequenceSubscriberStatus;
+  subscribedAt: string;
+  lastSentAt: string | null;
+  nextSendAt: string;
+  currentStepIndex: number;
 };
