@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { AnimatedNumber } from "@/components/admin/animated-number";
 import { TestEmailButton } from "@/components/admin/test-email-button";
 import { TrendChart } from "@/components/admin/trend-chart";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
@@ -76,7 +77,9 @@ function enrollmentTone(status: string): BadgeTone {
 
 interface StatCardProps {
   label: string;
-  value: string;
+  value: number;
+  format?: "int" | "price";
+  currency?: string;
   hint?: string;
   icon: LucideIcon;
   tone?: "default" | "warning";
@@ -85,13 +88,15 @@ interface StatCardProps {
 function StatCard({
   label,
   value,
+  format = "int",
+  currency,
   hint,
   icon: Icon,
   tone = "default",
 }: StatCardProps) {
   return (
     <div
-      className={`rounded-[16px] border p-5 ${
+      className={`group rounded-[16px] border p-5 transition-transform duration-[var(--duration-fast)] ease-[var(--vp-ease-standard)] hover:-translate-y-0.5 ${
         tone === "warning"
           ? "border-warning-100 bg-warning-100"
           : "border-neutral-300 bg-white"
@@ -103,12 +108,14 @@ function StatCard({
         </p>
         <Icon
           aria-hidden="true"
-          className={`h-5 w-5 ${
+          className={`h-5 w-5 transition-transform duration-[var(--duration-fast)] ease-[var(--vp-ease-standard)] group-hover:scale-110 ${
             tone === "warning" ? "text-warning-600" : "text-terracotta-600"
           }`}
         />
       </div>
-      <p className="mt-3 text-2xl font-bold text-neutral-950">{value}</p>
+      <p className="mt-3 text-2xl font-bold text-neutral-950">
+        <AnimatedNumber value={value} format={format} currency={currency} />
+      </p>
       {hint ? <p className="mt-1 text-xs text-neutral-500">{hint}</p> : null}
     </div>
   );
@@ -289,31 +296,33 @@ export default async function AdminDashboardPage({
       <div className="admin-enter mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="Revenue"
-          value={formatPrice(kpis.revenueMinor)}
+          value={kpis.revenueMinor}
+          format="price"
           hint="paid revenue in this period"
           icon={CircleDollarSign}
         />
         <StatCard
           label="Paid orders"
-          value={String(kpis.paidOrders)}
+          value={kpis.paidOrders}
           hint={`${kpis.ordersCreated} created · ${kpis.conversionRate}% converted`}
           icon={ShoppingCart}
         />
         <StatCard
           label="Avg order value"
-          value={formatPrice(kpis.averageOrderMinor)}
+          value={kpis.averageOrderMinor}
+          format="price"
           hint="per paid order"
           icon={Receipt}
         />
         <StatCard
           label="New customers"
-          value={String(kpis.newCustomers)}
+          value={kpis.newCustomers}
           hint="accounts created in period"
           icon={Users}
         />
         <StatCard
           label="Enrollments"
-          value={String(kpis.enrollments)}
+          value={kpis.enrollments}
           hint={`${kpis.enrollmentPending} pending · ${kpis.enrollmentIssues} need attention`}
           tone={kpis.enrollmentIssues > 0 ? "warning" : "default"}
           icon={GraduationCap}
@@ -416,7 +425,7 @@ export default async function AdminDashboardPage({
                     </div>
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-100">
                       <div
-                        className="h-full rounded-full bg-terracotta-500"
+                        className="animate-bar-x h-full rounded-full bg-terracotta-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

@@ -438,6 +438,15 @@
   }
 }
 
+@keyframes bar-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes dialog-in {
   from {
     opacity: 0;
@@ -500,6 +509,11 @@ dialog::backdrop {
   .animate-bar-grow {
     animation: bar-grow var(--motion-emphasis) var(--vp-ease-emphasis) both;
     transform-origin: bottom;
+  }
+
+  .animate-bar-x {
+    animation: bar-grow-x var(--motion-emphasis) var(--vp-ease-emphasis) both;
+    transform-origin: left;
   }
 
   .vp-toast-enter {
