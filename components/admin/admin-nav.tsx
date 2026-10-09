@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { ThemeToggle } from "@/components/admin/admin-theme";
 import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 
@@ -201,6 +202,7 @@ export function AdminNav() {
       </nav>
 
       <div className="border-t border-white/10 p-4">
+        <ThemeToggle />
         <Link
           href="/"
           className="flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-white/60 transition-colors duration-[var(--duration-fast)] hover:bg-white/5 hover:text-white"

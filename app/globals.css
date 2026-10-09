@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Admin portal dark mode. The `dark` variant only activates while the admin
+   theme attribute is present on <html> (set by the admin theme toggle), so
+   the public site and customer account area are never affected. */
+@custom-variant dark (&:where([data-admin-theme="dark"], [data-admin-theme="dark"] *));
+
 @theme {
   /* ------------------------------------------------------------------
      Rapid Launch Design System (DESIGN.md v1.0)
@@ -627,4 +632,90 @@ dialog::backdrop {
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-neutral-500);
+}
+
+/* ------------------------------------------------------------------
+   Admin dark mode (opt-in via the admin theme toggle).
+
+   DESIGN.md v1.0 does not define a dark theme, so these surfaces are
+   derived from its documented ink/charcoal palette. Everything is scoped
+   to html[data-admin-theme="dark"], which the admin layout sets only while
+   an admin route is mounted — the public site and account area keep using
+   the light tokens unchanged.
+
+   Colours are overridden as CSS variables, which Tailwind v4 utilities
+   reference (e.g. `text-neutral-950` -> `color: var(--color-neutral-950)`),
+   so hover/focus state variants resolve correctly through them. A few
+   variables are dual-purpose (e.g. `white` is both a card surface and an
+   inverse text colour), so those are handled with explicit class rules
+   wrapped in :where() to keep state variants winning.
+   ------------------------------------------------------------------ */
+html[data-admin-theme="dark"] {
+  --color-paper-50: #0c0d12;
+
+  --color-neutral-50: #1e2027; /* subtle surfaces, table headers */
+  --color-neutral-100: #101219; /* page canvas + hairlines */
+  --color-neutral-200: #262932;
+  --color-neutral-300: #30333e; /* borders */
+  --color-neutral-400: #7d818d;
+  --color-neutral-500: #9498a3; /* muted text */
+  --color-neutral-600: #abafb9;
+  --color-neutral-700: #c9ccd4; /* body text */
+  --color-neutral-800: #d9dce2;
+  --color-neutral-900: #e9ebef;
+  --color-neutral-950: #f5f6f8; /* primary text */
+
+  --color-ink-700: #c9ccd4; /* badge text on tinted surfaces */
+  --color-ink-800: #3a3f4f; /* hover for dark buttons */
+  --color-ink-900: #2c3040; /* active pills / dark feature cards */
+
+  --color-terracotta-100: #3a241d;
+  --color-terracotta-500: #e0885f;
+
+  --color-lavender-100: #20233a;
+  --color-lavender-200: #272b47;
+
+  --color-success-600: #4ecf85;
+  --color-success-100: #122a1c;
+  --color-warning-600: #e0b24f;
+  --color-warning-100: #2e2510;
+  --color-danger-600: #f18c8c;
+  --color-danger-100: #331718;
+
+  --color-ai-violet: #a58cff;
+  --color-ai-violet-soft: #1e1a33;
+}
+
+@layer utilities {
+  /* Card surfaces: `bg-white` is the workhorse surface across the portal.
+     `text-white` is left untouched so inverse text on dark chrome still works. */
+  html[data-admin-theme="dark"] :where(.bg-white) {
+    background-color: #1a1c22;
+  }
+
+  /* `neutral-950` doubles as primary text (light) and near-black chrome
+     (buttons, active tabs, one intentionally dark modal); keep the chrome dark. */
+  html[data-admin-theme="dark"] :where(.bg-neutral-950) {
+    background-color: #0b0c10;
+  }
+
+  /* Lift terracotta text for contrast on dark surfaces without changing the
+     button/border tone. */
+  html[data-admin-theme="dark"] :where(.text-terracotta-600) {
+    color: #e6916f;
+  }
+
+  html[data-admin-theme="dark"] :where(.text-ink-900) {
+    color: #e9ebef;
+  }
+
+  html[data-admin-theme="dark"] ::placeholder {
+    color: #6d717d;
+  }
+
+  /* Rich-text code blocks use paper/ink tokens that invert in dark mode. */
+  html[data-admin-theme="dark"] .rich-content pre {
+    background-color: #0b0c10;
+    color: #e9ebef;
+  }
 }

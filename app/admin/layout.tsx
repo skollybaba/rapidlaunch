@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminThemeProvider } from "@/components/admin/admin-theme";
 
 export const dynamic = "force-dynamic";
+
+/* Applied before first paint so a persisted dark choice does not flash light.
+   The attribute lives on <html> only while an admin route is mounted. */
+const ADMIN_THEME_SCRIPT = `(function(){try{if(localStorage.getItem('admin-theme')==='dark'){document.documentElement.setAttribute('data-admin-theme','dark');}}catch(e){}})();`;
 
 export default async function AdminLayout({
   children,
@@ -10,15 +15,20 @@ export default async function AdminLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
-      <aside className="sticky top-0 z-30 flex w-full flex-col overflow-y-auto border-b border-ink-950 bg-ink-950 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r lg:self-start lg:h-screen">
-        <AdminNav />
-      </aside>
-      <div className="flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col px-6 py-8 lg:px-10 lg:py-10">
-          {children}
+    <>
+      <script dangerouslySetInnerHTML={{ __html: ADMIN_THEME_SCRIPT }} />
+      <AdminThemeProvider>
+        <div className="flex min-h-screen flex-col bg-neutral-100 lg:flex-row">
+          <aside className="sticky top-0 z-30 flex w-full flex-col overflow-y-auto border-b border-ink-950 bg-ink-950 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r lg:self-start lg:h-screen">
+            <AdminNav />
+          </aside>
+          <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col px-6 py-8 lg:px-10 lg:py-10">
+              {children}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </AdminThemeProvider>
+    </>
   );
 }

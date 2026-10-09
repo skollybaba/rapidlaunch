@@ -223,7 +223,7 @@ export default async function AdminDashboardPage({
             </div>
             <Link
               href="/admin/bookings?range=upcoming"
-              className="inline-flex items-center gap-1.5 rounded-pill bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition-colors duration-[var(--duration-fast)] hover:bg-white/90"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-[#ffffff] px-4 py-2 text-sm font-semibold text-[#1d1d1d] transition-colors duration-[var(--duration-fast)] hover:bg-[#f1f1f1]"
             >
               View bookings
               <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
