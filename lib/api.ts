@@ -12,6 +12,7 @@ import { ResourceServiceError } from "@/lib/services/resource-service";
 import { AccountServiceError } from "@/lib/services/account-service";
 import { LeadServiceError } from "@/lib/services/lead-service";
 import { LmsServiceError } from "@/lib/services/lms-service";
+import { ProfitReportServiceError } from "@/lib/services/profit-service";
 import { CouponServiceError } from "@/lib/services/coupon-service";
 
 export function newRequestId(): string {
@@ -85,6 +86,10 @@ export function handleApiError(
   }
 
   if (error instanceof CouponServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof ProfitReportServiceError) {
     return apiError(error.status, error.code, error.message, requestId);
   }
 

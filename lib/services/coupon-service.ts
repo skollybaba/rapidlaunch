@@ -2,6 +2,7 @@ import "server-only";
 
 import { dbConnect } from "@/lib/db";
 import { Coupon } from "@/models/Coupon";
+import { Order } from "@/models/Order";
 import {
   adminCouponQuerySchema,
   couponInputSchema,
@@ -237,6 +238,73 @@ async function loadCouponForApply(code: string): Promise<LeanCouponDoc | null> {
   };
 }
 
+const SUCCESSFUL_COUPON_ORDER_STATUSES = [
+  "PAID",
+  "REFUNDED",
+  "PARTIALLY_REFUNDED",
+] as const;
+
+async function successfulOrderReferences(refs: string[]): Promise<Set<string>> {
+  const uniqueRefs = [...new Set(refs)];
+  if (uniqueRefs.length === 0) return new Set();
+  const docs = await Order.find(
+    {
+      orderReference: { $in: uniqueRefs },
+      status: { $in: [...SUCCESSFUL_COUPON_ORDER_STATUSES] },
+    } as unknown as Parameters<typeof Order.find>[0]
+  )
+    .select("orderReference")
+    .lean()
+    .exec();
+  return new Set(docs.map((d) => d.orderReference));
+}
+
+async function releaseRedemptionsForReferences(
+  couponId: unknown,
+  refs: string[]
+): Promise<void> {
+  const uniqueRefs = [...new Set(refs)];
+  if (uniqueRefs.length === 0) return;
+  await Coupon.updateOne(
+    asUpdateOneFilter({
+      _id: couponId,
+      "redemptions.orderReference": { $in: uniqueRefs },
+      usedCount: { $gte: uniqueRefs.length },
+    }),
+    {
+      $inc: { usedCount: -uniqueRefs.length },
+      $pull: { redemptions: { orderReference: { $in: uniqueRefs } } },
+    }
+  ).exec();
+}
+
+/**
+ * A redemption is reserved at checkout but only counts once its attached order
+ * actually succeeded. Attempts whose order never reached a successful state
+ * (abandoned, failed, still pending, or never created) must not count toward
+ * the usage limit and must not block a later attempt, so those stale
+ * reservations are released before the coupon is judged usable.
+ */
+async function reconcileCouponRedemptions(
+  coupon: LeanCouponDoc
+): Promise<LeanCouponDoc> {
+  const refs = (coupon.redemptions ?? []).map((r) => r.orderReference);
+  if (refs.length === 0) return coupon;
+  const successfulRefs = await successfulOrderReferences(refs);
+  const staleRefs = refs.filter((ref) => !successfulRefs.has(ref));
+  if (staleRefs.length === 0) return coupon;
+  await releaseRedemptionsForReferences(coupon._id, staleRefs);
+  const fresh = await loadCouponForApply(coupon.code);
+  if (!fresh) {
+    throw new CouponServiceError(
+      "COUPON_NOT_FOUND",
+      "This discount code does not exist. Check it and try again.",
+      404
+    );
+  }
+  return fresh;
+}
+
 function assertCouponUsable(
   coupon: LeanCouponDoc,
   productType: ProductType
@@ -265,10 +333,11 @@ export async function getCouponPreview(
   subtotalMinor: number
 ): Promise<CouponPreview> {
   await dbConnect();
-  const coupon = await loadCouponForApply(code);
-  if (!coupon) {
+  const loaded = await loadCouponForApply(code);
+  if (!loaded) {
     throw new CouponServiceError("COUPON_NOT_FOUND", "This discount code does not exist. Check it and try again.", 404);
   }
+  const coupon = await reconcileCouponRedemptions(loaded);
 
   assertCouponUsable(coupon, productType);
 
@@ -298,13 +367,16 @@ export async function applyCouponToCheckout(input: {
   await dbConnect();
   const code = input.code.trim().toUpperCase();
   const customerEmail = input.customerEmail.trim().toLowerCase();
-  const coupon = await loadCouponForApply(code);
-  if (!coupon) {
+  const loaded = await loadCouponForApply(code);
+  if (!loaded) {
     throw new CouponServiceError("COUPON_NOT_FOUND", "This discount code does not exist. Check it and try again.", 404);
   }
+  const coupon = await reconcileCouponRedemptions(loaded);
 
   assertCouponUsable(coupon, input.productType);
 
+  // After reconciliation only redemptions backed by a successful order remain,
+  // so a matching email here means the coupon was genuinely used by it before.
   const alreadyUsed = (coupon.redemptions ?? []).some(
     (r) => r.email === customerEmail
   );

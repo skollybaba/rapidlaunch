@@ -27,6 +27,10 @@ import {
 import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
 import { subscribeBuyerToOrderSequences } from "@/lib/services/sequence-service";
 import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
+import {
+  emitAnalyticsEvent,
+  orderEventKey,
+} from "@/lib/services/analytics-service";
 import { formatPrice } from "@/lib/utils";
 import { Booking } from "@/models/Booking";
 import { Fulfillment } from "@/models/Fulfillment";
@@ -302,6 +306,20 @@ export async function createCheckoutSession(
     throw error;
   }
 
+  await emitAnalyticsEvent({
+    eventType: "ORDER_CREATED",
+    eventKey: orderEventKey("ORDER_CREATED", orderReference),
+    productId: String(product._id),
+    productType: product.type,
+    customerEmail,
+    userId,
+    metadata: {
+      orderId: String(order._id),
+      totalMinor,
+      couponCode: appliedCoupon?.code ?? null,
+    },
+  });
+
   if (isBookableEngagement({
       type: product.type,
       fulfillmentMode: product.fulfillmentMode,
@@ -390,6 +408,22 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
     status: "PENDING",
     amountMinor: order.totalMinor,
     currency: order.currency,
+  });
+
+  await emitAnalyticsEvent({
+    eventType: "PAYMENT_STARTED",
+    eventKey: orderEventKey("PAYMENT_STARTED", order.orderReference),
+    productId: order.items[0]?.productId
+      ? String(order.items[0].productId)
+      : null,
+    productType: order.metadata?.productType
+      ? String(order.metadata.productType)
+      : null,
+    customerEmail: order.customerEmail,
+    metadata: {
+      orderId: String(order._id),
+      paymentId: String(payment._id),
+    },
   });
 
   const secretKey = env.PAYSTACK_SECRET_KEY;
@@ -695,6 +729,22 @@ async function settleVerifiedPayment(
       },
     }
   );
+
+  await emitAnalyticsEvent({
+    eventType: "PAYMENT_SUCCEEDED",
+    eventKey: orderEventKey("PAYMENT_SUCCEEDED", order.orderReference),
+    productId: order.items[0]?.productId
+      ? String(order.items[0].productId)
+      : null,
+    productType: order.metadata?.productType
+      ? String(order.metadata.productType)
+      : null,
+    customerEmail: order.customerEmail,
+    metadata: {
+      orderId: String(order._id),
+      totalMinor: order.totalMinor,
+    },
+  });
 
   await createFulfillmentIfMissing(order);
 

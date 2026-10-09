@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { randomUUID } from "node:crypto";
 
 import { getPublishedProductById } from "@/lib/services/catalog-service";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
@@ -8,6 +9,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { env } from "@/lib/env";
 import { displayPrice, getDisplayCurrency } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
+import { emitAnalyticsEvent } from "@/lib/services/analytics-service";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,13 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const product = await getPublishedProductById(productId);
 
   if (!product) notFound();
+
+  await emitAnalyticsEvent({
+    eventType: "CHECKOUT_VIEWED",
+    eventKey: `view:${randomUUID()}`,
+    productId: product.id,
+    productType: product.type,
+  });
 
   const displayCurrency = await getDisplayCurrency();
   const display = displayPrice(

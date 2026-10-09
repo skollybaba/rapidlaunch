@@ -17,8 +17,13 @@ vi.mock("@/models/Coupon", () => ({
   },
 }));
 
+vi.mock("@/models/Order", () => ({
+  Order: { find: vi.fn() },
+}));
+
 import { dbConnect } from "@/lib/db";
 import { Coupon } from "@/models/Coupon";
+import { Order } from "@/models/Order";
 import {
   applyCouponToCheckout,
   createCoupon,
@@ -39,6 +44,7 @@ const mockFindByIdAndUpdate = vi.mocked(Coupon.findByIdAndUpdate);
 const mockFindByIdAndDelete = vi.mocked(Coupon.findByIdAndDelete);
 const mockFindOneAndUpdate = vi.mocked(Coupon.findOneAndUpdate);
 const mockUpdateOne = vi.mocked(Coupon.updateOne);
+const mockOrderFind = vi.mocked(Order.find);
 
 function doc(overrides: Record<string, unknown> = {}) {
   return {
@@ -291,6 +297,33 @@ describe("getCouponPreview", () => {
       code: "COUPON_EXCEEDS_PRICE",
     });
   });
+
+  it("previews normally when abandoned attempts alone consumed the usage limit", async () => {
+    mockFindOne
+      .mockReturnValueOnce(
+        chain(
+          doc({
+            maxUses: 1,
+            usedCount: 1,
+            redemptions: [
+              { email: "other@example.com", orderReference: "QL-OLD", usedAt: new Date() },
+            ],
+          })
+        )
+      )
+      .mockReturnValueOnce(chain(doc({ maxUses: 1, discountPercent: 10 })));
+    mockOrderFind.mockReturnValue(chain([]));
+    mockUpdateOne.mockReturnValue(execOnly({ modifiedCount: 1 }));
+
+    const preview = await getCouponPreview("LAUNCH50", "COURSE", 5_000_000);
+
+    expect(preview).toMatchObject({
+      code: "LAUNCH50",
+      discountPercent: 10,
+      discountMinor: 500_000,
+      totalMinor: 4_500_000,
+    });
+  });
 });
 
 describe("applyCouponToCheckout", () => {
@@ -335,7 +368,7 @@ describe("applyCouponToCheckout", () => {
     });
   });
 
-  it("rejects reuse by the same email", async () => {
+  it("rejects reuse by the same email when the previous order succeeded", async () => {
     mockFindOne.mockReturnValue(
       chain(
         doc({
@@ -345,9 +378,102 @@ describe("applyCouponToCheckout", () => {
         })
       )
     );
+    mockOrderFind.mockReturnValue(
+      chain([{ orderReference: "QL-OLD", status: "PAID" }])
+    );
     await expect(applyCouponToCheckout(input)).rejects.toMatchObject({
       code: "COUPON_ALREADY_USED",
       status: 409,
+    });
+  });
+
+  it("allows reuse when the previous order did not succeed and releases the stale reservation", async () => {
+    const stale = doc({
+      redemptions: [
+        { email: "buyer@example.com", orderReference: "QL-OLD", usedAt: new Date() },
+      ],
+    });
+    const fresh = doc({ discountPercent: 10 });
+    mockFindOne.mockReturnValueOnce(chain(stale)).mockReturnValueOnce(chain(fresh));
+    mockOrderFind.mockReturnValue(chain([]));
+    mockUpdateOne.mockReturnValue(execOnly({ modifiedCount: 1 }));
+    mockFindOneAndUpdate.mockReturnValue(chain({ _id: "CPN1" }));
+
+    const applied = await applyCouponToCheckout(input);
+
+    expect(mockOrderFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderReference: { $in: ["QL-OLD"] },
+        status: { $in: ["PAID", "REFUNDED", "PARTIALLY_REFUNDED"] },
+      })
+    );
+    expect(mockUpdateOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: "CPN1",
+        "redemptions.orderReference": { $in: ["QL-OLD"] },
+        usedCount: { $gte: 1 },
+      }),
+      expect.objectContaining({ $inc: { usedCount: -1 } })
+    );
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: "CPN1",
+        usedCount: 0,
+        "redemptions.email": { $ne: "buyer@example.com" },
+      }),
+      expect.anything(),
+      { new: true }
+    );
+    expect(applied).toMatchObject({
+      couponId: "CPN1",
+      discountMinor: 500_000,
+      totalMinor: 4_500_000,
+    });
+  });
+
+  it("does not let abandoned attempts exhaust a single-use coupon", async () => {
+    const stale = doc({
+      maxUses: 1,
+      usedCount: 1,
+      redemptions: [
+        { email: "other@example.com", orderReference: "QL-OLD", usedAt: new Date() },
+      ],
+    });
+    const fresh = doc({ maxUses: 1, discountPercent: 10 });
+    mockFindOne.mockReturnValueOnce(chain(stale)).mockReturnValueOnce(chain(fresh));
+    mockOrderFind.mockReturnValue(chain([]));
+    mockUpdateOne.mockReturnValue(execOnly({ modifiedCount: 1 }));
+    mockFindOneAndUpdate.mockReturnValue(chain({ _id: "CPN1" }));
+
+    const applied = await applyCouponToCheckout(input);
+
+    expect(mockUpdateOne).toHaveBeenCalledTimes(1);
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ usedCount: 0 }),
+      expect.anything(),
+      { new: true }
+    );
+    expect(applied).toMatchObject({ couponId: "CPN1", totalMinor: 4_500_000 });
+  });
+
+  it("still reports a used-up coupon when only successful orders consumed it", async () => {
+    mockFindOne.mockReturnValue(
+      chain(
+        doc({
+          maxUses: 1,
+          usedCount: 1,
+          redemptions: [
+            { email: "other@example.com", orderReference: "QL-OLD", usedAt: new Date() },
+          ],
+        })
+      )
+    );
+    mockOrderFind.mockReturnValue(
+      chain([{ orderReference: "QL-OLD", status: "PAID" }])
+    );
+    await expect(applyCouponToCheckout(input)).rejects.toMatchObject({
+      code: "COUPON_LIMIT_REACHED",
+      status: 400,
     });
   });
 

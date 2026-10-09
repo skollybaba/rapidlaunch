@@ -33,7 +33,8 @@ export type EmailTemplateKey =
   | "fulfillment_failure_alert"
   | "sequence_step"
   | "refund_processed"
-  | "support_acknowledgement";
+  | "support_acknowledgement"
+  | "profit_report";
 
 export interface SendEmailInput {
   to: string;
@@ -445,6 +446,19 @@ Paid at: ${paidAt}${paymentReference ? `\nPayment reference: ${paymentReference}
       }${adminOrdersUrl ? `\n\nView order: ${adminOrdersUrl}` : ""}`;
 
       return { subject, html, text };
+    }
+
+    case "profit_report": {
+      const month = variables.month ?? "";
+      const net = variables.netMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.netMinor)))} NGN` : "₦0 NGN";
+      const fees = variables.paystackFeesMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.paystackFeesMinor)))} NGN` : "₦0 NGN";
+      const expenses = variables.expensesTotalMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.expensesTotalMinor)))} NGN` : "₦0 NGN";
+      const profit = variables.profitMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.profitMinor)))} NGN` : "₦0 NGN";
+      return {
+        subject: `Profit report for ${month}`,
+        html: `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">${emailHeader("Profit report")}<div style="padding:28px 32px;"><p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Monthly profit calculation for <strong>${esc(month)}</strong>.</p><table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;"><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Revenue (net)</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(net)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Paystack fees</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(fees)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Expenses</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(expenses)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;">Profit</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#c75d3c;text-align:right;">${esc(profit)}</td></tr></table></div></div></div>`,
+        text: `Profit Report — ${month}\nRevenue (net): ${net}\nPaystack fees: ${fees}\nExpenses: ${expenses}\nProfit: ${profit}`,
+      };
     }
     default:
       return {
