@@ -1,110 +1,209 @@
 import "server-only";
 
-import { getCurrentUser } from "@/lib/auth/session";
+import type { Metadata } from "next";
+import {
+  BadgeCheck,
+  CreditCard,
+  Eye,
+  Info,
+  ShoppingCart,
+  TrendingUp,
+  UserMinus,
+} from "lucide-react";
+
+import { requireAdmin } from "@/lib/auth/admin";
 import { getFunnelMetrics } from "@/lib/services/metrics-service";
 import { FunnelChart } from "@/components/admin/metrics/funnel-chart";
-import { WindowSelector } from "@/components/admin/metrics/window-selector";
+import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
+import { SectionCard } from "@/components/admin/metrics/section-card";
+import { StatCard } from "@/components/admin/metrics/stat-card";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-async function getFunnelData(searchParams: Promise<{ window?: string }>) {
+export const metadata: Metadata = {
+  title: "Checkout funnel | Rapid Launch",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  PAID: "bg-success-600",
+  PENDING: "bg-warning-600",
+  CREATED: "bg-neutral-500",
+  ABANDONED: "bg-neutral-300",
+  FAILED: "bg-danger-600",
+  SUSPICIOUS: "bg-ai-violet",
+};
+
+export default async function FunnelPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ window?: string }>;
+}) {
+  await requireAdmin();
+
   const params = await searchParams;
-  const windowKey = params.window ?? "30d";
-  return getFunnelMetrics(windowKey);
-}
+  const data = await getFunnelMetrics(params.window ?? "30d");
+  const {
+    window,
+    steps,
+    losses,
+    successRatePct,
+    viewToPaidPct,
+    paymentOutcomes,
+    checkoutViews,
+    ordersCreated,
+    paymentsStarted,
+    paidOrders,
+  } = data;
 
-export default async function FunnelPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    return <div className="min-h-screen flex items-center justify-center">Access denied</div>;
-  }
-
-  const data = await getFunnelData(searchParams);
-  const { window, steps, losses, successRatePct, viewToPaidPct, paymentOutcomes } = data;
+  const outcomeMax = Math.max(1, ...paymentOutcomes.map((o) => o.count));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-950">Checkout funnel</h1>
-          <p className="text-neutral-500 mt-1">
-            Where buyers drop off from page view to successful payment.
+    <div className="admin-enter flex flex-1 flex-col">
+      <MetricsHeader
+        title="Checkout funnel"
+        subtitle="Where buyers drop off between viewing a product and paying."
+        windowKey={window.key}
+      />
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Order page views"
+          value={checkoutViews.toLocaleString()}
+          icon={Eye}
+          hint="Analytics events in window"
+          tone="info"
+        />
+        <StatCard
+          label="Checkout started"
+          value={ordersCreated.toLocaleString()}
+          icon={ShoppingCart}
+        />
+        <StatCard
+          label="Payment started"
+          value={paymentsStarted.toLocaleString()}
+          icon={CreditCard}
+          tone="warning"
+        />
+        <StatCard
+          label="Paid successfully"
+          value={paidOrders.toLocaleString()}
+          icon={BadgeCheck}
+          tone="success"
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="View → paid"
+          value={viewToPaidPct !== null ? `${viewToPaidPct}%` : "—"}
+          icon={TrendingUp}
+          hint={
+            viewToPaidPct !== null
+              ? "of product views convert"
+              : "views not recorded yet"
+          }
+        />
+        <StatCard
+          label="Checkout → paid"
+          value={`${successRatePct}%`}
+          icon={BadgeCheck}
+          hint="of started checkouts succeed"
+          tone="success"
+        />
+        <StatCard
+          label="Drop-offs detected"
+          value={losses.length.toString()}
+          icon={UserMinus}
+          hint="steps with lost buyers"
+          tone="danger"
+        />
+      </div>
+
+      <div className="mt-8">
+        <FunnelChart
+          title="Checkout funnel"
+          steps={steps}
+          hint={window.label}
+        />
+      </div>
+
+      {checkoutViews === 0 ? (
+        <div className="mt-4 flex items-start gap-3 rounded-[16px] border border-warning-100 bg-warning-100 p-4">
+          <Info
+            aria-hidden="true"
+            className="mt-0.5 h-5 w-5 shrink-0 text-warning-600"
+          />
+          <p className="text-sm text-neutral-700">
+            Page-view analytics only start counting from the latest deployment.
+            Earlier funnel steps are reconstructed from orders and payments, so
+            the first step can read lower than the rest until new traffic
+            arrives.
           </p>
         </div>
-        <WindowSelector windowKey={window.key} />
-      </header>
+      ) : null}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Order page views" value={data.checkoutViews.toLocaleString()} />
-        <KpiCard label="Checkout started" value={data.ordersCreated.toLocaleString()} />
-        <KpiCard label="Payment started" value={data.paymentsStarted.toLocaleString()} />
-        <KpiCard label="Paid" value={data.paidOrders.toLocaleString()} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="lg:col-span-2">
-          <FunnelChart
-            title="Checkout funnel"
-            steps={steps}
-            hint={`${data.checkoutViews > 0 ? viewToPaidPct !== null ? `${viewToPaidPct}%` : "Recording" : "Views start counting from now"} of views reach payment`}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-[16px] border border-neutral-300 bg-white p-5">
-          <h3 className="text-sm font-semibold text-neutral-500">Step drop-offs</h3>
-          <ul className="mt-4 space-y-3">
-            {losses.length === 0 ? (
-              <li className="text-neutral-500 text-center py-4">No drop-offs detected in this window</li>
-            ) : (
-              losses.map((loss, i) => (
-                <li key={i} className="flex items-center justify-between p-3 rounded-[10px] bg-neutral-50">
-                  <span className="text-sm text-neutral-600">
-                    {loss.from} &rarr; {loss.to}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <SectionCard
+          title="Step drop-offs"
+          subtitle="Where buyers leave the funnel"
+        >
+          {losses.length === 0 ? (
+            <p className="py-6 text-center text-sm text-neutral-500">
+              No drop-offs detected in this window.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {losses.map((loss, index) => (
+                <li
+                  key={index}
+                  className="flex items-center justify-between gap-3 rounded-[12px] bg-danger-100 px-4 py-3"
+                >
+                  <span className="min-w-0 truncate text-sm text-neutral-700">
+                    {loss.from} <span className="text-neutral-400">→</span>{" "}
+                    {loss.to}
                   </span>
-                  <span className="font-semibold text-red-600">
-                    -{loss.count.toLocaleString()} ({loss.pct}%)
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-danger-600">
+                    −{loss.count.toLocaleString()} ({loss.pct}%)
                   </span>
                 </li>
-              ))
-            )}
-          </ul>
-        </div>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
 
-        <div className="rounded-[16px] border border-neutral-300 bg-white p-5">
-          <h3 className="text-sm font-semibold text-neutral-500">Payment outcomes</h3>
-          <ul className="mt-4 space-y-2">
-            {paymentOutcomes.map((o) => (
-              <li key={o.status} className="flex items-center justify-between text-sm">
-                <span className="text-neutral-600 capitalize">{o.status.toLowerCase().replace("_", " ")}</span>
-                <span className="font-medium text-neutral-900">{o.count.toLocaleString()}</span>
-              </li>
-            ))}
+        <SectionCard
+          title="Payment outcomes"
+          subtitle="Every payment attempt in this window"
+        >
+          <ul className="space-y-3">
+            {paymentOutcomes.map((outcome) => {
+              const pct = Math.round((outcome.count / outcomeMax) * 100);
+              return (
+                <li key={outcome.status}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium capitalize text-neutral-700">
+                      {outcome.status.toLowerCase().replace(/_/g, " ")}
+                    </span>
+                    <span className="font-semibold tabular-nums text-neutral-950">
+                      {outcome.count.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                    <div
+                      className={cn(
+                        "h-full rounded-full",
+                        STATUS_TONE[outcome.status] ?? "bg-terracotta-500"
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
-          <p className="mt-4 text-sm font-semibold text-neutral-950">
-            Success rate: {successRatePct}%
-          </p>
-        </div>
+        </SectionCard>
       </div>
-
-      {data.checkoutViews === 0 && (
-        <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm text-amber-800">
-            Page views are not yet recorded for this window. Analytics events start counting from deployment.
-            Historical funnel steps are reconstructed from orders and payments.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[16px] border border-neutral-300 bg-white p-5">
-      <p className="text-sm text-neutral-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-neutral-950">{value}</p>
     </div>
   );
 }

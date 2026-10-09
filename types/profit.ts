@@ -77,6 +77,7 @@ export interface ProfitCalculation {
     label?: string;
     amountMinor: number;
   }[];
+  notes?: string;
   profitMinor: number;
   currency: "NGN";
 }

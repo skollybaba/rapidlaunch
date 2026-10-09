@@ -8,3 +8,10 @@ export const WINDOW_LABELS: Record<MetricWindowKey, string> = {
   "90d": "Last 90 days",
   "12m": "Last 12 months",
 };
+
+export const WINDOW_SHORT_LABELS: Record<MetricWindowKey, string> = {
+  "7d": "7 days",
+  "30d": "30 days",
+  "90d": "90 days",
+  "12m": "12 months",
+};

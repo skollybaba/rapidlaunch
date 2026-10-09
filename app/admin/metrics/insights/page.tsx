@@ -1,71 +1,81 @@
 import "server-only";
 
-import { getCurrentUser } from "@/lib/auth/session";
+import type { Metadata } from "next";
+import { AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
+
+import { requireAdmin } from "@/lib/auth/admin";
 import { getFocusInsights } from "@/lib/services/metrics-service";
-import { WindowSelector } from "@/components/admin/metrics/window-selector";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InsightCard } from "@/components/admin/metrics/insight-card";
+import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
+import { StatCard } from "@/components/admin/metrics/stat-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    return <div className="min-h-screen flex items-center justify-center">Access denied</div>;
-  }
+export const metadata: Metadata = {
+  title: "Insights & focus | Rapid Launch",
+};
+
+export default async function InsightsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ window?: string }>;
+}) {
+  await requireAdmin();
 
   const params = await searchParams;
   const windowKey = params.window ?? "30d";
   const insights = await getFocusInsights(windowKey);
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-950">Insights & focus</h1>
-          <p className="text-neutral-500 mt-1">
-            Rule-based observations on where to focus your effort.
-          </p>
-        </div>
-        <WindowSelector windowKey={windowKey} />
-      </header>
+  const high = insights.filter((i) => i.severity === "high").length;
+  const medium = insights.filter((i) => i.severity === "medium").length;
+  const opportunities = insights.filter(
+    (i) => i.severity === "opportunity"
+  ).length;
 
-      <div className="space-y-4">
-        {insights.map((insight, index) => (
-          <InsightCard key={index} insight={insight} />
-        ))}
+  return (
+    <div className="admin-enter flex flex-1 flex-col">
+      <MetricsHeader
+        title="Insights & focus"
+        subtitle="Rule-based observations on where to spend your attention next."
+        windowKey={windowKey}
+      />
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="High priority"
+          value={high.toLocaleString()}
+          icon={AlertTriangle}
+          hint="Need attention now"
+          tone="danger"
+        />
+        <StatCard
+          label="Medium priority"
+          value={medium.toLocaleString()}
+          icon={Lightbulb}
+          hint="Worth improving"
+          tone="warning"
+        />
+        <StatCard
+          label="Opportunities"
+          value={opportunities.toLocaleString()}
+          icon={Sparkles}
+          hint="Room to grow"
+          tone="success"
+        />
       </div>
-    </div>
-  );
-}
 
-function InsightCard({ insight }: { insight: { severity: "high" | "medium" | "opportunity"; title: string; detail: string; action: string; metric: string } }) {
-  const severityColors = {
-    high: "border-red-300 bg-red-50 text-red-900",
-    medium: "border-amber-300 bg-amber-50 text-amber-900",
-    opportunity: "border-emerald-300 bg-emerald-50 text-emerald-900",
-  }[insight.severity];
-
-  const severityLabels = {
-    high: "High priority",
-    medium: "Medium priority",
-    opportunity: "Opportunity",
-  }[insight.severity];
-
-  return (
-    <div className={`rounded-[16px] border ${severityColors} p-5`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
-              {severityLabels}
-            </span>
-            <h3 className="text-sm font-semibold">{insight.title}</h3>
-          </div>
-          <p className="mt-2 text-sm text-neutral-700">{insight.detail}</p>
-          <p className="mt-3 text-sm font-medium">
-            <span className="font-normal">Action:</span> {insight.action}
-          </p>
-          <p className="mt-2 text-xs text-neutral-500">Metric: {insight.metric}</p>
-        </div>
+      <div className="mt-6 space-y-4">
+        {insights.length === 0 ? (
+          <EmptyState
+            title="No insights for this window"
+            description="Once there is enough activity, focus recommendations will appear here. Try a wider window."
+          />
+        ) : (
+          insights.map((insight, index) => (
+            <InsightCard key={`${insight.title}-${index}`} insight={insight} />
+          ))
+        )}
       </div>
     </div>
   );

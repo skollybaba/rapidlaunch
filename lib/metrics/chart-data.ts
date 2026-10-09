@@ -13,13 +13,13 @@ export interface PieSlice {
 
 const SLICE_COLORS = [
   "#c75d3c",
-  "#7c3aed",
-  "#059669",
-  "#d97706",
-  "#e11d48",
-  "#0891b2",
-  "#65a30d",
-  "#9333ea",
+  "#7c5cfc",
+  "#1ca6b8",
+  "#159447",
+  "#b86b00",
+  "#c93737",
+  "#454545",
+  "#8b5cf6",
 ];
 
 export function buildPieSlices<

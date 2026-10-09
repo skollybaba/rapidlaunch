@@ -67,6 +67,7 @@ export function computeFromSummary(
     paystackFeesMinor: Math.max(0, paystackFeesMinor),
     expensesTotalMinor,
     expenses: parsed.expenses,
+    notes: parsed.notes,
     profitMinor,
     currency: CURRENCY,
   };
