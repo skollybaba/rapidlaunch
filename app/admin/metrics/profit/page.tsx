@@ -18,6 +18,7 @@ import {
 import { formatPrice } from "@/lib/utils";
 import { StatCard } from "@/components/admin/metrics/stat-card";
 import { cn } from "@/lib/utils";
+import { NETWORK_ERROR_MESSAGE, readApiError } from "@/lib/feedback";
 
 const EXPENSE_CATEGORIES = ["ADS", "SALARY", "SERVER", "CUSTOM"] as const;
 type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
@@ -140,6 +141,10 @@ function ProfitCalculator() {
     setExpenses((prev) => prev.filter((_, i) => i !== index));
 
   const handleSave = async () => {
+    if (!month) {
+      setStatus({ type: "error", message: "Choose a month before saving." });
+      return;
+    }
     setSaving(true);
     setStatus(null);
     try {
@@ -148,23 +153,34 @@ function ProfitCalculator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           month,
-          paystackFeePercent: feePercent,
-          paystackFlatFeeMinor: flatFeeMinor,
+          paystackFeePercent: Number.isFinite(feePercent) ? feePercent : 0,
+          paystackFlatFeeMinor: Number.isFinite(flatFeeMinor) ? flatFeeMinor : 0,
           expenses,
           notes,
         }),
       });
+      const payload = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error("save failed");
+        throw new Error(
+          readApiError(payload, "Could not save the report. Please try again.")
+        );
       }
-      const data = await res.json();
-      if (data.data) setCalc(data.data as ProfitCalculation);
-      await loadReports();
+      if (payload?.data) setCalc(payload.data as ProfitCalculation);
       setStatus({ type: "success", message: "Profit report saved." });
-    } catch {
+      try {
+        await loadReports();
+      } catch {
+        // The save succeeded; refreshing the list is best-effort only.
+      }
+    } catch (error) {
       setStatus({
         type: "error",
-        message: "Could not save the report. Please try again.",
+        message:
+          error instanceof TypeError
+            ? NETWORK_ERROR_MESSAGE
+            : error instanceof Error
+              ? error.message
+              : "Could not save the report. Please try again.",
       });
     } finally {
       setSaving(false);
@@ -308,7 +324,10 @@ function ProfitCalculator() {
                   min="0"
                   max="10"
                   value={feePercent}
-                  onChange={(e) => setFeePercent(parseFloat(e.target.value))}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setFeePercent(Number.isFinite(next) ? next : 0);
+                  }}
                   className={cn(inputClass, "mt-1")}
                 />
               </div>
