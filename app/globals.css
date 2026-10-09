@@ -684,7 +684,8 @@ html[data-admin-theme="dark"] {
   --color-ink-900: #2c3040; /* active pills / dark feature cards */
 
   --color-terracotta-100: #3a241d;
-  --color-terracotta-500: #e0885f;
+  --color-terracotta-500: #bd6a45; /* muted for dark surfaces */
+  --color-terracotta-600: #a85136; /* deeper, muted button fill */
 
   --color-lavender-100: #20233a;
   --color-lavender-200: #272b47;
@@ -716,9 +717,9 @@ html[data-admin-theme="dark"] {
   }
 
   /* Lift terracotta text for contrast on dark surfaces without changing the
-     button/border tone. */
+     button/border tone. Kept muted so accents don't glare against the dark. */
   html[data-admin-theme="dark"] :where(.text-terracotta-600) {
-    color: #e6916f;
+    color: #c98166;
   }
 
   html[data-admin-theme="dark"] :where(.text-ink-900) {
