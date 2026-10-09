@@ -1,15 +1,10 @@
 import "server-only";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { getFocusInsights, METRIC_WINDOWS } from "@/lib/services/metrics-service";
+import { getFocusInsights } from "@/lib/services/metrics-service";
+import { WindowSelector } from "@/components/admin/metrics/window-selector";
 
 export const dynamic = "force-dynamic";
-
-async function getInsightsData(searchParams: Promise<{ window?: string }>) {
-  const params = await searchParams;
-  const windowKey = params.window ?? "30d";
-  return getFocusInsights(windowKey);
-}
 
 export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
   const user = await getCurrentUser();
@@ -17,7 +12,9 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
     return <div className="min-h-screen flex items-center justify-center">Access denied</div>;
   }
 
-  const insights = await getInsightsData(searchParams);
+  const params = await searchParams;
+  const windowKey = params.window ?? "30d";
+  const insights = await getFocusInsights(windowKey);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -28,7 +25,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             Rule-based observations on where to focus your effort.
           </p>
         </div>
-        <WindowSelector />
+        <WindowSelector windowKey={windowKey} />
       </header>
 
       <div className="space-y-4">
@@ -71,21 +68,5 @@ function InsightCard({ insight }: { insight: { severity: "high" | "medium" | "op
         </div>
       </div>
     </div>
-  );
-}
-
-function WindowSelector() {
-  return (
-    <select
-      defaultValue="30d"
-      onChange={(e) => window.location.search = `?window=${e.target.value}`}
-      className="rounded-[8px] border border-neutral-300 bg-white px-3 py-2 text-sm font-medium"
-    >
-      {METRIC_WINDOWS.map((w) => (
-        <option key={w} value={w}>
-          {w === "7d" ? "Last 7 days" : w === "30d" ? "Last 30 days" : w === "90d" ? "Last 90 days" : "Last 12 months"}
-        </option>
-      ))}
-    </select>
   );
 }

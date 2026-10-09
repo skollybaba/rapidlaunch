@@ -1,11 +1,13 @@
 import "server-only";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRevenueMetrics, METRIC_WINDOWS } from "@/lib/services/metrics-service";
+import { getRevenueMetrics } from "@/lib/services/metrics-service";
 import { formatPrice } from "@/lib/utils";
-import { PieChart, buildPieSlices } from "@/components/admin/metrics/pie-chart";
-import { RankedBarChart, buildRankedBars } from "@/components/admin/metrics/ranked-bar-chart";
+import { buildPieSlices, buildRankedBars } from "@/lib/metrics/chart-data";
+import { PieChart } from "@/components/admin/metrics/pie-chart";
+import { RankedBarChart } from "@/components/admin/metrics/ranked-bar-chart";
 import { TrendChart } from "@/components/admin/trend-chart";
+import { WindowSelector } from "@/components/admin/metrics/window-selector";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +51,8 @@ export default async function RevenuePage({ searchParams }: { searchParams: Prom
         <div>
           <PieChart
             title="Revenue by product"
-            slices={buildPieSlices(productsByRevenue)}
-            totalValue={net.current}
-            formatValue={format}
+            slices={buildPieSlices(productsByRevenue, format)}
+            totalLabel={format(net.current)}
             legendTitle={`${productsByRevenue.length} products in window`}
           />
         </div>
@@ -59,7 +60,6 @@ export default async function RevenuePage({ searchParams }: { searchParams: Prom
           <RankedBarChart
             title="Products by revenue"
             bars={buildRankedBars(productsByRevenue, format)}
-            formatValue={format}
             hint={`${productsByRevenue.length} products`}
           />
         </div>
@@ -129,21 +129,5 @@ function KpiCard({ label, value, delta }: { label: string; value: string; delta:
         </p>
       )}
     </div>
-  );
-}
-
-function WindowSelector({ windowKey }: { windowKey: string }) {
-  return (
-    <select
-      defaultValue={windowKey}
-      onChange={(e) => window.location.search = `?window=${e.target.value}`}
-      className="rounded-[8px] border border-neutral-300 bg-white px-3 py-2 text-sm font-medium"
-    >
-      {METRIC_WINDOWS.map((w) => (
-        <option key={w} value={w}>
-          {w === "7d" ? "Last 7 days" : w === "30d" ? "Last 30 days" : w === "90d" ? "Last 90 days" : "Last 12 months"}
-        </option>
-      ))}
-    </select>
   );
 }

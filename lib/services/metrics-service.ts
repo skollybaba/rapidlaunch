@@ -8,6 +8,10 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { AnalyticsEvent } from "@/models/AnalyticsEvent";
 import { dbConnect } from "@/lib/db";
+import { METRIC_WINDOWS, type MetricWindowKey } from "@/lib/metrics/windows";
+
+export { METRIC_WINDOWS };
+export type { MetricWindowKey };
 
 /**
  * Server-computed metrics for the admin "Metrics & Analytics" area.
@@ -20,10 +24,6 @@ import { dbConnect } from "@/lib/db";
  */
 
 const CURRENCY = "NGN";
-
-export const METRIC_WINDOWS = ["7d", "30d", "90d", "12m"] as const;
-
-export type MetricWindowKey = (typeof METRIC_WINDOWS)[number];
 
 export type BucketUnit = "day" | "week" | "month";
 
@@ -450,7 +450,7 @@ export async function getFunnelMetrics(
 
   const [checkoutViews, ordersCreated, paymentsStarted, paidOrders, paymentAgg] =
     await Promise.all([
-      AnalyticsEvent.countDocuments({ ...inWindow, eventType: "CHECKOUT_VIEWED" }),
+      AnalyticsEvent.countDocuments({ eventType: "CHECKOUT_VIEWED", occurredAt: inWindow }),
       Order.countDocuments({ createdAt: inWindow }),
       Payment.countDocuments({ createdAt: inWindow }),
       Order.countDocuments({ status: "PAID", paidAt: inWindow }),

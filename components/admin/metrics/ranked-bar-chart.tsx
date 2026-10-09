@@ -1,18 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-
-interface RankedBar {
-  label: string;
-  value: number;
-  secondary?: string;
-  color?: string;
-}
+import type { RankedBar } from "@/lib/metrics/chart-data";
 
 interface RankedBarChartProps {
   title: string;
   bars: RankedBar[];
-  formatValue: (value: number) => string;
   hint?: string;
   maxBars?: number;
 }
@@ -20,7 +13,6 @@ interface RankedBarChartProps {
 export function RankedBarChart({
   title,
   bars,
-  formatValue,
   hint,
   maxBars = 10,
 }: RankedBarChartProps) {
@@ -48,9 +40,9 @@ export function RankedBarChart({
             <li
               key={bar.label}
               className="relative"
-              title={`${bar.label}: ${formatValue(bar.value)}`
-                + (bar.secondary ? ` (${bar.secondary})` : "")
-              }
+              title={`${bar.label}: ${bar.valueLabel}${
+                bar.secondary ? ` (${bar.secondary})` : ""
+              }`}
             >
               <div className="flex items-center gap-3">
                 <span className="w-6 text-center text-neutral-400 font-mono text-sm">
@@ -68,12 +60,12 @@ export function RankedBarChart({
                   <div
                     className={cn(
                       "rounded-[4px] h-6 transition-all duration-300",
-                      bar.color ? `bg-[${bar.color}]` : "bg-terracotta-600"
+                      "bg-terracotta-600"
                     )}
                     style={{ width: `${widthPct}%` }}
                   >
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-xs font-medium">
-                      {formatValue(bar.value)}
+                      {bar.valueLabel}
                     </span>
                   </div>
                 </div>
@@ -84,15 +76,4 @@ export function RankedBarChart({
       </ol>
     </div>
   );
-}
-
-export function buildRankedBars<
-  T extends { title: string; netMinor: number; sharePct: number }
->(items: T[], formatValue: (v: number) => string): RankedBar[] {
-  return items.map((item) => ({
-    label: item.title,
-    value: item.netMinor,
-    secondary: `${item.sharePct}% of revenue`,
-    color: undefined,
-  }));
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { formatPrice } from "@/lib/utils";
-import { saveProfitReport, getProfitReportForMonth } from "@/lib/services/profit-service";
 
 const EXPENSE_CATEGORIES = ["ADS", "SALARY", "SERVER", "CUSTOM"] as const;
 
@@ -76,11 +75,15 @@ export default function ProfitPage() {
   }, [month]);
 
   useEffect(() => {
-    loadReports();
+    // Fetch saved reports on mount; the async loader sets state after the request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadReports();
   }, [loadReports]);
 
   useEffect(() => {
-    loadCurrentMonth();
+    // Fetch the selected month's report whenever the month changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadCurrentMonth();
   }, [loadCurrentMonth]);
 
   const addExpense = () => {

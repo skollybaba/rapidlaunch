@@ -2,9 +2,9 @@ import "server-only";
 
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getCustomerMetrics, METRIC_WINDOWS } from "@/lib/services/metrics-service";
+import { getCustomerMetrics } from "@/lib/services/metrics-service";
 import { formatPrice } from "@/lib/utils";
-import { TrendChart } from "@/components/admin/trend-chart";
+import { WindowSelector } from "@/components/admin/metrics/window-selector";
 
 export const dynamic = "force-dynamic";
 
@@ -138,21 +138,5 @@ function KpiCard({ label, value, delta }: { label: string; value: string; delta?
         </p>
       )}
     </div>
-  );
-}
-
-function WindowSelector({ windowKey }: { windowKey: string }) {
-  return (
-    <select
-      defaultValue={windowKey}
-      onChange={(e) => window.location.search = `?window=${e.target.value}`}
-      className="rounded-[8px] border border-neutral-300 bg-white px-3 py-2 text-sm font-medium"
-    >
-      {METRIC_WINDOWS.map((w) => (
-        <option key={w} value={w}>
-          {w === "7d" ? "Last 7 days" : w === "30d" ? "Last 30 days" : w === "90d" ? "Last 90 days" : "Last 12 months"}
-        </option>
-      ))}
-    </select>
   );
 }
