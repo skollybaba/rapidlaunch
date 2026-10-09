@@ -26,7 +26,7 @@ import {
   getInsights,
   type InsightsPeriod,
 } from "@/lib/services/insights-service";
-import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
+import { formatDateTime, formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -54,21 +54,6 @@ function statusTone(status: string): BadgeTone {
     case "FAILED":
     case "CANCELLED":
     case "REFUNDED":
-      return "error";
-    default:
-      return "neutral";
-  }
-}
-
-function enrollmentTone(status: string): BadgeTone {
-  switch (status) {
-    case "FULFILLED":
-      return "success";
-    case "PENDING":
-    case "RETRY_PENDING":
-      return "pending";
-    case "ACTION_REQUIRED":
-    case "FAILED":
       return "error";
     default:
       return "neutral";
@@ -137,7 +122,6 @@ export default async function AdminDashboardPage({
 
   const { kpis, trend, productsByRevenue, ordersByStatus, operations } =
     snapshot;
-  const recentEnrollments = snapshot.recentEnrollments;
   const nextSession = nextSessionResult.session;
 
   const attention: { label: string; count: number; href: string }[] = [];
@@ -500,63 +484,6 @@ export default async function AdminDashboardPage({
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-8 overflow-hidden rounded-[16px] border border-neutral-300 bg-white">
-        <div className="flex items-center justify-between px-5 pt-5">
-          <h2 className="text-base font-bold text-neutral-950">
-            Recent enrollments
-          </h2>
-          <Link
-            href="/admin/enrollees"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-terracotta-600 hover:text-terracotta-500"
-          >
-            All enrollees
-            <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
-          </Link>
-        </div>
-        {recentEnrollments.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-neutral-500">
-            No enrollments yet.
-          </p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Course</th>
-                  <th className="px-5 py-3 font-semibold">Customer</th>
-                  <th className="px-5 py-3 font-semibold">Reference</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Enrolled</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {recentEnrollments.map((row) => (
-                  <tr key={row.id} className="hover:bg-neutral-50">
-                    <td className="px-5 py-3 font-medium text-neutral-950">
-                      {row.courseTitle}
-                    </td>
-                    <td className="px-5 py-3 text-neutral-600">
-                      {row.customerEmail}
-                    </td>
-                    <td className="px-5 py-3 text-neutral-600">
-                      {row.orderReference}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Badge tone={enrollmentTone(row.status)}>
-                        {statusLabel(row.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3 text-neutral-600">
-                      {row.fulfilledAt ? formatDate(row.fulfilledAt) : "—"}
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>
