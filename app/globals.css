@@ -635,6 +635,20 @@ dialog::backdrop {
 }
 
 /* ------------------------------------------------------------------
+   Admin surface elevation.
+
+   The admin portal drops the pale/silver neutral borders on white cards,
+   form fields, and controls, and lifts them with a soft shadow instead.
+   Scoped to `.admin-portal` (set on the admin layout wrapper) so the public
+   site and account area keep their bordered styling.
+   ------------------------------------------------------------------ */
+:root {
+  --admin-elevation:
+    0 1px 2px rgba(16, 18, 29, 0.05),
+    0 10px 24px -12px rgba(16, 18, 29, 0.16);
+}
+
+/* ------------------------------------------------------------------
    Admin dark mode (opt-in via the admin theme toggle).
 
    DESIGN.md v1.0 does not define a dark theme, so these surfaces are
@@ -684,6 +698,10 @@ html[data-admin-theme="dark"] {
 
   --color-ai-violet: #a58cff;
   --color-ai-violet-soft: #1e1a33;
+
+  --admin-elevation:
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 12px 28px -14px rgba(0, 0, 0, 0.6);
 }
 
 @layer utilities {
@@ -717,5 +735,21 @@ html[data-admin-theme="dark"] {
   html[data-admin-theme="dark"] .rich-content pre {
     background-color: #0b0c10;
     color: #e9ebef;
+  }
+
+  /* Elevated admin surfaces. Only elements that are both a surface
+     (bg-white / bg-neutral-50) and carry a pale neutral border qualify, so
+     checkboxes, transparent icon buttons, and non-surface borders are left
+     alone. Kept at low specificity (:where, no extra class) so focus rings
+     and hover variants still win. The border colour is only cleared while
+     unfocused, preserving `focus:border-*` feedback where a ring is absent. */
+  :where(.admin-portal) :where(.bg-white, .bg-neutral-50).border-neutral-300,
+  :where(.admin-portal) :where(.bg-white, .bg-neutral-50).border-neutral-200 {
+    box-shadow: var(--admin-elevation);
+  }
+
+  :where(.admin-portal) :where(.bg-white, .bg-neutral-50).border-neutral-300:not(:focus):not(:focus-visible),
+  :where(.admin-portal) :where(.bg-white, .bg-neutral-50).border-neutral-200:not(:focus):not(:focus-visible) {
+    border-color: transparent;
   }
 }
