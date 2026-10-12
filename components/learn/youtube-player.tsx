@@ -145,6 +145,7 @@ export function YouTubePlayer({
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const [muted, setMuted] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -172,6 +173,7 @@ export function YouTubePlayer({
     setCaptionTracks([]);
     setActiveCaption(null);
     setCaptionsOpen(false);
+    setHasPlayed(false);
   }
 
   // Keep the ref in sync so the YouTube API callbacks (which capture an older
@@ -273,6 +275,7 @@ export function YouTubePlayer({
               if (cancelled) return;
               const state = window.YT?.PlayerState;
               setPlaying(event.data === state?.PLAYING);
+              if (event.data === state?.PLAYING) setHasPlayed(true);
               if (event.data === state?.ENDED) setPlaying(false);
             },
             onApiChange: () => {
@@ -471,6 +474,26 @@ export function YouTubePlayer({
           onClick={handleSurfaceTap}
           className="absolute inset-0 z-10 cursor-pointer touch-manipulation"
         />
+
+        {/* YouTube's own poster uses object-fit: cover, so in the widened frame
+            it renders zoomed. Show our own correctly-sized poster until the
+            real video frame (object-fit: contain) starts. */}
+        {!hasPlayed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="pointer-events-none absolute inset-0 z-[5] h-full w-full object-cover"
+            onError={(event) => {
+              const img = event.currentTarget;
+              if (img.dataset.fallback) return;
+              img.dataset.fallback = "1";
+              img.src = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+            }}
+          />
+        ) : null}
 
         {!ready ? (
           <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm text-neutral-400">
