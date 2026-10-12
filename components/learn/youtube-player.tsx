@@ -7,6 +7,7 @@ import {
   Maximize,
   Pause,
   Play,
+  Subtitles,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -33,7 +34,19 @@ interface YouTubePlayerInstance {
   getDuration: () => number;
   setPlaybackRate: (suggestedRate: number) => void;
   getAvailablePlaybackRates: () => number[];
+  getIframe: () => HTMLIFrameElement;
+  loadModule: (module: string) => void;
+  getOption: (module: string, option: string) => unknown;
+  setOption: (module: string, option: string, value: unknown) => void;
   destroy: () => void;
+}
+
+/** A caption track as reported by the captions module's `tracklist`. */
+interface CaptionTrack {
+  languageCode: string;
+  languageName?: string;
+  kind?: string;
+  name?: string;
 }
 
 interface YouTubePlayerEvent {
@@ -51,6 +64,7 @@ interface YouTubeApi {
       events: {
         onReady: (event: { target: YouTubePlayerInstance }) => void;
         onStateChange: (event: YouTubePlayerEvent) => void;
+        onApiChange: () => void;
         onError: () => void;
       };
     }
@@ -123,8 +137,11 @@ export function YouTubePlayer({
   videoId: string;
   title: string;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const isFullscreenRef = useRef(false);
   const playerRef = useRef<YouTubePlayerInstance | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -134,30 +151,75 @@ export function YouTubePlayer({
   const [rate, setRate] = useState(1);
   const [rates, setRates] = useState<number[]>(FALLBACK_RATES);
   const [speedOpen, setSpeedOpen] = useState(false);
+  const [captionTracks, setCaptionTracks] = useState<CaptionTrack[]>([]);
+  const [activeCaption, setActiveCaption] = useState<string | null>(null);
+  const [captionsOpen, setCaptionsOpen] = useState(false);
   const [prevVideoId, setPrevVideoId] = useState(videoId);
   const [skip, setSkip] = useState<{
     side: "left" | "right";
     seconds: number;
   } | null>(null);
+  const activeCaptionRef = useRef<string | null>(null);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset speed when the lesson changes. Adjusting state during render (rather
-  // than in an effect) avoids a stale frame and an extra effect pass.
+  // Reset per-video controls when the lesson changes. Adjusting state during
+  // render (rather than in an effect) avoids a stale frame and an extra pass.
   if (prevVideoId !== videoId) {
     setPrevVideoId(videoId);
     setRate(1);
     setSpeedOpen(false);
+    setCaptionTracks([]);
+    setActiveCaption(null);
+    setCaptionsOpen(false);
   }
 
+  // Keep the ref in sync so the YouTube API callbacks (which capture an older
+  // render) always read the viewer's current caption choice.
   useEffect(() => {
-    if (!speedOpen) return;
+    activeCaptionRef.current = activeCaption;
+  }, [activeCaption]);
+
+  useEffect(() => {
+    if (!speedOpen && !captionsOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSpeedOpen(false);
+      if (event.key !== "Escape") return;
+      setSpeedOpen(false);
+      setCaptionsOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [speedOpen]);
+  }, [speedOpen, captionsOpen]);
+
+  useEffect(() => {
+    const onChange = () =>
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // YouTube pins its title/avatar/share overlay to the iframe's top corners and
+  // always shows it before playback, on pause, and on end (showinfo is
+  // deprecated and controls=0 does not remove it). Widening the iframe past the
+  // frame and clipping the overflow pushes those corner-anchored items
+  // off-screen while the video itself stays full-size. Fullscreen reverts this
+  // because the frame is no longer guaranteed to be 16:9 there.
+  const applyFrameCrop = useCallback(() => {
+    const iframe = playerRef.current?.getIframe?.();
+    if (!iframe) return;
+    if (isFullscreenRef.current) {
+      iframe.style.width = "100%";
+      iframe.style.marginLeft = "0";
+    } else {
+      iframe.style.width = "200%";
+      iframe.style.marginLeft = "-50%";
+    }
+  }, []);
+
+  useEffect(() => {
+    isFullscreenRef.current = isFullscreen;
+    applyFrameCrop();
+  }, [isFullscreen, ready, applyFrameCrop]);
 
   useEffect(() => {
     return () => {
@@ -202,6 +264,10 @@ export function YouTubePlayer({
               setRates(
                 normalizeRates(event.target.getAvailablePlaybackRates?.())
               );
+              // Load captions so we can list them, and keep them off by default.
+              event.target.loadModule("captions");
+              event.target.setOption("captions", "track", {});
+              applyFrameCrop();
             },
             onStateChange: (event) => {
               if (cancelled) return;
@@ -209,11 +275,29 @@ export function YouTubePlayer({
               setPlaying(event.data === state?.PLAYING);
               if (event.data === state?.ENDED) setPlaying(false);
             },
+            onApiChange: () => {
+              if (cancelled) return;
+              const player = playerRef.current;
+              if (!player) return;
+              const list = player.getOption("captions", "tracklist");
+              if (Array.isArray(list)) setCaptionTracks(list as CaptionTrack[]);
+              // Keep auto-captions off until the viewer explicitly picks one.
+              if (!activeCaptionRef.current) {
+                const current = player.getOption("captions", "track") as
+                  | CaptionTrack
+                  | null;
+                if (current?.languageCode) {
+                  player.setOption("captions", "track", {});
+                }
+              }
+            },
             onError: () => {
               if (!cancelled) setFailed(true);
             },
           },
         });
+        // Apply the crop immediately, before the embed can paint its overlay.
+        applyFrameCrop();
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -229,7 +313,7 @@ export function YouTubePlayer({
       playerRef.current = null;
       mount.remove();
     };
-  }, [videoId]);
+  }, [videoId, applyFrameCrop]);
 
   useEffect(() => {
     if (!ready) return;
@@ -280,6 +364,23 @@ export function YouTubePlayer({
     playerRef.current?.setPlaybackRate(value);
   }, []);
 
+  const selectCaption = useCallback((track: CaptionTrack | null) => {
+    const player = playerRef.current;
+    const code = track?.languageCode ?? null;
+    setActiveCaption(code);
+    activeCaptionRef.current = code;
+    setCaptionsOpen(false);
+    if (!player) return;
+    if (track) {
+      player.setOption("captions", "track", {
+        languageCode: track.languageCode,
+        ...(track.kind ? { kind: track.kind } : {}),
+      });
+    } else {
+      player.setOption("captions", "track", {});
+    }
+  }, []);
+
   const skipBy = useCallback((direction: "left" | "right") => {
     const player = playerRef.current;
     if (!player) return;
@@ -324,15 +425,14 @@ export function YouTubePlayer({
   );
 
   const toggleFullscreen = useCallback(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    // Find the iframe created by YouTube Player API
-    const iframe = host.querySelector("iframe");
-    if (!iframe) return;
+    const container = containerRef.current;
+    if (!container) return;
+    // Fullscreen the wrapper (video + controls), not the iframe: the shield and
+    // our controls stay on top, so YouTube's own UI is never reachable.
     if (document.fullscreenElement) {
       void document.exitFullscreen();
     } else {
-      void iframe.requestFullscreen?.();
+      void container.requestFullscreen?.();
     }
   }, []);
 
@@ -346,59 +446,70 @@ export function YouTubePlayer({
 
   return (
     <div
-      ref={hostRef}
-      className="group relative aspect-video w-full overflow-hidden rounded-[12px] bg-neutral-950"
-      onContextMenu={(event) => event.preventDefault()}
+      ref={containerRef}
+      className={cn(
+        "group flex w-full flex-col overflow-hidden rounded-[12px] bg-neutral-950",
+        isFullscreen && "rounded-none"
+      )}
     >
-      {/*
-        The shield. It is a real button covering the entire frame, so a tap
-        anywhere toggles playback (single) or seeks (double) and YouTube never
-        receives a pointer event.
-      */}
-      <button
-        type="button"
-        aria-label={playing ? `Pause ${title}` : `Play ${title}`}
-        onClick={handleSurfaceTap}
-        className="absolute inset-0 z-10 cursor-pointer touch-manipulation"
-      />
+      <div
+        ref={hostRef}
+        className={cn(
+          "relative w-full overflow-hidden",
+          isFullscreen ? "min-h-0 flex-1" : "aspect-video"
+        )}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        {/*
+          The shield. It is a real button covering the entire frame, so a tap
+          anywhere toggles playback (single) or seeks (double) and YouTube never
+          receives a pointer event.
+        */}
+        <button
+          type="button"
+          aria-label={playing ? `Pause ${title}` : `Play ${title}`}
+          onClick={handleSurfaceTap}
+          className="absolute inset-0 z-10 cursor-pointer touch-manipulation"
+        />
 
-      {!ready ? (
-        <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm text-neutral-400">
-          Loading video…
-        </span>
-      ) : null}
-
-      {ready && !playing ? (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white"
-        >
-          <Play className="ml-1 h-7 w-7" />
-        </span>
-      ) : null}
-
-      {skip ? (
-        <div
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none absolute inset-y-0 z-20 flex items-center justify-center",
-            skip.side === "right" ? "left-1/2 right-0" : "left-0 right-1/2"
-          )}
-        >
-          <span className="flex h-16 w-16 animate-pulse flex-col items-center justify-center rounded-full bg-black/60 text-white">
-            {skip.side === "right" ? (
-              <ChevronsRight className="h-6 w-6" />
-            ) : (
-              <ChevronsLeft className="h-6 w-6" />
-            )}
-            <span className="mt-0.5 text-[11px] font-semibold leading-none">
-              {skip.seconds}s
-            </span>
+        {!ready ? (
+          <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm text-neutral-400">
+            Loading video…
           </span>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-2.5 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-8 text-white">
+        {ready && !playing ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white"
+          >
+            <Play className="ml-1 h-7 w-7" />
+          </span>
+        ) : null}
+
+        {skip ? (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-y-0 z-20 flex items-center justify-center",
+              skip.side === "right" ? "left-1/2 right-0" : "left-0 right-1/2"
+            )}
+          >
+            <span className="flex h-16 w-16 animate-pulse flex-col items-center justify-center rounded-full bg-black/60 text-white">
+              {skip.side === "right" ? (
+                <ChevronsRight className="h-6 w-6" />
+              ) : (
+                <ChevronsLeft className="h-6 w-6" />
+              )}
+              <span className="mt-0.5 text-[11px] font-semibold leading-none">
+                {skip.seconds}s
+              </span>
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="relative flex items-center gap-2.5 border-t border-white/10 bg-neutral-950 px-3 py-2.5 text-white">
         <button
           type="button"
           onClick={togglePlay}
@@ -431,6 +542,61 @@ export function YouTubePlayer({
         <span className="w-9 shrink-0 text-center font-mono text-[11px] tabular-nums text-white/70">
           {formatTime(duration)}
         </span>
+        <button
+          type="button"
+          onClick={() => {
+            setSpeedOpen((prev) => !prev);
+            setCaptionsOpen(false);
+          }}
+          aria-label={`Playback speed, ${formatRate(rate)}`}
+          aria-haspopup="true"
+          aria-expanded={speedOpen}
+          className={cn(
+            controlButton,
+            "w-auto min-w-8 px-2 text-xs font-semibold tabular-nums"
+          )}
+        >
+          {formatRate(rate)}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCaptionsOpen((prev) => !prev);
+            setSpeedOpen(false);
+          }}
+          aria-label={activeCaption ? "Captions on" : "Captions off"}
+          aria-haspopup="true"
+          aria-expanded={captionsOpen}
+          aria-pressed={activeCaption !== null}
+          className={cn(
+            controlButton,
+            "relative",
+            activeCaption !== null && "bg-terracotta-500/25"
+          )}
+        >
+          <Subtitles className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute" : "Mute"}
+          className={controlButton}
+        >
+          {muted ? (
+            <VolumeX className="h-4 w-4" />
+          ) : (
+            <Volume2 className="h-4 w-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label="Fullscreen"
+          className={controlButton}
+        >
+          <Maximize className="h-4 w-4" />
+        </button>
+
         {speedOpen ? (
           <div className="absolute inset-x-0 bottom-full z-30 mb-2 px-2">
             <div className="mx-auto flex w-fit max-w-full flex-wrap justify-center gap-1.5 rounded-2xl bg-black/85 p-1.5 shadow-lg backdrop-blur">
@@ -453,39 +619,48 @@ export function YouTubePlayer({
             </div>
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={() => setSpeedOpen((prev) => !prev)}
-          aria-label={`Playback speed, ${formatRate(rate)}`}
-          aria-haspopup="true"
-          aria-expanded={speedOpen}
-          className={cn(
-            controlButton,
-            "w-auto min-w-8 px-2 text-xs font-semibold tabular-nums"
-          )}
-        >
-          {formatRate(rate)}
-        </button>
-        <button
-          type="button"
-          onClick={toggleMute}
-          aria-label={muted ? "Unmute" : "Mute"}
-          className={controlButton}
-        >
-          {muted ? (
-            <VolumeX className="h-4 w-4" />
-          ) : (
-            <Volume2 className="h-4 w-4" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          aria-label="Fullscreen"
-          className={controlButton}
-        >
-          <Maximize className="h-4 w-4" />
-        </button>
+
+        {captionsOpen ? (
+          <div className="absolute inset-x-0 bottom-full z-30 mb-2 px-2">
+            <div className="mx-auto flex w-fit max-w-full flex-col gap-1 rounded-2xl bg-black/85 p-1.5 shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={() => selectCaption(null)}
+                aria-pressed={activeCaption === null}
+                className={cn(
+                  "min-w-[10rem] rounded-xl px-3 py-1.5 text-left text-xs font-medium transition-colors",
+                  activeCaption === null
+                    ? "bg-white text-neutral-900"
+                    : "text-white hover:bg-white/10"
+                )}
+              >
+                Off
+              </button>
+              {captionTracks.length === 0 ? (
+                <span className="px-3 py-1.5 text-xs text-white/60">
+                  No captions available
+                </span>
+              ) : (
+                captionTracks.map((track) => (
+                  <button
+                    key={`${track.languageCode}-${track.kind ?? ""}`}
+                    type="button"
+                    onClick={() => selectCaption(track)}
+                    aria-pressed={activeCaption === track.languageCode}
+                    className={cn(
+                      "min-w-[10rem] rounded-xl px-3 py-1.5 text-left text-xs font-medium transition-colors",
+                      activeCaption === track.languageCode
+                        ? "bg-white text-neutral-900"
+                        : "text-white hover:bg-white/10"
+                    )}
+                  >
+                    {track.languageName ?? track.languageCode}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
