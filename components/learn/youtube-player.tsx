@@ -1,7 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  Maximize,
+  Pause,
+  Play,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -23,6 +31,8 @@ interface YouTubePlayerInstance {
   unMute: () => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  setPlaybackRate: (suggestedRate: number) => void;
+  getAvailablePlaybackRates: () => number[];
   destroy: () => void;
 }
 
@@ -86,6 +96,23 @@ function formatTime(seconds: number): string {
   return `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
+const FALLBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+const SEEK_STEP_SECONDS = 10;
+const DOUBLE_TAP_MS = 260;
+
+function normalizeRates(rates: number[] | undefined): number[] {
+  if (!rates?.length) return FALLBACK_RATES;
+  const unique = Array.from(
+    new Set(rates.filter((rate) => Number.isFinite(rate) && rate > 0))
+  ).sort((a, b) => a - b);
+  return unique.length ? unique : FALLBACK_RATES;
+}
+
+function formatRate(rate: number): string {
+  return `${rate}×`;
+}
+
 const controlButton =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-40";
 
@@ -104,6 +131,40 @@ export function YouTubePlayer({
   const [muted, setMuted] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [rate, setRate] = useState(1);
+  const [rates, setRates] = useState<number[]>(FALLBACK_RATES);
+  const [speedOpen, setSpeedOpen] = useState(false);
+  const [prevVideoId, setPrevVideoId] = useState(videoId);
+  const [skip, setSkip] = useState<{
+    side: "left" | "right";
+    seconds: number;
+  } | null>(null);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset speed when the lesson changes. Adjusting state during render (rather
+  // than in an effect) avoids a stale frame and an extra effect pass.
+  if (prevVideoId !== videoId) {
+    setPrevVideoId(videoId);
+    setRate(1);
+    setSpeedOpen(false);
+  }
+
+  useEffect(() => {
+    if (!speedOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSpeedOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [speedOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -138,6 +199,9 @@ export function YouTubePlayer({
               if (cancelled) return;
               setReady(true);
               setDuration(event.target.getDuration() ?? 0);
+              setRates(
+                normalizeRates(event.target.getAvailablePlaybackRates?.())
+              );
             },
             onStateChange: (event) => {
               if (cancelled) return;
@@ -210,6 +274,55 @@ export function YouTubePlayer({
     player.seekTo(value, true);
   }, []);
 
+  const changeSpeed = useCallback((value: number) => {
+    setRate(value);
+    setSpeedOpen(false);
+    playerRef.current?.setPlaybackRate(value);
+  }, []);
+
+  const skipBy = useCallback((direction: "left" | "right") => {
+    const player = playerRef.current;
+    if (!player) return;
+    const now = player.getCurrentTime() ?? 0;
+    const duration = player.getDuration() ?? 0;
+    const target =
+      direction === "right"
+        ? duration > 0
+          ? Math.min(duration, now + SEEK_STEP_SECONDS)
+          : now + SEEK_STEP_SECONDS
+        : Math.max(0, now - SEEK_STEP_SECONDS);
+    player.seekTo(target, true);
+    setCurrent(target);
+    setSkip((prev) =>
+      prev && prev.side === direction
+        ? { side: direction, seconds: prev.seconds + SEEK_STEP_SECONDS }
+        : { side: direction, seconds: SEEK_STEP_SECONDS }
+    );
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setSkip(null), 800);
+  }, []);
+
+  const handleSurfaceTap = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const direction =
+        event.clientX - rect.left >= rect.width / 2 ? "right" : "left";
+      // A second tap inside the window means double-tap: cancel the pending
+      // play/pause toggle and seek instead, matching YouTube's behaviour.
+      if (tapTimer.current) {
+        clearTimeout(tapTimer.current);
+        tapTimer.current = null;
+        skipBy(direction);
+        return;
+      }
+      tapTimer.current = setTimeout(() => {
+        tapTimer.current = null;
+        togglePlay();
+      }, DOUBLE_TAP_MS);
+    },
+    [skipBy, togglePlay]
+  );
+
   const toggleFullscreen = useCallback(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -238,14 +351,15 @@ export function YouTubePlayer({
       onContextMenu={(event) => event.preventDefault()}
     >
       {/*
-        The shield. It is a real button covering the entire frame, so a click
-        anywhere toggles playback and YouTube never receives a pointer event.
+        The shield. It is a real button covering the entire frame, so a tap
+        anywhere toggles playback (single) or seeks (double) and YouTube never
+        receives a pointer event.
       */}
       <button
         type="button"
         aria-label={playing ? `Pause ${title}` : `Play ${title}`}
-        onClick={togglePlay}
-        className="absolute inset-0 z-10 cursor-pointer"
+        onClick={handleSurfaceTap}
+        className="absolute inset-0 z-10 cursor-pointer touch-manipulation"
       />
 
       {!ready ? (
@@ -261,6 +375,27 @@ export function YouTubePlayer({
         >
           <Play className="ml-1 h-7 w-7" />
         </span>
+      ) : null}
+
+      {skip ? (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 z-20 flex items-center justify-center",
+            skip.side === "right" ? "left-1/2 right-0" : "left-0 right-1/2"
+          )}
+        >
+          <span className="flex h-16 w-16 animate-pulse flex-col items-center justify-center rounded-full bg-black/60 text-white">
+            {skip.side === "right" ? (
+              <ChevronsRight className="h-6 w-6" />
+            ) : (
+              <ChevronsLeft className="h-6 w-6" />
+            )}
+            <span className="mt-0.5 text-[11px] font-semibold leading-none">
+              {skip.seconds}s
+            </span>
+          </span>
+        </div>
       ) : null}
 
       <div className="absolute inset-x-0 bottom-0 z-20 flex items-center gap-2.5 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-8 text-white">
@@ -296,6 +431,39 @@ export function YouTubePlayer({
         <span className="w-9 shrink-0 text-center font-mono text-[11px] tabular-nums text-white/70">
           {formatTime(duration)}
         </span>
+        {speedOpen ? (
+          <div className="absolute inset-x-0 bottom-full z-30 mb-2 flex flex-wrap justify-center gap-1.5 px-2">
+            {rates.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeSpeed(value)}
+                aria-pressed={value === rate}
+                className={cn(
+                  "min-w-[3.25rem] rounded-full px-3 py-1 text-xs font-medium backdrop-blur transition-colors",
+                  value === rate
+                    ? "bg-white text-neutral-900"
+                    : "bg-black/60 text-white hover:bg-black/80"
+                )}
+              >
+                {formatRate(value)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setSpeedOpen((prev) => !prev)}
+          aria-label={`Playback speed, ${formatRate(rate)}`}
+          aria-haspopup="true"
+          aria-expanded={speedOpen}
+          className={cn(
+            controlButton,
+            "w-auto min-w-8 px-2 text-xs font-semibold tabular-nums"
+          )}
+        >
+          {formatRate(rate)}
+        </button>
         <button
           type="button"
           onClick={toggleMute}
