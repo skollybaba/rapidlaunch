@@ -20,6 +20,7 @@ import {
   BarChart2,
   Menu,
   X,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -89,6 +90,11 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/email-broadcast", label: "Email & Broadcasting", icon: Mail },
       { href: "/admin/automation", label: "Automation & Sequences", icon: Workflow },
     ],
+  },
+  {
+    label: "Workspace",
+    icon: Settings,
+    children: [{ href: "/admin/settings", label: "Settings", icon: Settings }],
   },
 ];
 

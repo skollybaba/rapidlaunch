@@ -11,14 +11,28 @@ import {
   type CreateCheckoutSessionInput,
 } from "@/lib/validation/order";
 import {
+  bachsChargeDataSchema,
+  bachsWebhookPayloadSchema,
   paystackChargeDataSchema,
   paystackWebhookPayloadSchema,
 } from "@/lib/validation/payment";
 import {
   createPaystackAdapter,
   PaystackProviderError,
-  type VerifyTransactionResult,
 } from "@/lib/providers/paystack";
+import {
+  BachsProviderError,
+  verifyBachsWebhookSignature,
+} from "@/lib/providers/bachs";
+import {
+  createPaymentAdapter,
+  isProviderConfigured,
+} from "@/lib/providers/payment";
+import { decimalStringToMinor } from "@/lib/money";
+import type {
+  PaymentProviderName,
+  VerifyTransactionResult,
+} from "@/types/payment";
 import { createMailAdapter } from "@/lib/providers/mail";
 import {
   createGoogleCalendarAdapter,
@@ -71,6 +85,29 @@ export function generateProviderReference(): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function providerDisplayName(provider: PaymentProviderName): string {
+  return provider === "bachs" ? "Bachs" : "Paystack";
+}
+
+function notConfiguredCode(provider: PaymentProviderName): string {
+  return provider === "bachs" ? "BACHS_NOT_CONFIGURED" : "PAYSTACK_NOT_CONFIGURED";
+}
+
+/** Provider errors expose a uniform `retryable` flag so callers stay agnostic. */
+function isRetryableProviderError(error: unknown): boolean {
+  return (
+    (error instanceof PaystackProviderError ||
+      error instanceof BachsProviderError) &&
+    error.retryable
+  );
+}
+
+function isProviderError(error: unknown): error is Error {
+  return (
+    error instanceof PaystackProviderError || error instanceof BachsProviderError
+  );
 }
 
 const PAYSTACK_VERIFY_MAX_ATTEMPTS = 4;
@@ -372,11 +409,16 @@ export async function createCheckoutSession(
   };
 }
 
-export async function initializeCheckoutPayment(input: unknown): Promise<{
+export async function initializeCheckoutPayment(
+  input: unknown,
+  options: { provider?: PaymentProviderName } = {}
+): Promise<{
   authorizationUrl: string;
   accessCode: string;
   providerReference: string;
+  provider: PaymentProviderName;
 }> {
+  const provider = options.provider ?? "paystack";
   const parsed = initializePaymentSchema.parse(input);
 
   await dbConnect();
@@ -403,7 +445,7 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
 
   const payment = await Payment.create({
     orderId: order._id,
-    provider: "paystack",
+    provider,
     providerReference,
     status: "PENDING",
     amountMinor: order.totalMinor,
@@ -426,25 +468,24 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
     },
   });
 
-  const secretKey = env.PAYSTACK_SECRET_KEY;
-  if (!secretKey) {
+  if (!isProviderConfigured(provider)) {
     await Payment.updateOne(
       { _id: payment._id },
       {
         $set: {
           status: "INITIALIZATION_FAILED",
-          errorMessage: "Paystack is not configured",
+          errorMessage: `${providerDisplayName(provider)} is not configured`,
         },
       }
     );
     throw new OrderServiceError(
-      "PAYSTACK_NOT_CONFIGURED",
+      notConfiguredCode(provider),
       "Secure payment is not configured yet. Please contact us to complete your purchase.",
       503
     );
   }
 
-  const adapter = createPaystackAdapter(secretKey);
+  const adapter = createPaymentAdapter(provider);
 
   try {
     const result = await adapter.initializeTransaction({
@@ -469,6 +510,9 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
           status: "CREATED",
           authorizationUrl: result.authorizationUrl,
           accessCode: result.accessCode,
+          ...(result.providerCheckoutId
+            ? { providerCheckoutId: result.providerCheckoutId }
+            : {}),
         },
       }
     );
@@ -477,20 +521,20 @@ export async function initializeCheckoutPayment(input: unknown): Promise<{
       authorizationUrl: result.authorizationUrl,
       accessCode: result.accessCode,
       providerReference,
+      provider,
     };
   } catch (error) {
-    const message =
-      error instanceof PaystackProviderError
-        ? error.message
-        : "Could not initialize payment";
+    const message = isProviderError(error)
+      ? error.message
+      : "Could not initialize payment";
     await Payment.updateOne(
       { _id: payment._id },
       { $set: { status: "INITIALIZATION_FAILED", errorMessage: message } }
     );
-    if (error instanceof PaystackProviderError && error.retryable) {
+    if (isRetryableProviderError(error)) {
       throw new OrderServiceError(
         "PAYMENT_INIT_RETRYABLE",
-        "Paystack could not be reached. Please try again.",
+        `${providerDisplayName(provider)} could not be reached. Please try again.`,
         503
       );
     }
@@ -506,9 +550,14 @@ export async function verifyCheckoutPayment(
   const fast = options?.fast ?? false;
   await dbConnect();
 
-  const payment = await Payment.findOne(
-    paystackPaymentFilter({ providerReference: ref })
-  )
+  // The payment record carries the provider it was created with; trust that
+  // rather than the admin's current selection so an in-flight checkout settles
+  // against the gateway that actually took it. Match either our own reference or
+  // the provider's session id, so the callback works whether the provider
+  // echoes `reference` or only supplies its own `checkout_id`.
+  const payment = await Payment.findOne({
+    $or: [{ providerReference: ref }, { providerCheckoutId: ref }],
+  } as unknown as Parameters<typeof Payment.findOne>[0])
     .lean()
     .exec();
 
@@ -516,27 +565,33 @@ export async function verifyCheckoutPayment(
     throw new OrderServiceError("PAYMENT_NOT_FOUND", "Payment not found", 404);
   }
 
+  const provider: PaymentProviderName =
+    payment.provider === "bachs" ? "bachs" : "paystack";
+
   if (payment.status === "PAID") {
     return settleVerifiedPayment(payment, null);
   }
 
-  const secretKey = env.PAYSTACK_SECRET_KEY;
-  if (!secretKey) {
+  if (!isProviderConfigured(provider)) {
     throw new OrderServiceError(
-      "PAYSTACK_NOT_CONFIGURED",
+      notConfiguredCode(provider),
       "Secure payment verification is not configured yet.",
       503
     );
   }
 
-  const adapter = createPaystackAdapter(secretKey);
+  const adapter = createPaymentAdapter(provider);
+  // Bachs verifies by its own `chk_...` session id; Paystack keys off our
+  // reference. Fall back to the reference if we never stored a session id.
+  const adapterReference =
+    provider === "bachs" ? payment.providerCheckoutId ?? ref : ref;
 
   if (fast) {
     let result: VerifyTransactionResult | undefined;
     try {
-      result = await adapter.verifyTransaction(ref);
+      result = await adapter.verifyTransaction(adapterReference);
     } catch (error) {
-      if (error instanceof PaystackProviderError && error.retryable) {
+      if (isRetryableProviderError(error)) {
         // In fast mode we don't block the confirmation page with retries;
         // return the current DB state and let the webhook settle it.
         return {
@@ -591,7 +646,7 @@ export async function verifyCheckoutPayment(
 
   for (let attempt = 1; attempt <= PAYSTACK_VERIFY_MAX_ATTEMPTS; attempt++) {
     try {
-      result = await adapter.verifyTransaction(ref);
+      result = await adapter.verifyTransaction(adapterReference);
       lastRetryableError = undefined;
       if (result.paid || result.status === "failed" || result.status === "abandoned") {
         break;
@@ -600,7 +655,7 @@ export async function verifyCheckoutPayment(
         break;
       }
     } catch (error) {
-      if (!(error instanceof PaystackProviderError) || !error.retryable) {
+      if (!isRetryableProviderError(error)) {
         throw error;
       }
       lastRetryableError = error;
@@ -1703,6 +1758,180 @@ export async function processPaystackWebhookEvent(
   } catch (error) {
     await PaymentEvent.updateOne(
       { provider: "paystack", providerEventKey: eventKey },
+      {
+        $set: {
+          processingStatus: "FAILED",
+          processedAt: new Date(),
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        },
+      }
+    );
+  }
+}
+
+/**
+ * Idempotency key for a Bachs event. Bachs event ids (`evt_...`) are unique;
+ * when absent we fall back to the collection identity so a retried delivery of
+ * the same collection is deduped rather than re-settling the order.
+ */
+function bachsWebhookEventKey(
+  event: string,
+  payload: { id?: string },
+  data: { checkout_id?: string; charge_id?: string | null; reference?: string }
+): string {
+  const identity =
+    payload.id ?? data.charge_id ?? data.checkout_id ?? data.reference;
+  if (identity) return `${event}:${identity}`;
+  const hash = createHash("sha256").update(JSON.stringify(data)).digest("hex");
+  return `${event}:hash:${hash}`;
+}
+
+/**
+ * Verify a Bachs webhook and claim the event for idempotency. Mirrors
+ * `processPaystackWebhook`: signature + dedupe only, no settlement, so the
+ * provider gets an instant 200.
+ */
+export async function processBachsWebhook(
+  rawBody: string,
+  signature: string,
+  timestamp: string
+): Promise<WebhookProcessingResult> {
+  const requestId = randomUUID();
+
+  if (!rawBody) {
+    return { accepted: false, reason: "EMPTY_BODY", requestId };
+  }
+
+  const signingSecrets = [env.BACHS_WEBHOOK_SECRET, env.BACHS_SECRET_KEY].filter(
+    (secret): secret is string => Boolean(secret)
+  );
+
+  if (signingSecrets.length === 0) {
+    return { accepted: false, reason: "BACHS_NOT_CONFIGURED", requestId };
+  }
+
+  const signatureValid = signingSecrets.some((secret) =>
+    verifyBachsWebhookSignature(rawBody, signature, timestamp, secret)
+  );
+
+  if (!signatureValid) {
+    return { accepted: false, reason: "INVALID_SIGNATURE", requestId };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return { accepted: false, reason: "INVALID_JSON", requestId };
+  }
+
+  const parsed = bachsWebhookPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { accepted: false, reason: "INVALID_PAYLOAD", requestId };
+  }
+
+  const event = parsed.data.event ?? parsed.data.type ?? "";
+  const data = parsed.data.data ?? {};
+  const eventKey = bachsWebhookEventKey(event, parsed.data, data);
+
+  await dbConnect();
+
+  const existing = await PaymentEvent.findOne({
+    provider: "bachs",
+    providerEventKey: eventKey,
+  })
+    .lean()
+    .exec();
+
+  if (existing) {
+    return { accepted: true, duplicate: true, requestId };
+  }
+
+  await PaymentEvent.create({
+    provider: "bachs",
+    providerEventKey: eventKey,
+    eventType: event,
+    signatureValid: true,
+    rawPayload: payload,
+    receivedAt: new Date(),
+    processingStatus: "PROCESSING",
+  });
+
+  return {
+    accepted: true,
+    duplicate: false,
+    requestId,
+    event,
+    eventKey,
+    data,
+  };
+}
+
+const BACHS_SUCCESS_EVENTS = new Set([
+  "collection.succeeded",
+  "collection.accepted",
+  "collection.overpaid",
+]);
+
+export async function processBachsWebhookEvent(
+  result: WebhookProcessingResult
+): Promise<void> {
+  if (!result.accepted || !result.event || !result.eventKey) return;
+
+  const { event, eventKey, data } = result;
+  await dbConnect();
+
+  try {
+    if (BACHS_SUCCESS_EVENTS.has(event)) {
+      const charge = bachsChargeDataSchema.safeParse(data);
+      if (charge.success) {
+        const { checkout_id, reference, amount, currency } = charge.data;
+
+        const orFilters: Record<string, unknown>[] = [];
+        if (reference) orFilters.push({ providerReference: reference });
+        if (checkout_id) orFilters.push({ providerCheckoutId: checkout_id });
+
+        const payment = orFilters.length
+          ? await Payment.findOne({
+              provider: "bachs",
+              $or: orFilters,
+            } as unknown as Parameters<typeof Payment.findOne>[0])
+              .lean()
+              .exec()
+          : null;
+
+        if (payment) {
+          const resolvedCurrency = currency ?? payment.currency;
+          await settleVerifiedPayment(
+            payment,
+            {
+              status: "success",
+              paid: true,
+              amountMinor:
+                amount === undefined
+                  ? payment.amountMinor
+                  : decimalStringToMinor(String(amount), resolvedCurrency),
+              currency: resolvedCurrency,
+              reference: reference ?? checkout_id ?? payment.providerReference,
+              raw: data,
+            },
+            { awaitFulfillment: true }
+          );
+        }
+      }
+      await PaymentEvent.updateOne(
+        { provider: "bachs", providerEventKey: eventKey },
+        { $set: { processingStatus: "PROCESSED", processedAt: new Date() } }
+      );
+    } else {
+      await PaymentEvent.updateOne(
+        { provider: "bachs", providerEventKey: eventKey },
+        { $set: { processingStatus: "IGNORED", processedAt: new Date() } }
+      );
+    }
+  } catch (error) {
+    await PaymentEvent.updateOne(
+      { provider: "bachs", providerEventKey: eventKey },
       {
         $set: {
           processingStatus: "FAILED",

@@ -3,42 +3,24 @@ import "server-only";
 import axios from "axios";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-export type PaystackTransactionStatus =
-  | "success"
-  | "failed"
-  | "abandoned"
-  | "unknown";
+import type {
+  InitializeTransactionInput,
+  InitializeTransactionResult,
+  PaymentAdapter,
+  ProviderTransactionStatus,
+  VerifyTransactionResult,
+} from "@/types/payment";
 
-export interface InitializeTransactionInput {
-  amountMinor: number;
-  currency: string;
-  email: string;
-  reference: string;
-  callbackUrl: string;
-  metadata?: Record<string, unknown>;
-}
+export type {
+  InitializeTransactionInput,
+  InitializeTransactionResult,
+  VerifyTransactionResult,
+} from "@/types/payment";
 
-export interface InitializeTransactionResult {
-  authorizationUrl: string;
-  accessCode: string;
-  reference: string;
-}
+export type PaystackTransactionStatus = ProviderTransactionStatus;
 
-export interface VerifyTransactionResult {
-  status: PaystackTransactionStatus;
-  paid: boolean;
-  amountMinor: number;
-  currency: string;
-  reference: string;
-  raw: unknown;
-}
-
-export interface PaystackAdapter {
-  initializeTransaction(
-    input: InitializeTransactionInput
-  ): Promise<InitializeTransactionResult>;
-
-  verifyTransaction(reference: string): Promise<VerifyTransactionResult>;
+export interface PaystackAdapter extends PaymentAdapter {
+  readonly provider: "paystack";
 
   validateWebhookSignature(rawBody: string, signature: string): boolean;
 
@@ -60,6 +42,8 @@ export class PaystackProviderError extends Error {
 const PAYSTACK_API_BASE = "https://api.paystack.co";
 
 export class HttpPaystackAdapter implements PaystackAdapter {
+  readonly provider = "paystack" as const;
+
   constructor(
     private readonly secretKey: string,
     private readonly apiBase: string = PAYSTACK_API_BASE

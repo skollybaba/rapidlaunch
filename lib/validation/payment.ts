@@ -30,3 +30,31 @@ export type PaystackWebhookPayload = z.infer<
 >;
 
 export type PaystackChargeData = z.infer<typeof paystackChargeDataSchema>;
+
+/**
+ * Bachs sends decimal-string amounts (`"2900.00"`), not integer minor units.
+ * `charge_id` is nullable in the payload: test/legacy/manual collections may
+ * omit it, so settlement keys off `checkout_id` or `reference` instead.
+ */
+export const bachsChargeDataSchema = z
+  .object({
+    checkout_id: z.string().optional(),
+    reference: z.string().optional(),
+    charge_id: z.string().nullable().optional(),
+    status: z.string().optional(),
+    amount: z.union([z.string(), z.number()]).optional(),
+    currency: z.string().optional(),
+  })
+  .passthrough();
+
+export const bachsWebhookPayloadSchema = z
+  .object({
+    id: z.string().optional(),
+    event: z.string().optional(),
+    type: z.string().optional(),
+    data: bachsChargeDataSchema.optional(),
+  })
+  .passthrough();
+
+export type BachsWebhookPayload = z.infer<typeof bachsWebhookPayloadSchema>;
+export type BachsChargeData = z.infer<typeof bachsChargeDataSchema>;

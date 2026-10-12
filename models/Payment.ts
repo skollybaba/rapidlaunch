@@ -12,6 +12,8 @@ const PaymentSchema = new Schema<PaymentDoc>(
     },
     provider: { type: String, required: true, default: "paystack" },
     providerReference: { type: String, required: true },
+    /** Provider session id (e.g. Bachs `chk_...`) used to verify the payment. */
+    providerCheckoutId: { type: String },
     authorizationUrl: String,
     accessCode: String,
     status: {
@@ -33,6 +35,8 @@ PaymentSchema.index(
   { provider: 1, providerReference: 1 },
   { unique: true, sparse: true }
 );
+
+PaymentSchema.index({ providerCheckoutId: 1 }, { sparse: true });
 
 export const Payment: Model<PaymentDoc> = model<PaymentDoc>(
   "Payment",

@@ -44,7 +44,8 @@ type RenderState =
 function getInitialReference(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  return params.get("reference");
+  // Paystack echoes our `reference`; Bachs appends its own `checkout_id`.
+  return params.get("reference") ?? params.get("checkout_id");
 }
 
 function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
@@ -258,14 +259,17 @@ export default function PaymentCallbackView() {
       try {
         const refParam = encodeURIComponent(ref);
         const res = await fetch(
-          `/api/payments/paystack/verify/${refParam}?fast=1`,
+          `/api/payments/verify/${refParam}?fast=1`,
         );
         const json: VerifyResult = await res.json();
 
         if (cancelled) return;
 
         if (!json.ok) {
-          if (json.error?.code === "PAYSTACK_NOT_CONFIGURED") {
+          if (
+            json.error?.code === "PAYSTACK_NOT_CONFIGURED" ||
+            json.error?.code === "BACHS_NOT_CONFIGURED"
+          ) {
             setRenderState("unverified");
             toastRef.current.warning({
               title: "We could not verify your payment yet",

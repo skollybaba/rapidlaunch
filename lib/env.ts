@@ -29,6 +29,18 @@ const envSchema = z.object({
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_WEBHOOK_SECRET: z.string().optional(),
+  /**
+   * Bachs payment secret key (`sk_live_...` / `sk_sandbox_...`). When empty the
+   * checkout falls back to Paystack even if Bachs is the selected provider.
+   */
+  BACHS_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** Secret used to verify Bachs webhook HMAC signatures. */
+  BACHS_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** Override the Bachs API base (sandbox vs production). */
+  BACHS_API_BASE_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().url().optional()
+  ),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REFRESH_TOKEN: z.string().optional(),

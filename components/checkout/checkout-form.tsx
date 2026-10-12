@@ -187,7 +187,7 @@ export function CheckoutForm({
 
       const orderReference = sessionJson.data.orderReference as string;
 
-      const initResponse = await fetch("/api/payments/paystack/initialize", {
+      const initResponse = await fetch("/api/payments/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderReference }),
@@ -196,7 +196,10 @@ export function CheckoutForm({
 
       if (!initJson.ok) {
         const code = initJson.error?.code as string;
-        if (code === "PAYSTACK_NOT_CONFIGURED") {
+        if (
+          code === "PAYSTACK_NOT_CONFIGURED" ||
+          code === "BACHS_NOT_CONFIGURED"
+        ) {
           setState("unavailable");
           setMessage(
             "Secure payment is being set up. Your order details are correct. Contact us to complete the purchase.",
@@ -217,7 +220,7 @@ export function CheckoutForm({
       setState("redirecting");
       toast.success({
         title: "Redirecting to secure payment",
-        description: "You'll be taken to Paystack to complete your purchase.",
+        description: "You'll be taken to our secure checkout to complete your purchase.",
       });
       window.location.href = authorizationUrl;
     } catch (error) {
@@ -239,7 +242,7 @@ export function CheckoutForm({
         reason = "Please let us know a bit about what you're building.";
       } else if (message.includes("help with") || message.includes("helpNeeded")) {
         reason = "Please tell us what you'd like help with for your session.";
-      } else if (message.includes("PAYSTACK_NOT_CONFIGURED")) {
+      } else if (message.includes("PAYSTACK_NOT_CONFIGURED") || message.includes("BACHS_NOT_CONFIGURED")) {
         reason = "Secure payments are being set up. Your order is saved - contact us to complete it.";
         description = "Your order details are ready. We'll help you finish when payments go live.";
       } else if (message) {
