@@ -67,19 +67,19 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
     return lessons[0]?.id ?? null;
   }, [lessons, outline.lastLessonId]);
 
-  // The "Before you start" sell page is the opening screen until the student
-  // has engaged with the curriculum; after that the player resumes as normal.
-  const showBeforeYouStart = Boolean(
-    outline.beforeYouStart && !outline.hasStarted
-  );
+  const hasIntro = Boolean(outline.beforeYouStart);
   const entryLessonId = useMemo(
-    () => (outline.beforeYouStart ? courseEntryLessonId(outline.modules) : null),
+    () => courseEntryLessonId(outline.modules),
     [outline],
   );
 
   const [activeId, setActiveId] = useState<string | null>(() =>
-    showBeforeYouStart ? null : firstId
+    hasIntro && !outline.hasStarted ? null : firstId
   );
+  // The opening screen is simply the state where no lesson is selected, so the
+  // sidebar entry can return to it at any time — not only before the student
+  // has started.
+  const showBeforeYouStart = hasIntro && activeId === null;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(
     () =>
@@ -173,10 +173,21 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
     (module) => module.id === active?.moduleId
   );
   const activeModuleLabel = activeModule
-    ? moduleLabels[outline.modules.indexOf(activeModule)]
+    ? activeModule.isOrientation
+      ? "Before you start"
+      : moduleLabels[outline.modules.indexOf(activeModule)]
     : "";
 
-  /** One accordion card. Rendered twice: once for orientation, once per module. */
+  // The standalone "Before you start" entry stands in for the orientation
+  // module: it opens the intro sell page when there is one, otherwise the
+  // first orientation lesson. It is highlighted while either is on screen.
+  const showBeforeYouStartEntry =
+    Boolean(outline.beforeYouStart) || Boolean(orientationModule);
+  const beforeYouStartActive = outline.beforeYouStart
+    ? activeId === null
+    : Boolean(orientationModule && active?.moduleId === orientationModule.id);
+
+  /** One accordion card, rendered once per course module. */
   function renderModuleCard(module: ModuleView, label: string) {
     const doneCount = module.lessons.filter(
       (lesson) => completed.has(lesson.id) && !lesson.isPreview
@@ -373,20 +384,44 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
               : "hidden md:block"
           )}
         >
-          {orientationModule ? (
-            <section aria-labelledby="orientation-heading" className="mb-5">
+          {showBeforeYouStartEntry ? (
+            <section aria-labelledby="before-you-start-heading" className="mb-5">
               <h2
-                id="orientation-heading"
+                id="before-you-start-heading"
                 className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-terracotta-600"
               >
-                Orientation
+                Before you start
               </h2>
-              <ol className="mt-2 space-y-3">
-                {renderModuleCard(
-                  orientationModule,
-                  moduleLabels[orientationIndex]
+              <button
+                type="button"
+                onClick={() => {
+                  if (outline.beforeYouStart) setActiveId(null);
+                  else if (entryLessonId) setActiveId(entryLessonId);
+                }}
+                aria-current={beforeYouStartActive ? "true" : undefined}
+                className={cn(
+                  "mt-2 flex w-full items-center gap-3 rounded-[12px] border px-3 py-3 text-left transition-colors duration-[var(--duration-fast)] focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]",
+                  beforeYouStartActive
+                    ? "border-terracotta-300 bg-terracotta-100"
+                    : "border-neutral-300 bg-white hover:bg-lavender-100"
                 )}
-              </ol>
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-100 text-terracotta-600">
+                  <CirclePlay className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-neutral-950">
+                    {outline.beforeYouStart?.title ??
+                      orientationModule?.title ??
+                      "Before you begin"}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-neutral-500">
+                    {outline.beforeYouStart
+                      ? "Course introduction"
+                      : "Start here"}
+                  </span>
+                </span>
+              </button>
             </section>
           ) : null}
 
