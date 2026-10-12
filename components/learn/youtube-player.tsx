@@ -432,23 +432,25 @@ export function YouTubePlayer({
           {formatTime(duration)}
         </span>
         {speedOpen ? (
-          <div className="absolute inset-x-0 bottom-full z-30 mb-2 flex flex-wrap justify-center gap-1.5 px-2">
-            {rates.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => changeSpeed(value)}
-                aria-pressed={value === rate}
-                className={cn(
-                  "min-w-[3.25rem] rounded-full px-3 py-1 text-xs font-medium backdrop-blur transition-colors",
-                  value === rate
-                    ? "bg-white text-neutral-900"
-                    : "bg-black/60 text-white hover:bg-black/80"
-                )}
-              >
-                {formatRate(value)}
-              </button>
-            ))}
+          <div className="absolute inset-x-0 bottom-full z-30 mb-2 px-2">
+            <div className="mx-auto flex w-fit max-w-full flex-wrap justify-center gap-1.5 rounded-2xl bg-black/85 p-1.5 shadow-lg backdrop-blur">
+              {rates.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => changeSpeed(value)}
+                  aria-pressed={value === rate}
+                  className={cn(
+                    "min-w-[3.25rem] rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                    value === rate
+                      ? "bg-white text-neutral-900"
+                      : "bg-white/10 text-white hover:bg-white/20"
+                  )}
+                >
+                  {formatRate(value)}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
         <button
