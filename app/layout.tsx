@@ -17,14 +17,27 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "500", "600"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://agilemindshub.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Rapid Launch",
   description:
     "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
-  icons: {
-    icon: "/images/agile_logo-mark.png",
-    apple: "/images/agile_logo-mark.png",
-    shortcut: "/images/agile_logo-mark.png",
+  openGraph: {
+    type: "website",
+    siteName: "Rapid Launch",
+    title: "Rapid Launch",
+    description:
+      "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
+    url: siteUrl,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rapid Launch",
+    description:
+      "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
   },
 };
 
