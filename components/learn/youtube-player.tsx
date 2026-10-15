@@ -79,6 +79,53 @@ declare global {
   }
 }
 
+/**
+ * The Fullscreen API is not uniform across browsers. Older Safari/WebKit and
+ * Firefox only expose vendor-prefixed methods, and third-party iOS browsers
+ * (Chrome, Firefox, Edge) do not expose it at all. These types describe the
+ * prefixed surface so the player can fall back gracefully.
+ */
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  mozFullScreenElement?: Element | null;
+  mozCancelFullScreen?: () => Promise<void> | void;
+  msFullscreenElement?: Element | null;
+  msExitFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  webkitRequestFullScreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+/** The element currently in fullscreen, across vendor-prefixed browsers. */
+function currentFullscreenElement(): Element | null {
+  if (typeof document === "undefined") return null;
+  const doc = document as FullscreenDocument;
+  return (
+    doc.fullscreenElement ||
+    doc.webkitFullscreenElement ||
+    doc.mozFullScreenElement ||
+    doc.msFullscreenElement ||
+    null
+  );
+}
+
+/** Whether the browser exposes any usable fullscreen request method. */
+function canRequestFullscreen(el: HTMLElement): el is FullscreenElement {
+  const target = el as FullscreenElement;
+  return Boolean(
+    target.requestFullscreen ||
+      target.webkitRequestFullscreen ||
+      target.webkitRequestFullScreen ||
+      target.mozRequestFullScreen ||
+      target.msRequestFullscreen
+  );
+}
+
 let apiPromise: Promise<YouTubeApi> | null = null;
 
 function loadYouTubeApi(): Promise<YouTubeApi> {
@@ -142,6 +189,7 @@ export function YouTubePlayer({
   const isFullscreenRef = useRef(false);
   const playerRef = useRef<YouTubePlayerInstance | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -163,6 +211,10 @@ export function YouTubePlayer({
   const activeCaptionRef = useRef<string | null>(null);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fullscreenProbe = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Native fullscreen (where supported) or the CSS overlay fallback (iOS).
+  const activeFullscreen = isFullscreen || fallbackFullscreen;
 
   // Reset per-video controls when the lesson changes. Adjusting state during
   // render (rather than in an effect) avoids a stale frame and an extra pass.
@@ -194,11 +246,38 @@ export function YouTubePlayer({
   }, [speedOpen, captionsOpen]);
 
   useEffect(() => {
-    const onChange = () =>
-      setIsFullscreen(document.fullscreenElement === containerRef.current);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    const onChange = () => {
+      const active = currentFullscreenElement() === containerRef.current;
+      setIsFullscreen(active);
+      // A real fullscreen event always wins over the CSS fallback.
+      if (active) setFallbackFullscreen(false);
+    };
+    const events = [
+      "fullscreenchange",
+      "webkitfullscreenchange",
+      "mozfullscreenchange",
+      "MSFullscreenChange",
+    ];
+    events.forEach((name) => document.addEventListener(name, onChange));
+    return () =>
+      events.forEach((name) => document.removeEventListener(name, onChange));
   }, []);
+
+  // The CSS fallback has no browser event, so Escape and body scroll locking
+  // are handled here. Native fullscreen sends its own change event instead.
+  useEffect(() => {
+    if (!fallbackFullscreen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFallbackFullscreen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [fallbackFullscreen]);
 
   // YouTube pins its title/avatar/share overlay to the iframe's top corners and
   // always shows it before playback, on pause, and on end (showinfo is
@@ -219,14 +298,15 @@ export function YouTubePlayer({
   }, []);
 
   useEffect(() => {
-    isFullscreenRef.current = isFullscreen;
+    isFullscreenRef.current = activeFullscreen;
     applyFrameCrop();
-  }, [isFullscreen, ready, applyFrameCrop]);
+  }, [activeFullscreen, ready, applyFrameCrop]);
 
   useEffect(() => {
     return () => {
       if (tapTimer.current) clearTimeout(tapTimer.current);
       if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      if (fullscreenProbe.current) clearTimeout(fullscreenProbe.current);
     };
   }, []);
 
@@ -430,14 +510,66 @@ export function YouTubePlayer({
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
-    // Fullscreen the wrapper (video + controls), not the iframe: the shield and
-    // our controls stay on top, so YouTube's own UI is never reachable.
-    if (document.fullscreenElement) {
-      void document.exitFullscreen();
-    } else {
-      void container.requestFullscreen?.();
+
+    const doc = document as FullscreenDocument;
+    const active = currentFullscreenElement();
+
+    // Already fullscreen (native or fallback): leave it.
+    if (active || fallbackFullscreen) {
+      if (active) {
+        const exit =
+          doc.exitFullscreen ||
+          doc.webkitExitFullscreen ||
+          doc.mozCancelFullScreen ||
+          doc.msExitFullscreen;
+        try {
+          const result = exit?.call(doc);
+          if (result && typeof (result as Promise<void>).catch === "function") {
+            (result as Promise<void>).catch(() => setFallbackFullscreen(false));
+          }
+        } catch {
+          // Ignore: a failed exit should never trap the viewer.
+        }
+      }
+      setFallbackFullscreen(false);
+      return;
     }
-  }, []);
+
+    // Browsers without the Fullscreen API (third-party iOS browsers) get a
+    // CSS overlay that mimics it, so the control works everywhere.
+    if (!canRequestFullscreen(container)) {
+      setFallbackFullscreen(true);
+      return;
+    }
+
+    const target = container as FullscreenElement;
+    const request =
+      target.requestFullscreen ||
+      target.webkitRequestFullscreen ||
+      target.webkitRequestFullScreen ||
+      target.mozRequestFullScreen ||
+      target.msRequestFullscreen;
+
+    try {
+      const result = request?.call(target);
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>).catch(() => {
+          // The API exists but was refused (e.g. gated on iOS): fall back.
+          setFallbackFullscreen(true);
+        });
+      }
+      // Some browsers define the method but silently do nothing, without a
+      // promise or an event. Confirm fullscreen actually engaged and, if not,
+      // use the CSS fallback so the control never appears dead.
+      if (fullscreenProbe.current) clearTimeout(fullscreenProbe.current);
+      fullscreenProbe.current = setTimeout(() => {
+        fullscreenProbe.current = null;
+        if (!currentFullscreenElement()) setFallbackFullscreen(true);
+      }, 500);
+    } catch {
+      setFallbackFullscreen(true);
+    }
+  }, [fallbackFullscreen]);
 
   if (failed) {
     return (
@@ -452,14 +584,15 @@ export function YouTubePlayer({
       ref={containerRef}
       className={cn(
         "group flex w-full flex-col overflow-hidden rounded-[12px] bg-neutral-950",
-        isFullscreen && "rounded-none"
+        activeFullscreen && "rounded-none",
+        fallbackFullscreen && "fixed inset-0 z-[9999]"
       )}
     >
       <div
         ref={hostRef}
         className={cn(
           "relative w-full overflow-hidden",
-          isFullscreen ? "min-h-0 flex-1" : "aspect-video"
+          activeFullscreen ? "min-h-0 flex-1" : "aspect-video"
         )}
         onContextMenu={(event) => event.preventDefault()}
       >
