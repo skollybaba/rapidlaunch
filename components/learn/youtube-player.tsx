@@ -12,7 +12,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Maximize,
-  MoreHorizontal,
+  Minimize,
+  MoreVertical,
   Pause,
   Play,
   Subtitles,
@@ -746,7 +747,7 @@ export function YouTubePlayer({
           onChange={(event) => seek(Number(event.target.value))}
           aria-label="Seek"
           className={cn(
-            "h-1.5 flex-1 cursor-pointer accent-terracotta-500",
+            "h-1.5 min-w-0 flex-1 cursor-pointer accent-terracotta-500",
             "disabled:cursor-default disabled:opacity-50"
           )}
         />
@@ -817,7 +818,7 @@ export function YouTubePlayer({
           aria-expanded={moreOpen}
           className={cn(controlButton, "sm:hidden")}
         >
-          <MoreHorizontal className="h-4 w-4" />
+          <MoreVertical className="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -937,6 +938,21 @@ export function YouTubePlayer({
                 className="flex items-center justify-between gap-8 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
               >
                 <span>{muted ? "Unmute" : "Mute"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toggleFullscreen();
+                  setMoreOpen(false);
+                }}
+                className="flex items-center justify-between gap-8 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <span>{activeFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+                {activeFullscreen ? (
+                  <Minimize className="h-3.5 w-3.5 text-white/70" />
+                ) : (
+                  <Maximize className="h-3.5 w-3.5 text-white/70" />
+                )}
               </button>
             </div>
           </div>
