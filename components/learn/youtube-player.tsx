@@ -1,10 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ChevronsLeft,
   ChevronsRight,
   Maximize,
+  MoreHorizontal,
   Pause,
   Play,
   Subtitles,
@@ -186,6 +194,7 @@ export function YouTubePlayer({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
   const isFullscreenRef = useRef(false);
   const playerRef = useRef<YouTubePlayerInstance | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -203,6 +212,7 @@ export function YouTubePlayer({
   const [captionTracks, setCaptionTracks] = useState<CaptionTrack[]>([]);
   const [activeCaption, setActiveCaption] = useState<string | null>(null);
   const [captionsOpen, setCaptionsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [prevVideoId, setPrevVideoId] = useState(videoId);
   const [skip, setSkip] = useState<{
     side: "left" | "right";
@@ -235,15 +245,35 @@ export function YouTubePlayer({
   }, [activeCaption]);
 
   useEffect(() => {
-    if (!speedOpen && !captionsOpen) return;
+    if (!speedOpen && !captionsOpen && !moreOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setSpeedOpen(false);
       setCaptionsOpen(false);
+      setMoreOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [speedOpen, captionsOpen]);
+  }, [speedOpen, captionsOpen, moreOpen]);
+
+  // Close the control popovers when tapping away, since mobile keyboards have
+  // no Escape key and each menu's own toggle may be hidden at that breakpoint.
+  useEffect(() => {
+    if (!speedOpen && !captionsOpen && !moreOpen) return;
+    const onPointerDown = (event: Event) => {
+      if (!controlsRef.current) return;
+      if (controlsRef.current.contains(event.target as Node)) return;
+      setSpeedOpen(false);
+      setCaptionsOpen(false);
+      setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [speedOpen, captionsOpen, moreOpen]);
 
   useEffect(() => {
     const onChange = () => {
@@ -486,6 +516,24 @@ export function YouTubePlayer({
     feedbackTimer.current = setTimeout(() => setSkip(null), 800);
   }, []);
 
+  // Left/Right seek by the same step as double-tap. The handler lives on the
+  // player container so page-level arrow keys keep scrolling the document, and
+  // it defers to the seek slider when that control owns the event.
+  const handleArrowSeek = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) {
+        return;
+      }
+      event.preventDefault();
+      skipBy(event.key === "ArrowRight" ? "right" : "left");
+    },
+    [skipBy]
+  );
+
   const handleSurfaceTap = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -582,6 +630,10 @@ export function YouTubePlayer({
   return (
     <div
       ref={containerRef}
+      role="group"
+      aria-label="Video player"
+      tabIndex={0}
+      onKeyDown={handleArrowSeek}
       className={cn(
         "group flex w-full flex-col overflow-hidden rounded-[12px] bg-neutral-950",
         activeFullscreen && "rounded-none",
@@ -665,7 +717,10 @@ export function YouTubePlayer({
         ) : null}
       </div>
 
-      <div className="relative flex items-center gap-2.5 border-t border-white/10 bg-neutral-950 px-3 py-2.5 text-white">
+      <div
+        ref={controlsRef}
+        className="relative flex items-center gap-2.5 border-t border-white/10 bg-neutral-950 px-3 py-2.5 text-white"
+      >
         <button
           type="button"
           onClick={togglePlay}
@@ -703,12 +758,14 @@ export function YouTubePlayer({
           onClick={() => {
             setSpeedOpen((prev) => !prev);
             setCaptionsOpen(false);
+            setMoreOpen(false);
           }}
           aria-label={`Playback speed, ${formatRate(rate)}`}
           aria-haspopup="true"
           aria-expanded={speedOpen}
           className={cn(
             controlButton,
+            "max-sm:hidden",
             "w-auto min-w-8 px-2 text-xs font-semibold tabular-nums"
           )}
         >
@@ -719,6 +776,7 @@ export function YouTubePlayer({
           onClick={() => {
             setCaptionsOpen((prev) => !prev);
             setSpeedOpen(false);
+            setMoreOpen(false);
           }}
           aria-label={activeCaption ? "Captions on" : "Captions off"}
           aria-haspopup="true"
@@ -726,7 +784,7 @@ export function YouTubePlayer({
           aria-pressed={activeCaption !== null}
           className={cn(
             controlButton,
-            "relative",
+            "relative max-sm:hidden",
             activeCaption !== null && "bg-terracotta-500/25"
           )}
         >
@@ -734,15 +792,32 @@ export function YouTubePlayer({
         </button>
         <button
           type="button"
-          onClick={toggleMute}
+          onClick={() => {
+            toggleMute();
+            setMoreOpen(false);
+          }}
           aria-label={muted ? "Unmute" : "Mute"}
-          className={controlButton}
+          className={cn(controlButton, "max-sm:hidden")}
         >
           {muted ? (
             <VolumeX className="h-4 w-4" />
           ) : (
             <Volume2 className="h-4 w-4" />
           )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMoreOpen((prev) => !prev);
+            setSpeedOpen(false);
+            setCaptionsOpen(false);
+          }}
+          aria-label="More controls"
+          aria-haspopup="true"
+          aria-expanded={moreOpen}
+          className={cn(controlButton, "sm:hidden")}
+        >
+          <MoreHorizontal className="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -814,6 +889,55 @@ export function YouTubePlayer({
                   </button>
                 ))
               )}
+            </div>
+          </div>
+        ) : null}
+
+        {moreOpen ? (
+          <div className="absolute inset-x-0 bottom-full z-30 mb-2 px-2">
+            <div className="mx-auto flex w-fit max-w-full flex-col gap-1 rounded-2xl bg-black/85 p-1.5 shadow-lg backdrop-blur">
+              <button
+                type="button"
+                onClick={() => {
+                  setSpeedOpen(true);
+                  setMoreOpen(false);
+                }}
+                aria-haspopup="true"
+                className="flex items-center justify-between gap-8 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <span>Speed</span>
+                <span className="tabular-nums text-white/70">
+                  {formatRate(rate)}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaptionsOpen(true);
+                  setMoreOpen(false);
+                }}
+                aria-haspopup="true"
+                className="flex items-center justify-between gap-8 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <span>Captions</span>
+                <span className="text-white/70">
+                  {activeCaption
+                    ? (captionTracks.find(
+                        (track) => track.languageCode === activeCaption
+                      )?.languageName ?? activeCaption)
+                    : "Off"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toggleMute();
+                  setMoreOpen(false);
+                }}
+                className="flex items-center justify-between gap-8 rounded-xl px-3 py-1.5 text-left text-xs font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <span>{muted ? "Unmute" : "Mute"}</span>
+              </button>
             </div>
           </div>
         ) : null}
