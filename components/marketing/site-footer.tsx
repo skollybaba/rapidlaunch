@@ -6,7 +6,7 @@ const SITE_LINKS = [
   { href: "/about", label: "About", icon: Sparkles },
   { href: "/services", label: "Founders catalogue", icon: Wrench },
   { href: "/courses", label: "Courses", icon: Users },
-  { href: "/resources", label: "Resources", icon: Rocket },
+  // { href: "/resources", label: "Resources", icon: Rocket },
 ];
 
 export function SiteFooter() {

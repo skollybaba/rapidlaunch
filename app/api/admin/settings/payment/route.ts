@@ -5,7 +5,9 @@ import { apiError, apiOk, handleApiError, newRequestId } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import {
+  getDisplaySettings,
   resolvePaymentProvider,
+  setDisplaySettings,
   setPaymentProvider,
 } from "@/lib/services/payment-settings-service";
 import { PAYMENT_PROVIDERS } from "@/types/payment";
@@ -13,7 +15,12 @@ import { PAYMENT_PROVIDERS } from "@/types/payment";
 export const runtime = "nodejs";
 
 const updatePaymentSettingsSchema = z
-  .object({ provider: z.enum(PAYMENT_PROVIDERS) })
+  .object({
+    provider: z.enum(PAYMENT_PROVIDERS).optional(),
+    displayCurrency: z.enum(["NGN", "USD", "AUTO", "LOCATION"]).optional(),
+    ngnPerUsd: z.coerce.number().positive().optional(),
+    usdPerNaira: z.coerce.number().positive().optional(),
+  })
   .strict();
 
 async function currentAdmin(requestId: string) {
@@ -31,12 +38,16 @@ async function currentAdmin(requestId: string) {
 
 async function paymentSettingsPayload() {
   const resolved = await resolvePaymentProvider();
+  const display = await getDisplaySettings();
   return {
     provider: resolved.requested,
     effectiveProvider: resolved.provider,
     fellBack: resolved.fellBack,
     paystackConfigured: isProviderConfigured("paystack"),
     bachsConfigured: isProviderConfigured("bachs"),
+    displayCurrency: display.displayCurrency,
+    ngnPerUsd: display.ngnPerUsd,
+    usdPerNaira: display.usdPerNaira,
   };
 }
 
@@ -71,7 +82,23 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const parsed = updatePaymentSettingsSchema.parse(body);
-    await setPaymentProvider(parsed.provider, auth.user.email);
+    if (parsed.provider) {
+      await setPaymentProvider(parsed.provider, auth.user.email);
+    }
+    if (
+      parsed.displayCurrency !== undefined ||
+      parsed.ngnPerUsd !== undefined ||
+      parsed.usdPerNaira !== undefined
+    ) {
+      await setDisplaySettings(
+        {
+          displayCurrency: parsed.displayCurrency,
+          ngnPerUsd: parsed.ngnPerUsd,
+          usdPerNaira: parsed.usdPerNaira,
+        } as any,
+        auth.user.email
+      );
+    }
     return apiOk(await paymentSettingsPayload());
   } catch (error) {
     return handleApiError(error, requestId);

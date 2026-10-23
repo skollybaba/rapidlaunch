@@ -16,6 +16,8 @@ export interface PaymentSettingsState {
   fellBack: boolean;
   paystackConfigured: boolean;
   bachsConfigured: boolean;
+  displayCurrency?: "NGN" | "USD" | "AUTO" | "LOCATION";
+  ngnPerUsd?: number;
 }
 
 const OPTIONS: {

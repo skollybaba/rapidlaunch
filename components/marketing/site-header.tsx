@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { href: "/courses", label: "Courses" },
   { href: "/services", label: "Founders catalogue" },
   // { href: "/books", label: "Books" },
-  { href: "/resources", label: "Resources" },
+  // { href: "/resources", label: "Resources" },
   { href: "/about", label: "About" },
 ];
 

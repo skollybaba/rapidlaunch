@@ -11,6 +11,20 @@ const PlatformSettingSchema = new Schema<PlatformSettingDoc>(
       enum: PAYMENT_PROVIDERS,
       default: "paystack",
     },
+    displayCurrency: {
+      type: String,
+      enum: ["NGN", "USD", "AUTO", "LOCATION"],
+      default: "AUTO",
+    },
+    ngnPerUsd: {
+      type: Number,
+      min: 0.000001,
+      default: 1600,
+    },
+    usdPerNaira: {
+      type: Number,
+      min: 0.000001,
+    },
     updatedBy: { type: String },
   },
   { timestamps: true }

@@ -56,7 +56,7 @@ export async function CheckoutView({ productId }: { productId: string }) {
   });
 
   const displayCurrency = await getDisplayCurrency();
-  const display = displayPrice(
+  const display = await displayPrice(
     product.priceMinor,
     product.currency,
     displayCurrency

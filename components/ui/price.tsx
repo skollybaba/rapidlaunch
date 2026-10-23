@@ -10,6 +10,6 @@ export async function Price({
   className?: string;
 }) {
   const displayCurrency = await getDisplayCurrency();
-  const price = displayPrice(amountMinor, currency, displayCurrency);
+  const price = await displayPrice(amountMinor, currency, displayCurrency);
   return <span className={className}>{price.label}</span>;
 }

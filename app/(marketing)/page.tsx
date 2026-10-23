@@ -260,7 +260,7 @@ export default function HomePage() {
                     <CalendarClock aria-hidden="true" className="h-4 w-4" />
                   </Link>
                   <Link
-                    href="/resources"
+                    href="/courses"
                     className={buttonStyles({
                       variant: "secondary",
                       theme: "dark",
