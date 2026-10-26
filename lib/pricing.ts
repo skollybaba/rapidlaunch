@@ -1,9 +1,9 @@
 import "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
 
 import { env } from "@/lib/env";
+import { isNigeriaRequest } from "@/lib/geo";
 import { getDisplaySettings } from "@/lib/services/payment-settings-service";
 import { formatPrice } from "@/lib/utils";
 
@@ -11,33 +11,13 @@ export type DisplayCurrency = "NGN" | "USD";
 
 export const getDisplayCurrency = cache(async (): Promise<DisplayCurrency> => {
   const settings = await getDisplaySettings();
+
   if (settings.displayCurrency === "NGN") return "NGN";
   if (settings.displayCurrency === "USD") return "USD";
-  if (settings.displayCurrency === "LOCATION" || settings.displayCurrency === "AUTO") {
-    const hdrs = await headers();
-    const country = (
-      hdrs.get("x-vercel-ip-country") ??
-      hdrs.get("cf-ipcountry") ??
-      hdrs.get("cloudfront-viewer-country") ??
-      ""
-    ).toUpperCase();
-    if (country === "NG") return "NGN";
-    if (country) return "USD";
-    if (/\bNG\b/i.test(hdrs.get("accept-language") ?? "")) return "NGN";
-    return "USD";
-  }
 
-  const hdrs = await headers();
-  const country = (
-    hdrs.get("x-vercel-ip-country") ??
-    hdrs.get("cf-ipcountry") ??
-    hdrs.get("cloudfront-viewer-country") ??
-    ""
-  ).toUpperCase();
-  if (country === "NG") return "NGN";
-  if (country) return "USD";
-  if (/\bNG\b/i.test(hdrs.get("accept-language") ?? "")) return "NGN";
-  return "USD";
+  // "LOCATION" (and the legacy "AUTO") follow the visitor's country:
+  // Nigeria -> NGN, anywhere else -> USD. Unknown defaults to NGN.
+  return (await isNigeriaRequest()) ? "NGN" : "USD";
 });
 
 export interface DisplayPriceResult {

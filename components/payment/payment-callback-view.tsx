@@ -146,8 +146,8 @@ function SuccessView({ data }: { data?: VerifyResult["data"] | null }) {
                     Payment verified
                   </p>
                   <p className="mt-0.5 text-sm leading-relaxed text-neutral-500">
-                    No payment has been taken twice. This page confirms what you
-                    just completed on Paystack.
+                    No payment has been taken twice. This page confirms the
+                    payment you just completed.
                   </p>
                 </div>
               </li>
@@ -406,7 +406,7 @@ export default function PaymentCallbackView() {
         tone="pending"
         badge="Processing"
         title="Payment not yet confirmed"
-        message="We haven't received confirmation from Paystack yet. If you completed a payment, it may still be processing. Try refreshing this page in a moment or contact us."
+        message="We haven't received confirmation from the payment provider yet. If you completed a payment, it may still be processing. Try refreshing this page in a moment or contact us."
         actions={
           <>
             <button
@@ -433,7 +433,7 @@ export default function PaymentCallbackView() {
       tone="neutral"
       badge="Unconfirmed"
       title="We couldn't confirm this payment"
-      message="Payments are verified by our server after you complete them on Paystack. Check your email for confirmation, or contact us and we will look it up for you."
+      message="Payments are verified by our server after you complete them with the payment provider. Check your email for confirmation, or contact us and we will look it up for you."
       actions={
         <>
           <Link href="/" className={buttonStyles({ variant: "primary" })}>

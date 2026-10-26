@@ -24,7 +24,7 @@ const SECTIONS = [
   },
   {
     title: "Payments and third parties",
-    body: "When you buy something, payment and order processing is handled by Paystack. Paystack may set its own cookies or use equivalent technologies inside the payment flow. Their use is governed by Paystack's own privacy and cookie policies.",
+    body: "When you buy something, payment and order processing is handled by Paystack or Bachs. The selected provider may set its own cookies or use equivalent technologies inside the payment flow, governed by that provider's privacy and cookie policies.",
   },
   {
     title: "Managing your preferences",

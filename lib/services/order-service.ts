@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
+import { isNigeriaRequest } from "@/lib/geo";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   createCheckoutSessionSchema,
@@ -39,6 +40,7 @@ import {
   GoogleCalendarProviderError,
 } from "@/lib/providers/calendar";
 import { notifyAdminsOfSale } from "@/lib/services/admin-alert-service";
+import { getDisplaySettings } from "@/lib/services/payment-settings-service";
 import { subscribeBuyerToOrderSequences } from "@/lib/services/sequence-service";
 import { notifyAdminsOrderPaid } from "@/lib/services/whatsapp-service";
 import {
@@ -443,13 +445,29 @@ export async function initializeCheckoutPayment(
 
   const providerReference = generateProviderReference();
 
+  // In location mode, customers outside Nigeria are charged in USD through
+  // Bachs. Everything else (Naira display, USD display, or a Nigerian visitor)
+  // is charged the Naira order total. The payment record is what verification
+  // compares against, so the charge currency lives there.
+  let chargeAmountMinor = order.totalMinor;
+  let chargeCurrency = order.currency;
+
+  if (provider === "bachs" && order.currency === "NGN") {
+    const display = await getDisplaySettings();
+    if (display.displayCurrency === "LOCATION" && !(await isNigeriaRequest())) {
+      const exchangeRate = display.ngnPerUsd || env.PRICE_DISPLAY_NGN_PER_USD;
+      chargeAmountMinor = Math.max(1, Math.round(order.totalMinor / exchangeRate));
+      chargeCurrency = "USD";
+    }
+  }
+
   const payment = await Payment.create({
     orderId: order._id,
     provider,
     providerReference,
     status: "PENDING",
-    amountMinor: order.totalMinor,
-    currency: order.currency,
+    amountMinor: chargeAmountMinor,
+    currency: chargeCurrency,
   });
 
   await emitAnalyticsEvent({
@@ -489,8 +507,8 @@ export async function initializeCheckoutPayment(
 
   try {
     const result = await adapter.initializeTransaction({
-      amountMinor: order.totalMinor,
-      currency: order.currency,
+      amountMinor: chargeAmountMinor,
+      currency: chargeCurrency,
       email: order.customerEmail,
       reference: providerReference,
       callbackUrl: `${env.NEXT_PUBLIC_APP_URL}${paymentCallbackPath(
@@ -722,8 +740,8 @@ async function settleVerifiedPayment(
       orderReference: order.orderReference,
       status: "PAID",
       itemTitle: order.items[0]?.titleSnapshot ?? "",
-      totalMinor: order.totalMinor,
-      currency: order.currency,
+      totalMinor: payment.amountMinor,
+      currency: payment.currency,
       paymentStatus: "PAID",
       discrepancy: false,
       paidAt: order.paidAt?.toISOString() ??
@@ -846,8 +864,8 @@ async function settleVerifiedPayment(
     orderReference: order.orderReference,
     status: "PAID",
     itemTitle: order.items[0]?.titleSnapshot ?? "",
-    totalMinor: order.totalMinor,
-    currency: order.currency,
+    totalMinor: payment.amountMinor,
+    currency: payment.currency,
     paymentStatus: "PAID",
     discrepancy: false,
     paidAt: now.toISOString(),
@@ -1548,6 +1566,15 @@ export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
     .lean()
     .exec();
 
+  // The receipt must show what the customer actually paid. Orders are priced in
+  // Naira, but international location-mode checkouts are charged in USD.
+  const payment = await Payment.findOne({ orderId: order._id, status: "PAID" })
+    .lean()
+    .exec();
+  const receiptAmount = payment
+    ? formatPrice(payment.amountMinor, payment.currency)
+    : formatPrice(order.totalMinor, order.currency);
+
   try {
     await adapter.sendTemplateEmail({
       templateKey: "payment_successful",
@@ -1555,7 +1582,7 @@ export async function sendPaymentConfirmationEmail(order: LeanDoc<OrderDoc>) {
       variables: {
         itemTitle,
         orderReference: order.orderReference,
-        amount: formatPrice(order.totalMinor, order.currency),
+        amount: receiptAmount,
         customerName: booking?.customerName ?? "",
         nextStep: orderNextStepText(order),
         bonusCourses: bonusCourses || "",

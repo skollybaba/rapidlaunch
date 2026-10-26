@@ -15,8 +15,8 @@ export function PaymentLoader({ step }: { step?: string }) {
         {step || "Verifying your payment…"}
       </p>
       <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-neutral-500">
-        We&apos;re checking with Paystack. This usually takes a few seconds &mdash; no
-        need to close this page.
+        We&apos;re checking with the payment provider. This usually takes a few
+        seconds &mdash; no need to close this page.
       </p>
       <div className="mt-8 flex items-center gap-3">
         <span className="inline-flex h-2 w-2 rounded-full bg-terracotta-600 animate-bounce" />

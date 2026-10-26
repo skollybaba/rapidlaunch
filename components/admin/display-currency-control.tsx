@@ -85,7 +85,13 @@ export function DisplayCurrencyControl({
   const toast = useToast();
   const [displayCurrency, setDisplayCurrency] = useState<
     "NGN" | "USD" | "LOCATION"
-  >(initial.displayCurrency === "USD" ? "USD" : initial.displayCurrency === "LOCATION" ? "LOCATION" : "NGN");
+  >(
+    initial.displayCurrency === "USD"
+      ? "USD"
+      : initial.displayCurrency === "NGN"
+        ? "NGN"
+        : "LOCATION"
+  );
   const [usdPerNaira, setUsdPerNaira] = useState<number>(
     initial.usdPerNaira ?? (initial.ngnPerUsd ? 1 / initial.ngnPerUsd : 0.000625)
   );
@@ -220,7 +226,9 @@ export function DisplayCurrencyControl({
       <div className="rounded-xl border border-neutral-300 bg-white p-4">
         <p className="text-sm font-semibold text-neutral-950">Exchange rate</p>
         <p className="mt-1 text-sm text-neutral-500">
-          1 Naira = X USD. Used for USD display. Charges remain in Naira.
+          1 Naira = X USD. Used for USD pricing. In location mode, visitors
+          outside Nigeria are charged in USD via Bachs; everyone else is charged
+          in Naira.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2">

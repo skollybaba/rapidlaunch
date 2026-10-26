@@ -20,6 +20,9 @@ interface CheckoutFormProps {
   isSession?: boolean;
   sessionDurationMinutes?: number;
   disabled?: boolean;
+  displayCurrency?: "NGN" | "USD";
+  ngnPerUsd?: number;
+  paymentProviderLabel?: string;
 }
 
 type SubmitState =
@@ -32,6 +35,9 @@ export function CheckoutForm({
   isSession = false,
   sessionDurationMinutes,
   disabled,
+  displayCurrency = "NGN",
+  ngnPerUsd,
+  paymentProviderLabel = "Paystack",
 }: CheckoutFormProps) {
   const pathname = usePathname();
   const { user, refresh } = useAuth();
@@ -57,6 +63,18 @@ export function CheckoutForm({
   } | null>(null);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
   const toast = useToast();
+
+  function formatPreviewPrice(amountMinor: number, currency: string) {
+    if (
+      displayCurrency === "USD" &&
+      currency === "NGN" &&
+      typeof ngnPerUsd === "number" &&
+      ngnPerUsd > 0
+    ) {
+      return formatPrice(Math.max(1, Math.round(amountMinor / ngnPerUsd)), "USD");
+    }
+    return formatPrice(amountMinor, currency);
+  }
   const [state, setState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -504,13 +522,13 @@ export function CheckoutForm({
                 </span>
                 <p className="mt-1 leading-relaxed text-neutral-500">
                   You save{" "}
-                  {formatPrice(
+                  {formatPreviewPrice(
                     appliedPreview.discountMinor,
                     appliedPreview.currency,
                   )}
                   . Total to pay:{" "}
                   <span className="font-semibold text-neutral-950">
-                    {formatPrice(
+                    {formatPreviewPrice(
                       appliedPreview.totalMinor,
                       appliedPreview.currency,
                     )}
@@ -599,10 +617,10 @@ export function CheckoutForm({
           {state === "submitting"
             ? "Preparing your order…"
             : state === "redirecting"
-              ? "Redirecting to Paystack…"
+              ? `Redirecting to ${paymentProviderLabel}…`
               : isSession
                 ? "Book my session"
-                : "Pay securely with Paystack"}
+                : `Pay securely with ${paymentProviderLabel}`}
         </button>
 
         <p className="text-xs leading-relaxed text-neutral-500">
@@ -614,7 +632,8 @@ export function CheckoutForm({
           <a href="/terms" className="text-terracotta-600 underline">
             terms
           </a>
-          . You will be redirected to Paystack to complete payment securely.
+          . You will be redirected to {paymentProviderLabel} to complete payment
+          securely.
         </p>
 
         {state !== "idle" ? (

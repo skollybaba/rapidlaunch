@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import {
   getDisplaySettings,
+  getSelectedPaymentProvider,
   resolvePaymentProvider,
 } from "@/lib/services/payment-settings-service";
 
@@ -22,9 +23,10 @@ export default async function AdminSettingsPage() {
   await requireAdmin();
 
   const resolved = await resolvePaymentProvider();
+  const selectedProvider = await getSelectedPaymentProvider();
   const display = await getDisplaySettings();
   const initial: PaymentSettingsState = {
-    provider: resolved.requested,
+    provider: selectedProvider,
     effectiveProvider: resolved.provider,
     fellBack: resolved.fellBack,
     paystackConfigured: isProviderConfigured("paystack"),
@@ -49,7 +51,9 @@ export default async function AdminSettingsPage() {
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
           If the selected provider has no secret key configured, checkout
-          automatically falls back to Paystack so sales are never blocked.
+          automatically falls back to Paystack so sales are never blocked. When
+          currency is set to &ldquo;By user location&rdquo; below, the provider is
+          chosen per visitor instead (Paystack in Nigeria, Bachs elsewhere).
         </p>
         <div className="mt-4">
           <PaymentProviderControl initial={initial} />

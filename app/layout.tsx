@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { CookieConsent } from "@/components/marketing/cookie-consent";
+import { LocationPreference } from "@/components/marketing/location-preference";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { AppProviders } from "@/components/ui/providers";
 import { getCurrentPublicUser } from "@/lib/auth/session";
@@ -56,6 +57,7 @@ export default async function RootLayout({
         <AppProviders>
           <AuthProvider initialUser={user}>{children}</AuthProvider>
         </AppProviders>
+        <LocationPreference />
         <CookieConsent />
       </body>
     </html>

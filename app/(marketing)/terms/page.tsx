@@ -23,7 +23,7 @@ const SECTIONS = [
   },
   {
     title: "Payments",
-    body: "Payments are processed securely by Paystack. When you pay, you authorise the charge for the item amount, and your order is confirmed once payment is verified on our side.",
+    body: "Payments are processed securely by Paystack or Bachs, depending on your location and how checkout is configured. When you pay, you authorise the charge for the item amount, and your order is confirmed once payment is verified on our side.",
   },
   {
     title: "Rescheduling and refunds",

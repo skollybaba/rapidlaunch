@@ -7,9 +7,14 @@ import { getPublishedProductById } from "@/lib/services/catalog-service";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { buttonStyles } from "@/components/ui/button";
 import { env } from "@/lib/env";
+import { isNigeriaRequest } from "@/lib/geo";
 import { displayPrice, getDisplayCurrency } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 import { emitAnalyticsEvent } from "@/lib/services/analytics-service";
+import {
+  getDisplaySettings,
+  resolvePaymentProvider,
+} from "@/lib/services/payment-settings-service";
 
 const NEXT_STEPS = [
   {
@@ -61,6 +66,18 @@ export async function CheckoutView({ productId }: { productId: string }) {
     product.currency,
     displayCurrency
   );
+  const displaySettings = await getDisplaySettings();
+  const resolvedProvider = await resolvePaymentProvider();
+  // Location mode is the only mode that charges non-Nigerian visitors in USD.
+  // If Bachs is not configured the checkout falls back to Paystack and the
+  // Naira order total is charged instead, so only claim USD when Bachs is the
+  // provider that will actually be used.
+  const chargesUsd =
+    displaySettings.displayCurrency === "LOCATION" &&
+    resolvedProvider.provider === "bachs" &&
+    !(await isNigeriaRequest());
+  const providerLabel =
+    resolvedProvider.provider === "bachs" ? "Bachs" : "Paystack";
   const paymentSupportUrl = env.PAYMENT_SUPPORT_URL ?? "/contact";
 
   const isSession =
@@ -107,11 +124,18 @@ export async function CheckoutView({ productId }: { productId: string }) {
                     {formatPrice(display.amountMinor, display.currency)}
                   </dd>
                 </div>
-                {display.converted ? (
+                {chargesUsd ? (
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-sm text-neutral-500">Payment</dt>
+                    <dd className="text-right text-sm leading-relaxed text-neutral-500">
+                      You are charged this amount in US dollars via Bachs.
+                    </dd>
+                  </div>
+                ) : display.converted ? (
                   <div className="flex items-start justify-between gap-4">
                     <dt className="text-sm text-neutral-500">This is for reference</dt>
                     <dd className="text-right text-sm leading-relaxed text-neutral-500">
-                      You pay in Nigerian naira via Paystack.
+                      You pay the Naira equivalent via {providerLabel}.
                     </dd>
                   </div>
                 ) : null}
@@ -141,7 +165,9 @@ export async function CheckoutView({ productId }: { productId: string }) {
                         {step.title}
                       </h3>
                       <p className="mt-0.5 text-sm leading-relaxed text-neutral-500">
-                        {step.body}
+                        {index === 0
+                          ? `${providerLabel} confirms the payment on our server before anything is granted.`
+                          : step.body}
                       </p>
                     </div>
                   </li>
@@ -156,6 +182,9 @@ export async function CheckoutView({ productId }: { productId: string }) {
               isSession={isSession}
               sessionDurationMinutes={durationMinutes}
               disabled={product.priceMinor <= 0}
+              displayCurrency={displayCurrency}
+              ngnPerUsd={displaySettings.ngnPerUsd}
+              paymentProviderLabel={providerLabel}
             />
 
             <div className="mt-6 rounded-[12px] border border-neutral-300 bg-white p-5">

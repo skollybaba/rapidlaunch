@@ -2,6 +2,7 @@ import "server-only";
 
 import { dbConnect } from "@/lib/db";
 import { env } from "@/lib/env";
+import { isNigeriaRequest } from "@/lib/geo";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import { PlatformSetting } from "@/models/PlatformSetting";
 import {
@@ -9,7 +10,11 @@ import {
   isPaymentProviderName,
   type PaymentProviderName,
 } from "@/types/payment";
-import type { DisplaySettings, PlatformSettingDoc } from "@/types/settings";
+import type {
+  DisplayCurrencySetting,
+  DisplaySettings,
+  PlatformSettingDoc,
+} from "@/types/settings";
 
 const PAYMENT_SETTINGS_KEY = "payment";
 const DISPLAY_SETTINGS_KEY = "display";
@@ -74,27 +79,14 @@ export async function resolvePaymentProvider(): Promise<ResolvedPaymentProvider>
   let providerToUse = requested;
 
   if (display.displayCurrency === "LOCATION") {
-    try {
-      const { headers } = await import("next/headers");
-      const hdrs = await headers();
-      const country = (
-        hdrs.get("x-vercel-ip-country") ??
-        hdrs.get("cf-ipcountry") ??
-        hdrs.get("cloudfront-viewer-country") ??
-        ""
-      ).toUpperCase();
-      if (country && country !== "NG") {
-        providerToUse = "bachs";
-      } else {
-        providerToUse = requested === "bachs" ? "bachs" : "paystack";
-      }
-    } catch {
-      // fall through
-    }
+    // Location mode: Nigeria charges in Naira via Paystack, everywhere else
+    // goes through Bachs. Fixed NGN/USD modes keep the admin-selected provider
+    // (prices are still charged in Naira).
+    providerToUse = (await isNigeriaRequest()) ? "paystack" : "bachs";
   }
 
   if (isProviderConfigured(providerToUse)) {
-    return { provider: providerToUse, requested: display.displayCurrency === "LOCATION" ? providerToUse : requested, fellBack: false };
+    return { provider: providerToUse, requested: providerToUse, fellBack: false };
   }
 
   if (providerToUse === DEFAULT_PAYMENT_PROVIDER) {
@@ -120,10 +112,9 @@ export async function getDisplaySettings(): Promise<DisplaySettings> {
       .lean<PlatformSettingDoc | null>()
       .exec();
 
-    const displayCurrency =
-      doc?.displayCurrency === "NGN" || doc?.displayCurrency === "USD" || doc?.displayCurrency === "LOCATION"
-        ? (doc.displayCurrency as any)
-        : "AUTO";
+    const stored = doc?.displayCurrency;
+    const displayCurrency: DisplayCurrencySetting =
+      stored === "NGN" || stored === "USD" || stored === "LOCATION" ? stored : "AUTO";
 
     let ngnPerUsd =
       typeof doc?.ngnPerUsd === "number" && doc.ngnPerUsd > 0
@@ -149,7 +140,7 @@ export async function getDisplaySettings(): Promise<DisplaySettings> {
 }
 
 export async function setDisplaySettings(
-  settings: Partial<DisplaySettings> & { usdPerNaira?: number },
+  settings: Partial<DisplaySettings>,
   updatedBy?: string
 ): Promise<DisplaySettings> {
   await dbConnect();
@@ -161,11 +152,11 @@ export async function setDisplaySettings(
     set.ngnPerUsd = settings.ngnPerUsd;
     set.usdPerNaira = 1 / settings.ngnPerUsd;
   } else if (
-    typeof (settings as any).usdPerNaira === "number" &&
-    (settings as any).usdPerNaira > 0
+    typeof settings.usdPerNaira === "number" &&
+    settings.usdPerNaira > 0
   ) {
-    set.usdPerNaira = (settings as any).usdPerNaira;
-    set.ngnPerUsd = 1 / (settings as any).usdPerNaira;
+    set.usdPerNaira = settings.usdPerNaira;
+    set.ngnPerUsd = 1 / settings.usdPerNaira;
   }
 
   await PlatformSetting.updateOne(

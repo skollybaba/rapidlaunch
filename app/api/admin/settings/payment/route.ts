@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import {
   getDisplaySettings,
+  getSelectedPaymentProvider,
   resolvePaymentProvider,
   setDisplaySettings,
   setPaymentProvider,
@@ -38,9 +39,10 @@ async function currentAdmin(requestId: string) {
 
 async function paymentSettingsPayload() {
   const resolved = await resolvePaymentProvider();
+  const selectedProvider = await getSelectedPaymentProvider();
   const display = await getDisplaySettings();
   return {
-    provider: resolved.requested,
+    provider: selectedProvider,
     effectiveProvider: resolved.provider,
     fellBack: resolved.fellBack,
     paystackConfigured: isProviderConfigured("paystack"),
@@ -95,7 +97,7 @@ export async function PATCH(request: NextRequest) {
           displayCurrency: parsed.displayCurrency,
           ngnPerUsd: parsed.ngnPerUsd,
           usdPerNaira: parsed.usdPerNaira,
-        } as any,
+        },
         auth.user.email
       );
     }
