@@ -7,8 +7,9 @@ import { isProviderConfigured } from "@/lib/providers/payment";
 import { PlatformSetting } from "@/models/PlatformSetting";
 import {
   DEFAULT_PAYMENT_PROVIDER,
-  isPaymentProviderName,
+  isPaymentProviderSetting,
   type PaymentProviderName,
+  type PaymentProviderSetting,
 } from "@/types/payment";
 import type {
   DisplayCurrencySetting,
@@ -33,7 +34,7 @@ export interface ResolvedPaymentProvider {
  * setting is missing or the database is unreachable so a settings outage never
  * takes checkout down.
  */
-export async function getSelectedPaymentProvider(): Promise<PaymentProviderName> {
+export async function getSelectedPaymentProvider(): Promise<PaymentProviderSetting> {
   try {
     await dbConnect();
     const doc = await PlatformSetting.findOne({
@@ -42,7 +43,7 @@ export async function getSelectedPaymentProvider(): Promise<PaymentProviderName>
       .lean<PlatformSettingDoc | null>()
       .exec();
 
-    return isPaymentProviderName(doc?.paymentProvider)
+    return isPaymentProviderSetting(doc?.paymentProvider)
       ? doc.paymentProvider
       : DEFAULT_PAYMENT_PROVIDER;
   } catch (error) {
@@ -54,7 +55,7 @@ export async function getSelectedPaymentProvider(): Promise<PaymentProviderName>
 }
 
 export async function setPaymentProvider(
-  provider: PaymentProviderName,
+  provider: PaymentProviderSetting,
   updatedBy?: string
 ): Promise<void> {
   await dbConnect();
@@ -73,16 +74,15 @@ export async function setPaymentProvider(
  * configured) we fall back to Paystack rather than blocking the sale.
  */
 export async function resolvePaymentProvider(): Promise<ResolvedPaymentProvider> {
-  const requested = await getSelectedPaymentProvider();
-  const display = await getDisplaySettings();
+  const selected = await getSelectedPaymentProvider();
 
-  let providerToUse = requested;
-
-  if (display.displayCurrency === "LOCATION") {
-    // Location mode: Nigeria charges in Naira via Paystack, everywhere else
-    // goes through Bachs. Fixed NGN/USD modes keep the admin-selected provider
-    // (prices are still charged in Naira).
+  // An explicit Paystack/Bachs choice always wins, even when prices are shown
+  // by location. "auto" is the only mode that routes by country.
+  let providerToUse: PaymentProviderName;
+  if (selected === "auto") {
     providerToUse = (await isNigeriaRequest()) ? "paystack" : "bachs";
+  } else {
+    providerToUse = selected;
   }
 
   if (isProviderConfigured(providerToUse)) {

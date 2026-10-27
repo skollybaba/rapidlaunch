@@ -57,6 +57,9 @@ const updated = env.replace(
 writeFileSync(".env.local", updated);
 
 console.log("\nSaved GOOGLE_REFRESH_TOKEN to .env.local");
-console.log("Your Google Calendar is now configured. Restart the dev server.\n");
+console.log("Your Google Calendar is now configured. Restart the dev server.");
+console.log("Verify it with:  npm run calendar:check\n");
+console.log("Also update GOOGLE_REFRESH_TOKEN in the production environment so");
+console.log("the deployed app uses the same new token.\n");
 
 rl.close();

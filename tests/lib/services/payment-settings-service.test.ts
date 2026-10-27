@@ -12,6 +12,11 @@ vi.mock("@/models/PlatformSetting", () => ({
   PlatformSetting: { findOne: vi.fn(), updateOne: vi.fn() },
 }));
 
+vi.mock("@/lib/geo", () => ({
+  isNigeriaRequest: vi.fn(),
+}));
+
+import { isNigeriaRequest } from "@/lib/geo";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import {
   getSelectedPaymentProvider,
@@ -21,6 +26,7 @@ import {
 import { PlatformSetting } from "@/models/PlatformSetting";
 
 const mockIsProviderConfigured = vi.mocked(isProviderConfigured);
+const mockIsNigeriaRequest = vi.mocked(isNigeriaRequest);
 const mockFindOne = vi.mocked(PlatformSetting.findOne);
 const mockUpdateOne = vi.mocked(PlatformSetting.updateOne);
 
@@ -36,6 +42,11 @@ describe("getSelectedPaymentProvider", () => {
   it("returns the stored provider", async () => {
     mockFindOne.mockReturnValue(lean({ paymentProvider: "bachs" }));
     await expect(getSelectedPaymentProvider()).resolves.toBe("bachs");
+  });
+
+  it("returns automatic when that mode is stored", async () => {
+    mockFindOne.mockReturnValue(lean({ paymentProvider: "auto" }));
+    await expect(getSelectedPaymentProvider()).resolves.toBe("auto");
   });
 
   it("defaults to paystack for a missing or invalid value", async () => {
@@ -96,6 +107,57 @@ describe("resolvePaymentProvider", () => {
     const resolved = await resolvePaymentProvider();
     expect(resolved.provider).toBe("paystack");
     expect(resolved.fellBack).toBe(false);
+  });
+
+  it("routes automatic to Paystack in Nigeria", async () => {
+    mockFindOne.mockReturnValue(lean({ paymentProvider: "auto" }));
+    mockIsNigeriaRequest.mockResolvedValue(true);
+    mockIsProviderConfigured.mockReturnValue(true);
+
+    await expect(resolvePaymentProvider()).resolves.toEqual({
+      provider: "paystack",
+      requested: "paystack",
+      fellBack: false,
+    });
+  });
+
+  it("routes automatic to Bachs outside Nigeria", async () => {
+    mockFindOne.mockReturnValue(lean({ paymentProvider: "auto" }));
+    mockIsNigeriaRequest.mockResolvedValue(false);
+    mockIsProviderConfigured.mockReturnValue(true);
+
+    await expect(resolvePaymentProvider()).resolves.toEqual({
+      provider: "bachs",
+      requested: "bachs",
+      fellBack: false,
+    });
+  });
+
+  it("falls back to Paystack when automatic picks an unconfigured Bachs", async () => {
+    mockFindOne.mockReturnValue(lean({ paymentProvider: "auto" }));
+    mockIsNigeriaRequest.mockResolvedValue(false);
+    mockIsProviderConfigured.mockImplementation(
+      (provider) => provider === "paystack"
+    );
+
+    await expect(resolvePaymentProvider()).resolves.toEqual({
+      provider: "paystack",
+      requested: "bachs",
+      fellBack: true,
+      reason: "PROVIDER_NOT_CONFIGURED",
+    });
+  });
+
+  it("honours an explicit Bachs choice even in Nigeria", async () => {
+    mockFindOne.mockReturnValue(lean({ paymentProvider: "bachs" }));
+    mockIsNigeriaRequest.mockResolvedValue(true);
+    mockIsProviderConfigured.mockReturnValue(true);
+
+    await expect(resolvePaymentProvider()).resolves.toEqual({
+      provider: "bachs",
+      requested: "bachs",
+      fellBack: false,
+    });
   });
 });
 

@@ -33,6 +33,9 @@ console.log("\nNOTE: This consent covers BOTH Google Calendar and Google Classro
 console.log("because they share the same GOOGLE_REFRESH_TOKEN in .env.local.\n");
 console.log("IMPORTANT: Sign into Google as:", owner);
 console.log("This address MUST be listed under Test users on the consent screen.\n");
+console.log("WHY TOKENS KEEP EXPIRING: while the OAuth consent screen is in");
+console.log('"Testing", Google expires refresh tokens after 7 days. Publish the app');
+console.log("(Google Auth Platform > Audience > Publish app) to stop that cycle.\n");
 console.log("1) Open this URL in a browser where you are signed in as that account:\n");
 console.log(authUrl);
 console.log("\n2) If you see 'Access blocked/denied', add this address as a Test user:");

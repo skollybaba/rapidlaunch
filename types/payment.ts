@@ -24,6 +24,19 @@ export const PAYMENT_PROVIDERS = ["paystack", "bachs"] as const;
 
 export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
+/**
+ * What the admin can press in the back office. "auto" is not a real gateway —
+ * it means "route by the visitor's country" (Nigeria → Paystack, elsewhere →
+ * Bachs). An explicit "paystack" or "bachs" always wins over location.
+ */
+export const PAYMENT_PROVIDER_SETTINGS = [
+  "auto",
+  "paystack",
+  "bachs",
+] as const;
+
+export type PaymentProviderSetting = (typeof PAYMENT_PROVIDER_SETTINGS)[number];
+
 export type ProviderTransactionStatus =
   | "success"
   | "failed"
@@ -78,6 +91,14 @@ export function isPaymentProviderName(
   value: unknown
 ): value is PaymentProviderName {
   return value === "paystack" || value === "bachs";
+}
+
+export function isPaymentProviderSetting(
+  value: unknown
+): value is PaymentProviderSetting {
+  return (
+    value === "auto" || value === "paystack" || value === "bachs"
+  );
 }
 
 

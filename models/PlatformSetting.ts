@@ -1,6 +1,6 @@
 import { Schema, model, type Model } from "mongoose";
 
-import { PAYMENT_PROVIDERS } from "@/types/payment";
+import { PAYMENT_PROVIDER_SETTINGS } from "@/types/payment";
 import type { PlatformSettingDoc } from "@/types/settings";
 
 const PlatformSettingSchema = new Schema<PlatformSettingDoc>(
@@ -8,7 +8,7 @@ const PlatformSettingSchema = new Schema<PlatformSettingDoc>(
     key: { type: String, required: true, unique: true },
     paymentProvider: {
       type: String,
-      enum: PAYMENT_PROVIDERS,
+      enum: PAYMENT_PROVIDER_SETTINGS,
       default: "paystack",
     },
     displayCurrency: {

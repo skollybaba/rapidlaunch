@@ -11,13 +11,13 @@ import {
   setDisplaySettings,
   setPaymentProvider,
 } from "@/lib/services/payment-settings-service";
-import { PAYMENT_PROVIDERS } from "@/types/payment";
+import { PAYMENT_PROVIDER_SETTINGS } from "@/types/payment";
 
 export const runtime = "nodejs";
 
 const updatePaymentSettingsSchema = z
   .object({
-    provider: z.enum(PAYMENT_PROVIDERS).optional(),
+    provider: z.enum(PAYMENT_PROVIDER_SETTINGS).optional(),
     displayCurrency: z.enum(["NGN", "USD", "AUTO", "LOCATION"]).optional(),
     ngnPerUsd: z.coerce.number().positive().optional(),
     usdPerNaira: z.coerce.number().positive().optional(),

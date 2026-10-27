@@ -8,11 +8,14 @@ import { useToast } from "@/components/ui/toast";
 import { readApiError } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
 
-type ProviderName = "paystack" | "bachs";
+import type {
+  PaymentProviderName,
+  PaymentProviderSetting,
+} from "@/types/payment";
 
 export interface PaymentSettingsState {
-  provider: ProviderName;
-  effectiveProvider: ProviderName;
+  provider: PaymentProviderSetting;
+  effectiveProvider: PaymentProviderName;
   fellBack: boolean;
   paystackConfigured: boolean;
   bachsConfigured: boolean;
@@ -21,10 +24,16 @@ export interface PaymentSettingsState {
 }
 
 const OPTIONS: {
-  value: ProviderName;
+  value: PaymentProviderSetting;
   label: string;
   description: string;
 }[] = [
+  {
+    value: "auto",
+    label: "Automatic (by location)",
+    description:
+      "Nigeria pays with Paystack. Other countries pay with Bachs.",
+  },
   {
     value: "paystack",
     label: "Paystack",
@@ -45,13 +54,21 @@ export function PaymentProviderControl({
   const router = useRouter();
   const toast = useToast();
   const [state, setState] = useState<PaymentSettingsState>(initial);
-  const [pending, setPending] = useState<ProviderName | null>(null);
+  const [pending, setPending] = useState<PaymentProviderSetting | null>(null);
 
-  function isConfigured(provider: ProviderName) {
+  function isConfigured(provider: PaymentProviderSetting) {
+    if (provider === "auto") {
+      return state.bachsConfigured || state.paystackConfigured;
+    }
     return provider === "bachs" ? state.bachsConfigured : state.paystackConfigured;
   }
 
-  async function select(provider: ProviderName) {
+  function providerName(provider: PaymentProviderSetting) {
+    if (provider === "auto") return "Automatic (by location)";
+    return provider === "bachs" ? "Bachs" : "Paystack";
+  }
+
+  async function select(provider: PaymentProviderSetting) {
     if (provider === state.provider || pending) return;
     const previous = state;
     setPending(provider);
@@ -78,7 +95,7 @@ export function PaymentProviderControl({
       }
 
       setState(body.data);
-      toast.success({ title: `${provider === "bachs" ? "Bachs" : "Paystack"} selected` });
+      toast.success({ title: `${providerName(provider)} selected` });
       router.refresh();
     } catch {
       setState(previous);
@@ -126,7 +143,7 @@ export function PaymentProviderControl({
                   <span className="text-sm font-semibold text-neutral-950">
                     {option.label}
                   </span>
-                  {configured ? (
+                  {option.value === "auto" ? null : configured ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-success-100 px-2 py-0.5 text-xs font-medium text-success-600">
                       <CheckCircle2 aria-hidden="true" className="h-3 w-3" />
                       Key set
@@ -169,8 +186,21 @@ export function PaymentProviderControl({
 
       {state.provider === "bachs" && state.bachsConfigured ? (
         <p className="text-sm text-neutral-500">
-          New checkouts are being created with Bachs. Existing payments still
-          verify against the provider that took them.
+          New checkouts are being created with Bachs, including Nigerian
+          visitors. Existing payments still verify against the provider that
+          took them.
+        </p>
+      ) : null}
+
+      {state.provider === "auto" ? (
+        <p className="text-sm text-neutral-500">
+          {state.paystackConfigured && state.bachsConfigured
+            ? "Nigerian visitors use Paystack. Everyone else uses Bachs."
+            : !state.paystackConfigured && !state.bachsConfigured
+              ? "No gateway keys are set. Add PAYSTACK_SECRET_KEY and/or BACHS_SECRET_KEY."
+              : state.bachsConfigured
+                ? "Nigerian visitors fall back to Bachs because Paystack has no key. Add PAYSTACK_SECRET_KEY to use Paystack in Nigeria."
+                : "Bachs has no secret key, so every visitor uses Paystack. Add BACHS_SECRET_KEY to send international checkouts to Bachs."}
         </p>
       ) : null}
     </div>

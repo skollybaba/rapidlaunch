@@ -50,10 +50,10 @@ export default async function AdminSettingsPage() {
           Payment provider
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
-          If the selected provider has no secret key configured, checkout
-          automatically falls back to Paystack so sales are never blocked. When
-          currency is set to &ldquo;By user location&rdquo; below, the provider is
-          chosen per visitor instead (Paystack in Nigeria, Bachs elsewhere).
+          &ldquo;Automatic&rdquo; picks the provider per visitor (Paystack in
+          Nigeria, Bachs elsewhere). Choosing Paystack or Bachs explicitly uses
+          that gateway for every checkout. If the chosen provider has no secret
+          key, checkout falls back to Paystack so sales are never blocked.
         </p>
         <div className="mt-4">
           <PaymentProviderControl initial={initial} />
