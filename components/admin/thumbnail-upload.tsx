@@ -13,9 +13,10 @@ interface ThumbnailUploadProps {
   label?: string;
   value: string;
   onChange: (url: string) => void;
-  aspect?: "video" | "square";
+  aspect?: "video" | "square" | "portrait";
   help?: string;
   expected?: string;
+  onUploaded?: (asset: { url: string; key?: string }) => void;
 }
 
 export function ThumbnailUpload({
@@ -26,6 +27,7 @@ export function ThumbnailUpload({
   aspect = "video",
   help,
   expected = "1280 × 720 pixels (16:9)",
+  onUploaded,
 }: ThumbnailUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -61,11 +63,12 @@ export function ThumbnailUpload({
         method: "POST",
         body: form,
       });
-      const json = await readApiJson<{ url: string }>(response);
+      const json = await readApiJson<{ url: string; key?: string }>(response);
       if (!json?.ok || !json.data?.url) {
         throw new Error(readApiError(json, "Upload failed"));
       }
       onChange(json.data.url);
+      onUploaded?.({ url: json.data.url, key: json.data.key });
       toast.success({ title: "Image uploaded", description: file.name });
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Upload failed";
@@ -89,6 +92,7 @@ export function ThumbnailUpload({
       return;
     }
     onChange(trimmed);
+    onUploaded?.({ url: trimmed });
     setPasteUrl("");
   }
 
@@ -177,8 +181,12 @@ export function ThumbnailUpload({
             src={value}
             alt=""
             className={`${
-              aspect === "square" ? "aspect-square" : "aspect-video"
-            } w-24 rounded-[8px] border border-neutral-300 object-cover`}
+              aspect === "square"
+                ? "aspect-square w-24"
+                : aspect === "portrait"
+                  ? "aspect-[4/5] w-28"
+                  : "aspect-video w-24"
+            } rounded-[8px] border border-neutral-300 object-cover`}
           />
         </div>
       ) : null}

@@ -1,232 +1,506 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BookMarked, Compass, Layers, MessageSquareQuote } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Compass,
+  Globe2,
+  GraduationCap,
+  Layers,
+  MapPin,
+  Mic,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
-import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
-import { HeroVisual } from "@/components/marketing/hero-visual";
 import { buttonStyles } from "@/components/ui/button";
+import { getProfileSettings } from "@/lib/services/profile-settings-service";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "About Rapid Launch",
+  title: "About Oluwasegun Kolawole | Agile Minds Hub",
   description:
-    "Rapid Launch exists to turn product ideas into buildable plans through consulting, AI courses, practical books, and MVP builds.",
+    "Oluwasegun Kolawole is a product leader with over a decade in tech, eight years in product, and a track record of building software used by millions and teaching thousands more to build with AI.",
 };
 
-const PILLARS = [
+const STATS = [
+  { value: "10+", label: "years in tech" },
+  { value: "8+", label: "years in product" },
+  { value: "80M+", label: "identities enrolled" },
+  { value: "10,000+", label: "people trained" },
+];
+
+const PATH = [
+  {
+    step: "01",
+    period: "The engineer years",
+    title: "Learned how software is actually built",
+    body: "Started as a software engineer for two years. That grounding still shapes every product decision: what is realistic, what is expensive, and what is worth building at all.",
+  },
+  {
+    step: "02",
+    period: "The product years",
+    title: "Turned technical depth into product judgement",
+    body: "Moved into product management and has spent more than eight years leading products across identity, fintech, and payments, from early definition to scale.",
+  },
+  {
+    step: "03",
+    period: "Now",
+    title: "Building, teaching, and using AI as leverage",
+    body: "Works as a product leader at a leading fintech company and vibe codes: using AI to take ideas from a blank page to working software without waiting on a full engineering team.",
+  },
+];
+
+const IMPACT = [
+  {
+    icon: Building2,
+    metric: "80M+",
+    title: "Identities enrolled",
+    body: "Contributed to software delivered with the World Bank and the National Identity Management Commission (NIMC) that has enrolled over 80 million Nigerians into the National Identity Database.",
+  },
+  {
+    icon: Globe2,
+    metric: "5 markets",
+    title: "Fintech at real scale",
+    body: "Led product on fintech and payment solutions running across the UK, the US, Canada, Nigeria, and several African markets, spanning mobile and web applications.",
+  },
+  {
+    icon: GraduationCap,
+    metric: "10,000+",
+    title: "People trained",
+    body: "As a TME Education Ambassador in Nigeria for Transfer Multisort Elektronik (Poland), trained over 10,000 people in tech across 18 states and 24 cities.",
+  },
+  {
+    icon: MapPin,
+    metric: "18 states",
+    title: "Community built",
+    body: "Reached 24 cities through training and community work, including co-organising Google community events such as DevFest and Google I/O Extended.",
+  },
+];
+
+const PRINCIPLES = [
   {
     icon: Compass,
-    title: "Strategy before code",
-    body: "The highest-leverage work is deciding what to build and why. Everything here starts with a sharper problem and a clear next decision.",
+    title: "Start with the problem",
+    body: "The best product decision is usually the one that removes work, not the one that adds a feature. Clarity comes before code.",
   },
   {
     icon: Layers,
-    title: "Learn by shipping",
-    body: "Courses are shortcuts to the workflow, not theory dumps. You apply each idea to your own product as you go.",
+    title: "Build to learn",
+    body: "A working slice teaches you more than a perfect plan. Ship something real, put it in front of people, and let the evidence lead.",
   },
   {
-    icon: MessageSquareQuote,
-    title: "Human guidance",
-    body: "Posts, books, and sessions come from real product work, not recycled generic advice. If you need a tailored answer, ask directly.",
+    icon: Users,
+    title: "Teach the workflow",
+    body: "Knowledge is only useful when it changes what someone can do. Every course and session ends with something the learner can apply.",
   },
   {
-    icon: BookMarked,
-    title: "Outcomes you keep",
-    body: "A plan you own, source code in your hands, skills you keep using after the engagement ends.",
+    icon: Sparkles,
+    title: "Use AI as leverage",
+    body: "AI collapses the distance between an idea and a working product. It does not replace judgement, structure, or the responsibility to verify.",
   },
 ];
 
-const CHAPTERS = [
-  {
-    period: "The testing ground",
-    body: "Early product work was a rapid cycle of assumptions, prototypes, and customer interviews. We learned which instincts hold up and which die on contact with reality.",
-  },
-  {
-    period: "The AI shift",
-    body: "Watching AI collapse the distance between an idea and a working prototype changed how products get built and who can build them. Rapid Launch started as a way to teach that workflow properly.",
-  },
-  {
-    period: "Now",
-    body: "A focused practice: consulting for founders who are stuck, courses for builders who want the workflow, and MVP sprints for ideas ready to ship in waves.",
-  },
+const STAGES = [
+  "DevFest",
+  "Google I/O Extended",
+  "LinkedIn events",
+  "Business Analysis School Conference",
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const profile = await getProfileSettings();
+
   return (
     <div className="flex flex-1 flex-col">
-      <CatalogPageHeader
-        eyebrow="About"
-        title="Why Rapid Launch exists."
-        description="Founders don't lack ideas. They lack the bridge between an idea and correct execution. Rapid Launch is that bridge, built from real product work and not from generic advice."
-      />
-
-      <div className="flex flex-1 flex-col bg-white">
-        <div className="mx-auto w-[98%] md:w-[min(83%,96rem)] flex-1 px-6 py-12 lg:px-8 lg:py-16">
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[2fr_1fr]">
-            <Reveal>
-              <article className="max-w-[680px]">
-                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
-                  The founder&apos;s view
-                </p>
-                <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
-                  Product instinct is learnable, and AI makes it go further.
-                </h2>
-                <div className="mt-6 space-y-4 text-base leading-relaxed text-neutral-700">
-                  <p>
-                    Every product starts as a belief about people: that they
-                    have a problem, that they will care enough to act, that a
-                    solution can reach them. The craft of product management is
-                    testing those beliefs cheaply and turning what survives into
-                    a buildable plan.
-                  </p>
-                  <p>
-                    Rapid Launch exists because that craft was never taught as a
-                    working method. It was picked up through painful launches.
-                    Add AI to the stack and the same method moves faster, which
-                    is both an opportunity and a trap: speed without structure
-                    ships the wrong thing sooner.
-                  </p>
-                  <p>
-                    So Rapid Launch teaches structure, then speed. Consulting for
-                    the decisive moment, courses for the workflow, books for the
-                    thinking, and MVP sprints for the build.
-                  </p>
-                </div>
-              </article>
-            </Reveal>
-
-            <Reveal delay={100}>
-              <div className="space-y-6 lg:sticky lg:top-8">
-                <div className="overflow-hidden rounded-md border border-neutral-300 shadow-md">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/images/about-founder.jpg"
-                    alt="The Rapid Launch founder at work in an office"
-                    loading="lazy"
-                    className="h-80 w-full object-cover"
-                  />
-                  <div className="flex items-center justify-between gap-3 bg-white px-5 py-4">
-                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
-                      Founder, practice-lead
-                    </span>
-                    <span className="rounded-full bg-lavender-100 px-3 py-1 font-sans text-[10px] font-semibold text-ink-700">
-                      human guidance
+      <section className="relative overflow-hidden bg-ink-950">
+        <div
+          aria-hidden="true"
+          className="animate-drift absolute inset-0 bg-[radial-gradient(90%_70%_at_18%_8%,var(--color-ink-700)_0%,var(--color-ink-900)_48%,var(--color-ink-950)_100%)]"
+        />
+        <div className="relative mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <Reveal className="order-2 lg:order-1">
+              <div className="relative mx-auto max-w-md lg:mx-0">
+                <div
+                  aria-hidden="true"
+                  className="absolute -left-3 -top-3 h-full w-full rounded-lg border border-terracotta-500/40"
+                />
+                <div className="relative overflow-hidden rounded-lg border border-white/10 bg-ink-900 shadow-2xl shadow-ink-950/60">
+                  {profile.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={profile.imageUrl}
+                      alt="Portrait of Oluwasegun Kolawole, product leader and founder of Agile Minds Hub"
+                      className="aspect-[4/5] w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-[4/5] w-full flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,var(--color-ink-700)_0%,var(--color-ink-900)_62%)]">
+                      <span className="font-sans text-7xl font-extrabold tracking-tight text-lavender-200">
+                        OK
+                      </span>
+                      <span className="mt-4 px-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                        Oluwasegun Kolawole
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-4 border-t border-white/10 bg-ink-900 px-5 py-4">
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        Oluwasegun Kolawole
+                      </p>
+                      <p className="mt-0.5 text-xs text-neutral-500">
+                        Product leader · Builder · Teacher
+                      </p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success-600" />
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-lavender-200">
+                        Agile Minds Hub
+                      </span>
                     </span>
                   </div>
-                </div>
-                <HeroVisual />
-                <div className="rounded-md border border-neutral-300 bg-ink-950 p-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-lavender-200">
-                    The founding offer set
-                  </p>
-                  <ul className="mt-4 space-y-4 text-sm text-neutral-300">
-                    <li className="flex items-start gap-3">
-                      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-100" />
-                      Strategy sessions that end with a written next step
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <Layers className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-100" />
-                      Courses delivered where the work happens
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <MessageSquareQuote className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-100" />
-                      MVP sprints with source-code handover
-                    </li>
-                  </ul>
                 </div>
               </div>
             </Reveal>
-          </div>
 
-          <section className="mt-20">
-            <Reveal>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
-                The journey
+            <Reveal delay={120} className="order-1 lg:order-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
+                About Oluwasegun
               </p>
-              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
-                How this practice came together
-              </h2>
-            </Reveal>
-            <div className="mt-8 space-y-4">
-              {CHAPTERS.map((chapter, index) => (
-                <Reveal key={chapter.period} delay={index * 70}>
-                  <div className="flex flex-col gap-2 rounded-md border border-neutral-300 bg-white p-6 sm:flex-row sm:items-start sm:gap-6">
-                    <p className="w-40 shrink-0 text-sm font-bold text-terracotta-600">
-                      {chapter.period}
-                    </p>
-                    <p className="text-base leading-relaxed text-neutral-500">
-                      {chapter.body}
-                    </p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-20">
-            <Reveal>
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
-                How we work
+              <h1 className="mt-4 text-[42px] font-extrabold leading-[1.05] tracking-tight text-white md:text-[3.75rem]">
+                Product leader.
+                <br />
+                Builder. Teacher.
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-[1.55] text-neutral-300">
+                More than a decade in tech, eight years in product, and a
+                habit of building the thing instead of only describing it. I
+                help people turn ideas into products they can actually launch.
               </p>
-              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
-                Four principles behind every engagement
-              </h2>
-            </Reveal>
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {PILLARS.map((pillar, index) => (
-                <Reveal key={pillar.title} delay={index * 70}>
-                  <div className="h-full rounded-md border border-neutral-300 p-6">
-                    <pillar.icon
-                      aria-hidden="true"
-                      className="h-6 w-6 text-terracotta-600"
-                    />
-                    <h3 className="mt-4 text-[24px] leading-snug md:text-[1.25rem]">
-                      {pillar.title}
-                    </h3>
-                    <p className="mt-3 text-sm leading-relaxed text-neutral-500">
-                      {pillar.body}
-                    </p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section className="bg-ink-900">
-          <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center lg:px-8 lg:py-24">
-            <Reveal>
-              <h2 className="text-[32px] leading-[1.286] md:text-[1.75rem] text-white">
-                Start with the offer that matches where you are.
-              </h2>
-              <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <Link
-                  href="/services"
+                  href="/book"
                   className={buttonStyles({
                     variant: "primary",
                     theme: "dark",
                     size: "lg",
                   })}
                 >
-                  Explore services
+                  Work with me
                   <ArrowRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/contact"
+                  href="/courses"
                   className={buttonStyles({
                     variant: "secondary",
                     theme: "dark",
                     size: "lg",
                   })}
                 >
-                  <MessageSquareQuote aria-hidden="true" className="h-4 w-4" />
-                  Ask a question
+                  Explore the course
                 </Link>
+              </div>
+              <dl className="mt-10 grid max-w-xl grid-cols-2 gap-x-6 gap-y-6 border-t border-white/10 pt-8 sm:grid-cols-4">
+                {STATS.map((stat) => (
+                  <div key={stat.label}>
+                    <dd className="font-sans text-2xl font-bold tabular-nums text-white">
+                      {stat.value}
+                    </dd>
+                    <dt className="mt-1 text-sm leading-relaxed text-neutral-500">
+                      {stat.label}
+                    </dt>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-paper-50">
+        <div className="mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+            <Reveal>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+                The short version
+              </p>
+              <h2 className="mt-3 text-[32px] leading-[1.286] md:text-[1.75rem]">
+                I understand what users need, and I can build it myself.
+              </h2>
+            </Reveal>
+            <Reveal delay={100}>
+              <div className="max-w-[680px] space-y-4 text-base leading-relaxed text-neutral-700">
+                <p>
+                  My path into product started in engineering. Two years of
+                  writing software taught me how products are really made, and
+                  more importantly, where they break. When I moved into product
+                  management, I brought that reality with me.
+                </p>
+                <p>
+                  Over the last eight years I have led product on identity,
+                  fintech, and payment systems used at national and
+                  international scale. I have worked with the World Bank and
+                  NIMC on software that enrolled over 80 million Nigerians, and
+                  led payment products across the UK, the US, Canada, Nigeria,
+                  and several African markets.
+                </p>
+                <p>
+                  Alongside that work, I have spent years teaching. As a TME
+                  Education Ambassador, I have trained over 10,000 people across
+                  18 states and 24 cities, and I have co-organised Google
+                  community events including DevFest and Google I/O Extended.
+                  Today I also use AI to build product-centric software from
+                  scratch, taking ideas to working products without waiting on a
+                  full engineering team.
+                </p>
+                <p className="text-neutral-950">
+                  Agile Minds Hub is where those threads meet: think like a product
+                  manager, build like an engineer, and launch real software with
+                  AI.
+                </p>
               </div>
             </Reveal>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+
+      <section className="bg-neutral-100">
+        <div className="mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <Reveal>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+              The path
+            </p>
+            <h2 className="mt-3 max-w-3xl text-[32px] leading-[1.286] md:text-[1.75rem]">
+              From writing code to leading product to teaching the workflow.
+            </h2>
+          </Reveal>
+          <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {PATH.map((item, index) => (
+              <Reveal key={item.step} delay={index * 80}>
+                <div className="flex h-full flex-col rounded-md border border-neutral-300 bg-white p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-terracotta-600">
+                      {item.period}
+                    </span>
+                    <span className="font-mono text-xs font-semibold tabular-nums text-neutral-500">
+                      {item.step}
+                    </span>
+                  </div>
+                  <h3 className="mt-4 text-[24px] leading-snug md:text-[1.25rem]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-neutral-500">
+                    {item.body}
+                  </p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white">
+        <div className="mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <Reveal>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+              The work
+            </p>
+            <h2 className="mt-3 max-w-3xl text-[32px] leading-[1.286] md:text-[1.75rem]">
+              Products and programmes that reached people at scale.
+            </h2>
+          </Reveal>
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {IMPACT.map((item, index) => (
+              <Reveal key={item.title} delay={index * 70}>
+                <div className="flex h-full flex-col rounded-md border border-neutral-300 p-6 transition-colors duration-[var(--duration-standard)] hover:border-ink-700">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-sm bg-ink-900">
+                      <item.icon
+                        aria-hidden="true"
+                        className="h-5 w-5 text-lavender-200"
+                      />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold tabular-nums text-terracotta-600">
+                        {item.metric}
+                      </p>
+                      <h3 className="text-[24px] leading-snug md:text-[1.25rem]">
+                        {item.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm leading-relaxed text-neutral-500">
+                    {item.body}
+                  </p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-ink-900">
+        <div className="mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <Reveal>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
+                Teaching &amp; community
+              </p>
+              <h2 className="mt-3 text-[32px] leading-[1.286] text-white md:text-[1.75rem]">
+                Teaching is part of the work, not a side project.
+              </h2>
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-neutral-300">
+                The same instinct runs through the courses, books, and sessions:
+                make the path clear, show the work, and help people build
+                something they can keep using.
+              </p>
+              <div className="mt-8 rounded-md border border-white/10 bg-ink-950 p-6">
+                <Mic
+                  aria-hidden="true"
+                  className="h-5 w-5 text-terracotta-100"
+                />
+                <p className="mt-4 text-sm font-bold uppercase tracking-[0.14em] text-lavender-200">
+                  On stage
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                  Speaking on product, technology, and career growth at events
+                  including:
+                </p>
+                <ul className="mt-4 space-y-2 text-sm font-semibold text-white">
+                  {STAGES.map((stage) => (
+                    <li key={stage} className="flex items-start gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta-500"
+                      />
+                      {stage}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+
+            <Reveal delay={120}>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div className="rounded-md border border-white/10 bg-ink-950 p-6">
+                  <GraduationCap
+                    aria-hidden="true"
+                    className="h-6 w-6 text-terracotta-100"
+                  />
+                  <h3 className="mt-4 text-[24px] leading-snug text-white md:text-[1.25rem]">
+                    TME Education Ambassador
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-neutral-300">
+                    Representing Transfer Multisort Elektronik (Poland) in
+                    Nigeria, training over 10,000 people in technology across 18
+                    states and 24 cities.
+                  </p>
+                </div>
+                <div className="rounded-md border border-white/10 bg-ink-950 p-6">
+                  <Users
+                    aria-hidden="true"
+                    className="h-6 w-6 text-terracotta-100"
+                  />
+                  <h3 className="mt-4 text-[24px] leading-snug text-white md:text-[1.25rem]">
+                    Google community events
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-neutral-300">
+                    Co-organiser of Google community events in Nigeria,
+                    including DevFest and Google I/O Extended, helping builders
+                    learn in public and in person.
+                  </p>
+                </div>
+                <div className="rounded-md border border-white/10 bg-ink-950 p-6 sm:col-span-2">
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] text-lavender-200">
+                    The throughline
+                  </p>
+                  <p className="mt-3 text-base leading-relaxed text-neutral-300">
+                    Product work taught me what to build. Teaching taught me how
+                    to explain it. Building with AI taught me how much one
+                    person can ship. Agile Minds Hub brings all three together.
+                  </p>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-paper-50">
+        <div className="mx-auto w-[98%] px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <Reveal>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+              How I work
+            </p>
+            <h2 className="mt-3 max-w-3xl text-[32px] leading-[1.286] md:text-[1.75rem]">
+              Four principles behind every course, session, and build.
+            </h2>
+          </Reveal>
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {PRINCIPLES.map((principle, index) => (
+              <Reveal key={principle.title} delay={index * 70}>
+                <div className="h-full rounded-md border border-neutral-300 bg-white p-6">
+                  <principle.icon
+                    aria-hidden="true"
+                    className="h-6 w-6 text-terracotta-600"
+                  />
+                  <h3 className="mt-4 text-[24px] leading-snug md:text-[1.25rem]">
+                    {principle.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-neutral-500">
+                    {principle.body}
+                  </p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-ink-950">
+        <div className="relative mx-auto w-[98%] max-w-4xl px-6 py-16 text-center md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+          <Reveal>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-lavender-200">
+              Why Agile Minds Hub exists
+            </p>
+            <h2 className="mt-3 text-[32px] leading-[1.286] text-white md:text-[1.75rem]">
+              Think like a product manager. Build like an engineer. Launch with
+              AI.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-[1.55] text-neutral-300">
+              Founders do not lack ideas. They lack the bridge between an idea
+              and correct execution. That bridge is what I teach, and what I
+              build with the people I work with.
+            </p>
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                href="/courses"
+                className={buttonStyles({
+                  variant: "primary",
+                  theme: "dark",
+                  size: "lg",
+                })}
+              >
+                Explore the vibe coding course
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/contact"
+                className={buttonStyles({
+                  variant: "secondary",
+                  theme: "dark",
+                  size: "lg",
+                })}
+              >
+                Ask a question
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </section>
     </div>
   );
 }

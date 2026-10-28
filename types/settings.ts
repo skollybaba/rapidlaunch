@@ -4,7 +4,7 @@ import type {
 } from "@/types/payment";
 
 /** Well-known singleton keys for the platform settings document. */
-export const PLATFORM_SETTING_KEYS = ["payment", "display"] as const;
+export const PLATFORM_SETTING_KEYS = ["payment", "display", "profile"] as const;
 
 export type PlatformSettingKey = (typeof PLATFORM_SETTING_KEYS)[number];
 
@@ -19,6 +19,10 @@ export interface PlatformSettingDoc {
   ngnPerUsd?: number;
   /** Dollars per 1 Naira (e.g. 0.000625). Alternative to ngnPerUsd. */
   usdPerNaira?: number;
+  /** Public About page profile photo (Cloudinary URL). */
+  profileImageUrl?: string;
+  /** Storage key for the current profile photo, used to clean up replacements. */
+  profileImageKey?: string;
   updatedBy?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -39,4 +43,9 @@ export interface DisplaySettings {
   displayCurrency: DisplayCurrencySetting;
   ngnPerUsd: number;
   usdPerNaira?: number;
+}
+
+export interface ProfileSettings {
+  imageUrl: string;
+  imageKey?: string;
 }

@@ -25,6 +25,8 @@ const PlatformSettingSchema = new Schema<PlatformSettingDoc>(
       type: Number,
       min: 0.000001,
     },
+    profileImageUrl: { type: String, trim: true },
+    profileImageKey: { type: String, trim: true },
     updatedBy: { type: String },
   },
   { timestamps: true }

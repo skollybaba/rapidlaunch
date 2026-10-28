@@ -5,6 +5,7 @@ import {
   type PaymentSettingsState,
 } from "@/components/admin/payment-provider-control";
 import { DisplayCurrencyControl } from "@/components/admin/display-currency-control";
+import { ProfileImageControl } from "@/components/admin/profile-image-control";
 import { requireAdmin } from "@/lib/auth/admin";
 import { isProviderConfigured } from "@/lib/providers/payment";
 import {
@@ -12,6 +13,7 @@ import {
   getSelectedPaymentProvider,
   resolvePaymentProvider,
 } from "@/lib/services/payment-settings-service";
+import { getProfileSettings } from "@/lib/services/profile-settings-service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ export default async function AdminSettingsPage() {
   const resolved = await resolvePaymentProvider();
   const selectedProvider = await getSelectedPaymentProvider();
   const display = await getDisplaySettings();
+  const profile = await getProfileSettings();
   const initial: PaymentSettingsState = {
     provider: selectedProvider,
     effectiveProvider: resolved.provider,
@@ -57,6 +60,22 @@ export default async function AdminSettingsPage() {
         </p>
         <div className="mt-4">
           <PaymentProviderControl initial={initial} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-neutral-300 bg-white p-5">
+        <h2 className="text-base font-semibold text-neutral-950">
+          About page profile photo
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Upload the portrait shown on the public About page. Changes apply as
+          soon as you save.
+        </p>
+        <div className="mt-4">
+          <ProfileImageControl
+            initialImageUrl={profile.imageUrl}
+            initialImageKey={profile.imageKey}
+          />
         </div>
       </section>
 
