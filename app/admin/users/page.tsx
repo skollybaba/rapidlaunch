@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { EmptyState } from "@/components/ui/empty-state";
-import { Badge } from "@/components/ui/badge";
+import { UserRoleControl } from "@/components/admin/user-role-control";
 import { requireAdmin } from "@/lib/auth/admin";
 import { getAdminUsers } from "@/lib/services/admin-service";
 import { USER_ROLES } from "@/types/user";
@@ -13,10 +13,6 @@ export const metadata: Metadata = {
   title: "Users | Rapid Launch Back office",
 };
 
-function roleTone(role: string) {
-  return role === "admin" ? "info" : "neutral";
-}
-
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -26,7 +22,7 @@ export default async function AdminUsersPage({
     page?: string;
   }>;
 }) {
-  await requireAdmin();
+  const currentAdmin = await requireAdmin();
 
   const sp = await searchParams;
   const q = sp.q ?? "";
@@ -114,7 +110,12 @@ export default async function AdminUsersPage({
                       <p className="text-xs text-neutral-500">{user.email}</p>
                     </td>
                     <td className="px-5 py-4">
-                      <Badge tone={roleTone(user.role)}>{user.role}</Badge>
+                      <UserRoleControl
+                        userId={user.id}
+                        email={user.email}
+                        role={user.role === "admin" ? "admin" : "customer"}
+                        isSelf={String(currentAdmin._id) === user.id}
+                      />
                     </td>
                     <td className="px-5 py-4 text-neutral-700">{user.provider || "password"}</td>
                     <td className="px-5 py-4 text-neutral-700">{formatDate(user.createdAt)}</td>

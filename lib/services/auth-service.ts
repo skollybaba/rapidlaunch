@@ -198,20 +198,14 @@ export async function loginWithGoogle(
 
   let sessionToken = "";
   if (user) {
-    const role = isAdminEmail(user.email)
-      ? "admin"
-      : user.role === "admin"
-        ? "admin"
-        : "customer";
-    if (!user.googleId || role !== user.role) {
+    // The stored role is authoritative for existing accounts so an admin can
+    // change it from the portal without a login-time override undoing it.
+    // ADMIN_EMAILS only bootstraps the role when the account is first created.
+    const role = user.role;
+    if (!user.googleId) {
       await User.updateOne(
         { _id: user._id },
-        {
-          $set: {
-            ...(user.googleId ? {} : { googleId, provider: "google" }),
-            ...(role !== user.role ? { role } : {}),
-          },
-        }
+        { $set: { googleId, provider: "google" } }
       );
     }
     user = { ...user, role };

@@ -25,6 +25,7 @@ import {
   type CourseModule,
 } from "@/types/lms";
 import type { ProductCurriculumStored } from "@/types/product";
+import type { UserRole } from "@/types/user";
 import type { OrderDoc, OrderStatus } from "@/types/order";
 import type { BookingAnswers, BookingDoc } from "@/types/booking";
 import type { BookingRange, BookingSort } from "@/types/booking";
@@ -500,6 +501,64 @@ export async function getAdminUsers({
     pageSize: safePageSize,
     totalPages: Math.max(1, Math.ceil(total / safePageSize)),
   };
+}
+
+/**
+ * Changes a user's platform role. Admin authorization is derived from the
+ * stored role on every request, so a change here takes effect immediately for
+ * the next page load or API call the user makes.
+ *
+ * Guards keep the platform from locking itself out: an admin cannot demote
+ * themselves, and the final remaining admin cannot be demoted.
+ */
+export async function updateAdminUserRole(
+  userId: string,
+  role: UserRole,
+  actingUserId: string
+): Promise<{ id: string; role: UserRole }> {
+  await dbConnect();
+
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new AdminServiceError("USER_NOT_FOUND", "User not found.", 404);
+  }
+
+  const target = await User.findById(userId)
+    .select("_id email role")
+    .lean()
+    .exec();
+
+  if (!target) {
+    throw new AdminServiceError("USER_NOT_FOUND", "User not found.", 404);
+  }
+
+  if (String(target._id) === String(actingUserId) && role !== "admin") {
+    throw new AdminServiceError(
+      "SELF_DEMOTION",
+      "You cannot remove your own admin access. Ask another admin to do it.",
+      400
+    );
+  }
+
+  if (target.role === "admin" && role !== "admin") {
+    const otherAdmins = await User.countDocuments({
+      role: "admin",
+      _id: { $ne: target._id },
+    }).exec();
+
+    if (otherAdmins === 0) {
+      throw new AdminServiceError(
+        "LAST_ADMIN",
+        "At least one admin must remain. Promote another user first.",
+        400
+      );
+    }
+  }
+
+  if (target.role !== role) {
+    await User.updateOne({ _id: target._id }, { $set: { role } }).exec();
+  }
+
+  return { id: String(target._id), role };
 }
 
 export interface AdminBookingRow {
