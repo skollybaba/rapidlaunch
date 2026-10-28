@@ -5,7 +5,7 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Reset password | Rapid Launch",
+  title: "Reset password | Agile Minds Hub",
 };
 
 interface ResetPasswordPageProps {

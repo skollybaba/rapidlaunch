@@ -47,7 +47,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await resolveCourse(slug);
   return {
-    title: product.seoTitle ?? `${product.title} | Rapid Launch`,
+    title: product.seoTitle ?? `${product.title} | Agile Minds Hub`,
     description:
       product.seoDescription ??
       product.shortDescription ??

@@ -24,7 +24,7 @@ import { buttonStyles } from "@/components/ui/button";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Rapid Launch",
+  title: "Agile Minds Hub",
   description:
     "Launch and test your ideas faster. Gain clarity on what to build, learn the practical way of building with AI, and ship a scalable first slice.",
 };

@@ -37,9 +37,9 @@ export async function generateMetadata({
   const product = await resolveService(slug);
   if (!product) return { title: "Service not found" };
   return {
-    title: product.seoTitle ?? `${product.title} | Rapid Launch`,
+    title: product.seoTitle ?? `${product.title} | Agile Minds Hub`,
     description:
-      product.seoDescription ?? product.shortDescription ?? "A Rapid Launch service.",
+      product.seoDescription ?? product.shortDescription ?? "A Agile Minds Hub service.",
   };
 }
 

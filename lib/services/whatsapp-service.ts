@@ -39,7 +39,7 @@ export function buildPaidOrderMessage(
 ): string {
   const itemTitle = order.items[0]?.titleSnapshot ?? "your product";
   const lines = [
-    "New paid order on Rapid Launch",
+    "New paid order on Agile Minds Hub",
     "",
     itemTitle,
     `Order reference: ${order.orderReference}`,

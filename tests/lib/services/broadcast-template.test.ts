@@ -16,7 +16,7 @@ describe("buildBroadcastEmail", () => {
     expect(html).toContain("<img src='cid:agile-logo'");
     expect(html).toContain("Big news");
     expect(html).toContain("<p>Hello <strong>Ada</strong></p>");
-    expect(html).toContain("Rapid Launch");
+    expect(html).toContain("Agile Minds Hub");
     expect(text).toContain("Big news");
     expect(text).toContain("Hello Ada");
   });

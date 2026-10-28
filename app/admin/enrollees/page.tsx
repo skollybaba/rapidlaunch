@@ -9,7 +9,7 @@ import { getCourseEnrollees } from "@/lib/services/admin-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Enrollees | Rapid Launch Back office",
+  title: "Enrollees | Agile Minds Hub Back office",
 };
 
 export default async function AdminEnrolleesPage({

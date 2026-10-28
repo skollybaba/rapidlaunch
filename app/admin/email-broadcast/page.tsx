@@ -13,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Email & Broadcasting | Rapid Launch Back office",
+  title: "Email & Broadcasting | Agile Minds Hub Back office",
 };
 
 interface BroadcastPageProps {

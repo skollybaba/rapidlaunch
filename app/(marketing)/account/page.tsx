@@ -7,7 +7,7 @@ import { getCurrentPublicUser } from "@/lib/auth/session";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Sign in | Rapid Launch",
+  title: "Sign in | Agile Minds Hub",
 };
 
 interface AccountPageProps {

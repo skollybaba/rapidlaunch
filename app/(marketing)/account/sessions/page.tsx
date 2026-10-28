@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Sessions | Rapid Launch",
+  title: "Sessions | Agile Minds Hub",
 };
 
 function statusTone(status: string) {

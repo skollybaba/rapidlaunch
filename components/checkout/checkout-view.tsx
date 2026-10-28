@@ -37,8 +37,8 @@ export async function getCheckoutMetadata(
   const product = await getPublishedProductById(productId);
   return {
     title: product
-      ? `${product.title} · Checkout | Rapid Launch`
-      : "Checkout | Rapid Launch",
+      ? `${product.title} · Checkout | Agile Minds Hub`
+      : "Checkout | Agile Minds Hub",
   };
 }
 

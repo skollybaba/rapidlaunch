@@ -1,10 +1,10 @@
-# Rapid Launch Opencode Skill Knowledge Base
+# Agile Minds Hub Opencode Skill Knowledge Base
 
 ## Purpose
 
-This document is a detailed instruction manual for an AI coding agent working on the Rapid Launch platform. Give this document to Opencode before asking it to implement application features. It defines the architecture, frontend design standards, Next.js conventions, MongoDB patterns, AI-SDK conventions, security rules, testing expectations, and the way the agent must behave while coding.
+This document is a detailed instruction manual for an AI coding agent working on the Agile Minds Hub platform. Give this document to Opencode before asking it to implement application features. It defines the architecture, frontend design standards, Next.js conventions, MongoDB patterns, AI-SDK conventions, security rules, testing expectations, and the way the agent must behave while coding.
 
-This document is not a product requirements document or visual design system. The PRD defines **what** Rapid Launch must do. `DESIGN.md` defines **how the product looks and feels**. This document defines **how the coding agent must work** technically while setting up and implementing it.
+This document is not a product requirements document or visual design system. The PRD defines **what** Agile Minds Hub must do. `DESIGN.md` defines **how the product looks and feels**. This document defines **how the coding agent must work** technically while setting up and implementing it.
 
 ---
 
@@ -12,7 +12,7 @@ This document is not a product requirements document or visual design system. Th
 
 Copy the following instruction into your Opencode agent after placing this document in the project root as `AGENTS.md`, `OPENCODE_RULES.md`, or another file that your agent automatically reads.
 
-> You are the senior full-stack engineer responsible for the Rapid Launch platform. Read and follow the Rapid Launch PRD and this skill knowledge base before modifying code. Treat these documents as the source of truth.
+> You are the senior full-stack engineer responsible for the Agile Minds Hub platform. Read and follow the Agile Minds Hub PRD and this skill knowledge base before modifying code. Treat these documents as the source of truth.
 >
 > You must work incrementally. Do not implement an entire product in one uncontrolled change. Before coding, inspect the existing repository, identify the framework version, package manager, scripts, directory structure, and existing configuration. Never overwrite working project configuration without explaining why.
 >
@@ -173,7 +173,7 @@ GOOGLE_SMTP_HOST=smtp.gmail.com
 GOOGLE_SMTP_PORT=465
 GOOGLE_SMTP_USER=owner@example.com
 GOOGLE_SMTP_PASSWORD=xxxxxxxx
-MAIL_FROM_NAME=Rapid Launch
+MAIL_FROM_NAME=Agile Minds Hub
 MAIL_FROM_EMAIL=owner@example.com
 
 AI_PROVIDER_API_KEY=xxxxxxxx
@@ -328,7 +328,7 @@ Before implementing any UI feature, the agent must state which `DESIGN.md` rules
 
 ## 2. Product Experience Principles
 
-Rapid Launch is a premium product strategy, AI learning, and execution platform. The interface must communicate clarity, competence, momentum, and trust, but the exact visual expression must come from `DESIGN.md`. Do not invent generic SaaS visuals, random gradients, excessive rounded cards, crowded dashboards, or unstructured color systems that are not approved by the design file.
+Agile Minds Hub is a premium product strategy, AI learning, and execution platform. The interface must communicate clarity, competence, momentum, and trust, but the exact visual expression must come from `DESIGN.md`. Do not invent generic SaaS visuals, random gradients, excessive rounded cards, crowded dashboards, or unstructured color systems that are not approved by the design file.
 
 Before implementing visual components, confirm that `DESIGN.md` provides:
 
@@ -453,7 +453,7 @@ export interface AIService {
 
 Do not call an AI provider directly from a React Client Component. The client should call a server route or server action that authenticates the user, authorizes access, validates input, invokes the model, validates the response, and returns a safe result.
 
-## 2. Appropriate Rapid Launch AI Features
+## 2. Appropriate Agile Minds Hub AI Features
 
 Potential AI features include:
 
@@ -610,7 +610,7 @@ Recommended next step:
 
 ## Recommended Method
 
-1. Create or open the Rapid Launch project.
+1. Create or open the Agile Minds Hub project.
 2. Save this document in the project root as `AGENTS.md` or `OPENCODE_RULES.md`.
 3. Save the product requirements document in the project root as `PRODUCT_REQUIREMENTS.md`.
 4. Tell Opencode to read both documents before changing code.
@@ -628,7 +628,7 @@ Paste this prompt first:
 
 After reviewing the agent's report, paste:
 
-> Now perform only the project foundation setup. Do not build Rapid Launch business features, pages, payment flows, admin screens, course enrollment, or AI features yet. Install and configure only the packages required for the foundation:
+> Now perform only the project foundation setup. Do not build Agile Minds Hub business features, pages, payment flows, admin screens, course enrollment, or AI features yet. Install and configure only the packages required for the foundation:
 >
 > ```bash
 > npm install mongoose zod nodemailer googleapis lucide-react clsx tailwind-merge react-hook-form @hookform/resolvers

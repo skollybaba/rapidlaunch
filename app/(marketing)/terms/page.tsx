@@ -4,18 +4,18 @@ import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | Rapid Launch",
+  title: "Terms & Conditions | Agile Minds Hub",
   description:
-    "The terms and conditions that govern your use of the Rapid Launch site and the products and services you buy.",
+    "The terms and conditions that govern your use of the Agile Minds Hub site and the products and services you buy.",
 };
 
 const INTRO =
-  "These terms and conditions (the \u201cTerms\u201d) govern your use of the Rapid Launch website and your purchase of our products and services. By using the site or completing a purchase, you agree to these Terms. Please read them carefully.";
+  "These terms and conditions (the \u201cTerms\u201d) govern your use of the Agile Minds Hub website and your purchase of our products and services. By using the site or completing a purchase, you agree to these Terms. Please read them carefully.";
 
 const SECTIONS = [
   {
     title: "About our services",
-    body: "Rapid Launch provides product strategy advice, AI learning materials, one-on-one consulting sessions, courses, and books. The specific scope of each product is described on its page at the time of purchase.",
+    body: "Agile Minds Hub provides product strategy advice, AI learning materials, one-on-one consulting sessions, courses, and books. The specific scope of each product is described on its page at the time of purchase.",
   },
   {
     title: "Age and eligibility",
@@ -39,7 +39,7 @@ const SECTIONS = [
   },
   {
     title: "Intellectual property",
-    body: "All content on the site, including our materials, branding, and product content, is owned by or licensed to Rapid Launch and is protected by copyright and other laws. You may use it only as we allow in these Terms.",
+    body: "All content on the site, including our materials, branding, and product content, is owned by or licensed to Agile Minds Hub and is protected by copyright and other laws. You may use it only as we allow in these Terms.",
   },
   {
     title: "Limitation of liability",
@@ -65,7 +65,7 @@ export default function TermsPage() {
       <CatalogPageHeader
         eyebrow="Legal"
         title="Terms & conditions."
-        description="The rules that apply when you use the Rapid Launch site and buy from us."
+        description="The rules that apply when you use the Agile Minds Hub site and buy from us."
       />
       <div className="flex flex-1 flex-col bg-white">
         <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 lg:px-8 lg:py-16">

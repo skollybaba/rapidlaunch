@@ -9,7 +9,7 @@ import { getResourceById } from "@/lib/services/resource-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Edit resource | Rapid Launch Back office",
+  title: "Edit resource | Agile Minds Hub Back office",
 };
 
 export default async function AdminEditResourcePage({

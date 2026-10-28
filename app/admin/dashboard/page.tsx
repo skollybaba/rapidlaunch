@@ -31,7 +31,7 @@ import { formatDateTime, formatPrice } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Dashboard & Insights | Rapid Launch",
+  title: "Dashboard & Insights | Agile Minds Hub",
 };
 
 const PERIOD_OPTIONS: { value: InsightsPeriod; label: string }[] = [

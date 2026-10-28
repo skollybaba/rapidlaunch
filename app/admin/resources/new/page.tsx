@@ -8,7 +8,7 @@ import type { ResourceType } from "@/types/resource";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "New resource | Rapid Launch Back office",
+  title: "New resource | Agile Minds Hub Back office",
 };
 
 export default async function AdminNewResourcePage({

@@ -22,13 +22,13 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://agilemindshub.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Rapid Launch",
+  title: "Agile Minds Hub",
   description:
     "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
   openGraph: {
     type: "website",
-    siteName: "Rapid Launch",
-    title: "Rapid Launch",
+    siteName: "Agile Minds Hub",
+    title: "Agile Minds Hub",
     description:
       "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
     url: siteUrl,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Rapid Launch",
+    title: "Agile Minds Hub",
     description:
       "Product strategy, AI learning, and MVP execution: from idea to buildable plan.",
   },

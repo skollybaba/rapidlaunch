@@ -16,7 +16,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Bookings | Rapid Launch Back office",
+  title: "Bookings | Agile Minds Hub Back office",
 };
 
 function bookingsHref(status: string, range: string | undefined, sort: string | undefined, page = 1) {

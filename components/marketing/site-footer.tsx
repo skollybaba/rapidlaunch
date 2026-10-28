@@ -20,7 +20,7 @@ export function SiteFooter() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/agile_logo-mark.png"
-                alt="Rapid Launch"
+                alt="Agile Minds Hub"
                 className="h-10 w-auto"
               />
             </span>
@@ -80,7 +80,7 @@ export function SiteFooter() {
             </a>
           </p>
           <p className="text-sm text-neutral-500">
-            © {new Date().getFullYear()} Rapid Launch. All rights reserved.
+            © {new Date().getFullYear()} Agile Minds Hub. All rights reserved.
           </p>
         </div>
       </div>

@@ -17,7 +17,7 @@ import { ORDER_STATUSES } from "@/types/order";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Orders | Back office | Rapid Launch",
+  title: "Orders | Back office | Agile Minds Hub",
 };
 
 interface OrdersPageProps {

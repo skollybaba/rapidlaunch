@@ -13,11 +13,11 @@
     <path d="M14 34 C14 34 15.5 38 18 38 C20.5 38 22 34 22 34" fill="#f4a261" opacity="0.8"/>
   </g>
 
-  <!-- Wordmark: RAPID LAUNCH -->
+  <!-- Wordmark: AGILE MINDS HUB -->
   <text x="46" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.02em" fill="#141414">
-    Rapid
+    Agile Minds
   </text>
   <text x="46" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="800" letter-spacing="-0.02em" fill="#c75d3c">
-    Launch
+    Hub
   </text>
 </svg>

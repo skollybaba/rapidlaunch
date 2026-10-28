@@ -9,7 +9,7 @@ import { getCouponById } from "@/lib/services/coupon-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Edit discount code | Rapid Launch Back office",
+  title: "Edit discount code | Agile Minds Hub Back office",
 };
 
 export default async function AdminEditCouponPage({

@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "My courses | Rapid Launch",
+  title: "My courses | Agile Minds Hub",
 };
 
 export default async function AccountCoursesPage() {

@@ -24,7 +24,7 @@ import type { ProductDetail } from "@/types/product";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Book a session | Rapid Launch",
+  title: "Book a session | Agile Minds Hub",
   description:
     "Pick the right one-on-one: a strategy session for founders, or a product-management clarity session. Book a slot, pay, and get a Google Meet link on your calendar.",
 };

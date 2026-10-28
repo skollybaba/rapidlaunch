@@ -42,7 +42,7 @@ export function CookieConsent() {
           <h2 className="text-sm font-semibold text-white">We use cookies</h2>
           <p className="mt-2 text-sm leading-relaxed text-neutral-500">
             Necessary cookies keep this site working. Optional cookies help us
-            understand how Rapid Launch is used and improve it. Read more in our{" "}
+            understand how Agile Minds Hub is used and improve it. Read more in our{" "}
             <Link
               href="/cookies"
               className="font-medium text-lavender-200 underline underline-offset-2 hover:text-white"

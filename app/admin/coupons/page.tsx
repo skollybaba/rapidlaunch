@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Discount codes | Rapid Launch Back office",
+  title: "Discount codes | Agile Minds Hub Back office",
 };
 
 export default async function AdminCouponsPage({

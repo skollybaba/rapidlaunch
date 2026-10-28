@@ -1,4 +1,4 @@
-# Rapid Launch
+# Agile Minds Hub
 
 Product strategy, AI learning, and MVP execution platform. A service-commerce and
 learning-access platform that sells consulting sessions, crash courses, MVP-building

@@ -137,7 +137,7 @@ export function AdminNav({
         </div>
         <div>
           <p className="text-sm font-bold text-white">Back office</p>
-          <p className="text-[11px] text-white/60">Rapid Launch</p>
+          <p className="text-[11px] text-white/60">Agile Minds Hub</p>
         </div>
         <button
           ref={toggleRef}

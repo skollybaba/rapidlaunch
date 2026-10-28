@@ -35,11 +35,11 @@ const products: SeedProduct[] = [
     fulfillmentMode: "CLASSROOM",
     featured: true,
     sortOrder: 1,
-    seoTitle: "AI Product Craft: From Idea to Roadmap | Rapid Launch",
+    seoTitle: "AI Product Craft: From Idea to Roadmap | Agile Minds Hub",
     seoDescription:
       "A self-paced AI product course: problem framing, user mapping, and a buildable roadmap, delivered in the classroom.",
     courseDetails: {
-      instructor: "Rapid Launch",
+      instructor: "Agile Minds Hub",
       durationMinutes: 180,
       level: "INTERMEDIATE",
       audience: ["Product managers", "Founders", "Product designers"],
@@ -87,7 +87,7 @@ const products: SeedProduct[] = [
     featured: false,
     sortOrder: 1,
     bookDetails: {
-      author: "Rapid Launch",
+      author: "Agile Minds Hub",
       isbn: "978-0-0000000-0-0",
       format: "PDF + EPUB",
       deliveryMode: "DIGITAL_DOWNLOAD",
@@ -110,7 +110,7 @@ const products: SeedProduct[] = [
     featured: false,
     sortOrder: 2,
     bookDetails: {
-      author: "Rapid Launch",
+      author: "Agile Minds Hub",
       format: "Print",
       deliveryMode: "EXTERNAL",
       externalUrl: "https://store.example.com/products/product-market-fit-field-manual",

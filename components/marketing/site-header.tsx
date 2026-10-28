@@ -29,14 +29,14 @@ export function SiteHeader() {
         <Link
           href="/"
           onClick={closeMenu}
-          aria-label="Rapid Launch home"
+          aria-label="Agile Minds Hub home"
           className="group inline-flex items-center"
         >
           <span className="inline-flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/agile_logo-mark.png"
-              alt="Rapid Launch"
+              alt="Agile Minds Hub"
               className="h-10 w-auto transition-transform duration-[var(--duration-standard)] group-hover:-translate-y-0.5"
             />
           </span>

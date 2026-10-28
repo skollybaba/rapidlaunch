@@ -14,7 +14,7 @@
 // export const dynamic = "force-dynamic";
 // 
 // export const metadata: Metadata = {
-//   title: "Books | Rapid Launch",
+//   title: "Books | Agile Minds Hub",
 //   description:
 //     "Practical, focused reading on product management and building software with AI.",
 // };

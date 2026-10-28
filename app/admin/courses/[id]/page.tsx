@@ -13,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Edit course | Rapid Launch Back office",
+  title: "Edit course | Agile Minds Hub Back office",
 };
 
 export default async function AdminEditCoursePage({

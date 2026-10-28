@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Users | Rapid Launch Back office",
+  title: "Users | Agile Minds Hub Back office",
 };
 
 export default async function AdminUsersPage({

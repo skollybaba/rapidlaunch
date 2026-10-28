@@ -6,7 +6,7 @@ import { ContactForm } from "@/components/marketing/contact-form";
 import { Reveal } from "@/components/marketing/reveal";
 
 export const metadata: Metadata = {
-  title: "Contact | Rapid Launch",
+  title: "Contact | Agile Minds Hub",
   description:
     "Get in touch about consulting, MVP builds, courses, or support. Replies within two working days.",
 };

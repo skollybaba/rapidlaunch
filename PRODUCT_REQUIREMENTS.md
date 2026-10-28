@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## Rapid Launch Product, Consulting, Learning, and Digital Commerce Platform
+## Agile Minds Hub Product, Consulting, Learning, and Digital Commerce Platform
 
 **Document status:** Build-ready specification  
 **Prepared for:** Product owner / founder  
@@ -58,7 +58,7 @@ The following assumptions are required to make the product buildable. The owner 
 
 | Area | Decision |
 |---|---|
-| Brand/product name | Use a configurable working name such as **Rapid Launch** until the owner provides the final name. Do not hard-code the name across the codebase. |
+| Brand/product name | Use a configurable working name such as **Agile Minds Hub** until the owner provides the final name. Do not hard-code the name across the codebase. |
 | Currency | Make currency configurable, with NGN as the initial default unless the owner specifies another Paystack-supported currency. Store all monetary values as integer minor units; never use floating-point arithmetic for money. |
 | Payment processor | Paystack. Payment initialization and verification are server-side responsibilities. |
 | Email provider | Google SMTP using a dedicated business mailbox. Credentials must be stored as secrets, never in source control or client-side code. |
@@ -93,7 +93,7 @@ The public site must be responsive, accessible, fast, and structured around conv
 | Route | Purpose | Required content and actions |
 |---|---|---|
 | `/` | Main landing page | Brand promise, audience split, services, featured courses, featured books, credibility, YouTube content, social links, and primary calls to action. |
-| `/about` | Founder and positioning | Biography, product-management experience, philosophy, and why Rapid Launch exists. |
+| `/about` | Founder and positioning | Biography, product-management experience, philosophy, and why Agile Minds Hub exists. |
 | `/services` | High-touch offers | Consulting sessions and MVP-building service with outcomes, process, FAQs, and CTAs. |
 | `/services/consulting` | Consulting detail | Session types, duration, price, preparation expectations, booking CTA. |
 | `/services/mvp-build` | MVP-building detail | Who it is for, deliverables, exclusions, process, source-code handover promise, inquiry form, and optional deposit CTA. |

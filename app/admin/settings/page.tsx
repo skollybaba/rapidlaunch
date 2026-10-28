@@ -18,7 +18,7 @@ import { getProfileSettings } from "@/lib/services/profile-settings-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Settings | Rapid Launch Back office",
+  title: "Settings | Agile Minds Hub Back office",
 };
 
 export default async function AdminSettingsPage() {

@@ -15,7 +15,7 @@ import type { ProductSummary } from "@/types/product";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Founders catalogue | Rapid Launch",
+  title: "Founders catalogue | Agile Minds Hub",
   description:
     "Founders catalogue: consulting sessions and outcome-led MVP builds: product strategy, AI tooling guidance, and launching your idea in shipping waves.",
 };

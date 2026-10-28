@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getPublishedResources } from "@/lib/services/resource-service";
 
 export const metadata: Metadata = {
-  title: "Resources | Rapid Launch",
+  title: "Resources | Agile Minds Hub",
   description:
     "Guides, videos, and practical reading on product strategy, building with AI, and learning to build.",
 };

@@ -18,7 +18,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Submissions | Rapid Launch Back office",
+  title: "Submissions | Agile Minds Hub Back office",
 };
 
 const STATUS_TABS: Array<{ value: string; label: string }> = [

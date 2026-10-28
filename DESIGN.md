@@ -1,4 +1,4 @@
-# Rapid Launch Learning Resources Design System
+# Agile Minds Hub Learning Resources Design System
 
 - **Document status:** Initial product-design specification
 - **Version:** 1.0
@@ -7,7 +7,7 @@
 - **Primary conversion:** Watch a useful YouTube resource and continue learning
 - **Design direction:** Modern, intelligent, generous, editorial, approachable, and highly polished
 - **Reference influences:** Bartix for expressive product storytelling, Ordina for smooth forms and interface neatness, Artifact for premium whitespace and product proof, OMA Akari for AI atmosphere, and Verseo for clear AI-product communication and structured use-case storytelling
-- **Implementation principle:** Use Material Design principles where they improve clarity, accessibility, interaction quality, and consistency, while preserving a distinctive Rapid Launch visual identity rather than producing a generic Material interface
+- **Implementation principle:** Use Material Design principles where they improve clarity, accessibility, interaction quality, and consistency, while preserving a distinctive Agile Minds Hub visual identity rather than producing a generic Material interface
 
 ## Product North Star
 
@@ -32,7 +32,7 @@
 
 ## Brand Personality
 
-- Rapid Launch Learning Resources should sound like a knowledgeable mentor who explains difficult things clearly.
+- Agile Minds Hub Learning Resources should sound like a knowledgeable mentor who explains difficult things clearly.
 - The voice should be confident without sounding superior.
 - The voice should be concise without becoming cold.
 - The voice should be curious, practical, and encouraging.
@@ -147,7 +147,7 @@ type Resource = {
 
 ## Visual Direction
 
-- Combine the warm off-white editorial canvas from Bartix and Artifact with Rapid Launch’s deep charcoal and warm terracotta foundation.
+- Combine the warm off-white editorial canvas from Bartix and Artifact with Agile Minds Hub’s deep charcoal and warm terracotta foundation.
 - Use Ordina’s quiet dark-mode precision for optional focused learning experiences, video playback contexts, or AI assistant states.
 - Use Verseo’s direct AI-product storytelling to explain workflows and use cases.
 - Use OMA Akari’s AI atmosphere as an inspiration for intelligent system feedback, not as an excuse for decorative futurism.
@@ -263,7 +263,7 @@ type Resource = {
 - Use Material-style state layers for hover, focus, pressed, selected, and disabled states.
 - Use tonal surfaces rather than heavy borders wherever the hierarchy remains clear.
 - Use elevation intentionally for cards, dialogs, menus, and floating controls.
-- Use Material-like component anatomy but preserve the Rapid Launch palette, rounded geometry, editorial spacing, and distinctive CTA treatment.
+- Use Material-like component anatomy but preserve the Agile Minds Hub palette, rounded geometry, editorial spacing, and distinctive CTA treatment.
 - Use accessible modal, drawer, menu, tooltip, form, and accordion behavior consistent with mature design-system practice.
 - Do not reproduce the default Material color palette, typography, icon shapes, or dense enterprise appearance.
 - Do not use a floating action button unless the action is genuinely persistent and central to the page.

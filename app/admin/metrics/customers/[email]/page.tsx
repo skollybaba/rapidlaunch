@@ -28,7 +28,7 @@ export async function generateMetadata({
   params: Promise<{ email: string }>;
 }): Promise<Metadata> {
   const { email } = await params;
-  return { title: `${decodeURIComponent(email)} | Rapid Launch` };
+  return { title: `${decodeURIComponent(email)} | Agile Minds Hub` };
 }
 
 function statusTone(status: string): BadgeTone {

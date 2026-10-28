@@ -88,7 +88,7 @@ describe("buildPaidOrderMessage", () => {
   it("includes order, item, amount and payment details", () => {
     const message = buildPaidOrderMessage(order as never, payment as never);
 
-    expect(message).toContain("New paid order on Rapid Launch");
+    expect(message).toContain("New paid order on Agile Minds Hub");
     expect(message).toContain("AI Product Strategy Course");
     expect(message).toContain("Order reference: QL-ABC-123");
     expect(message).toContain("₦80,000");

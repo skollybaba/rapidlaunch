@@ -4,13 +4,13 @@ import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
 
 export const metadata: Metadata = {
-  title: "Refund Policy | Rapid Launch",
+  title: "Refund Policy | Agile Minds Hub",
   description:
-    "How rescheduling and refunds work for Rapid Launch bookings and purchases.",
+    "How rescheduling and refunds work for Agile Minds Hub bookings and purchases.",
 };
 
 const INTRO =
-  "This policy explains when you can reschedule a booking or cancel a purchase and whether you can receive a refund. It applies to all products and services sold on the Rapid Launch site, including one-on-one sessions, courses, and books.";
+  "This policy explains when you can reschedule a booking or cancel a purchase and whether you can receive a refund. It applies to all products and services sold on the Agile Minds Hub site, including one-on-one sessions, courses, and books.";
 
 const SECTIONS = [
   {

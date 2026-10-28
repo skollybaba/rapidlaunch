@@ -4,15 +4,15 @@ import { CatalogPageHeader } from "@/components/catalog/listing-header";
 import { Reveal } from "@/components/marketing/reveal";
 
 export const metadata: Metadata = {
-  title: "Cookie Policy | Rapid Launch",
+  title: "Cookie Policy | Agile Minds Hub",
   description:
-    "How Rapid Launch uses cookies and how you can control your preferences.",
+    "How Agile Minds Hub uses cookies and how you can control your preferences.",
 };
 
 const SECTIONS = [
   {
     title: "What cookies we use",
-    body: "Rapid Launch uses a small number of cookies to keep the site reliable and to understand what visitors find useful. We use two groups: necessary cookies that are required for basic site behaviour, and optional cookies (only with your consent) that support analytics and marketing measurement.",
+    body: "Agile Minds Hub uses a small number of cookies to keep the site reliable and to understand what visitors find useful. We use two groups: necessary cookies that are required for basic site behaviour, and optional cookies (only with your consent) that support analytics and marketing measurement.",
   },
   {
     title: "Necessary cookies",
@@ -38,7 +38,7 @@ export default function CookiesPage() {
       <CatalogPageHeader
         eyebrow="Legal"
         title="Cookie policy."
-        description="A short, plain-language explanation of how Rapid Launch uses cookies."
+        description="A short, plain-language explanation of how Agile Minds Hub uses cookies."
       />
       <div className="flex flex-1 flex-col bg-white">
         <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-12 lg:px-8 lg:py-16">

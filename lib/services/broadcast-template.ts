@@ -63,7 +63,7 @@ export function buildBroadcastEmail(content: BroadcastEmailContent): {
   text: string;
 } {
   const headline = escapeHtml(content.headline);
-  const brand = escapeHtml(process.env.MAIL_FROM_NAME || "Rapid Launch");
+  const brand = escapeHtml(process.env.MAIL_FROM_NAME || "Agile Minds Hub");
   const tagline =
     "Product strategy, AI learning, and MVP execution.";
 

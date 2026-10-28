@@ -8,7 +8,7 @@ import { getCourseBundleChoices } from "@/lib/services/admin-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "New course | Rapid Launch Back office",
+  title: "New course | Agile Minds Hub Back office",
 };
 
 export default async function AdminNewCoursePage() {

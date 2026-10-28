@@ -31,7 +31,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const resource = await resolveResource(slug);
   return {
-    title: `${resource.title} | Rapid Launch`,
+    title: `${resource.title} | Agile Minds Hub`,
     description: resource.summary ?? undefined,
     openGraph: {
       title: resource.title,

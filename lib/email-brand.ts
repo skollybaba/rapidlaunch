@@ -28,7 +28,7 @@ function logoCandidatePaths(): string[] {
 function emailBrandLogo(): string {
   const src = emailLogoSrc();
   if (!src) return "";
-  return `<img src="${src}" alt="Rapid Launch" width="80" height="36" style="display:block;margin:0 0 10px;width:80px;height:auto;" />`;
+  return `<img src="${src}" alt="Agile Minds Hub" width="80" height="36" style="display:block;margin:0 0 10px;width:80px;height:auto;" />`;
 }
 
 function emailLogoSrc(): string | null {

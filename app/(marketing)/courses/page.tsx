@@ -13,7 +13,7 @@ import { listPublishedProducts } from "@/lib/services/catalog-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "AI Courses | Rapid Launch",
+  title: "AI Courses | Agile Minds Hub",
   description:
     "Self-paced crash courses that move you from product thinking to working software with AI. Access is delivered in the classroom after a verified payment.",
 };

@@ -8,7 +8,7 @@ import type { ResourceType } from "@/types/resource";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Resources | Rapid Launch Back office",
+  title: "Resources | Agile Minds Hub Back office",
 };
 
 const TABS: { type: ResourceType; label: string }[] = [

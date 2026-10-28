@@ -15,7 +15,7 @@ import { formatPrice, formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "My account | Rapid Launch",
+  title: "My account | Agile Minds Hub",
 };
 
 function statusTone(status: string) {

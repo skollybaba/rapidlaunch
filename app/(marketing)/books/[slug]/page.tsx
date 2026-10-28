@@ -32,7 +32,7 @@
 //   const { slug } = await params;
 //   const product = await resolveBook(slug);
 //   return {
-//     title: product.seoTitle ?? `${product.title} | Rapid Launch`,
+//     title: product.seoTitle ?? `${product.title} | Agile Minds Hub`,
 //     description:
 //       product.seoDescription ??
 //       product.shortDescription ??

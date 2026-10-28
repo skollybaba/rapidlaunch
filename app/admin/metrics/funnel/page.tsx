@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Checkout funnel | Rapid Launch",
+  title: "Checkout funnel | Agile Minds Hub",
 };
 
 const STATUS_TONE: Record<string, string> = {

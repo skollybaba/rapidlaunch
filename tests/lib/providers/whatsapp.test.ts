@@ -84,7 +84,7 @@ describe("WhatsAppCloudApiAdapter", () => {
 
     const result = await adapter.sendText({
       to: "+2348160504976",
-      text: "Hello from Rapid Launch",
+      text: "Hello from Agile Minds Hub",
     });
 
     expect(result.providerMessageId).toBe("wamid-1");
@@ -106,7 +106,7 @@ describe("WhatsAppCloudApiAdapter", () => {
     expect(body.messaging_product).toBe("whatsapp");
     expect(body.to).toBe("+2348160504976");
     expect(body.type).toBe("text");
-    expect(body.text.body).toBe("Hello from Rapid Launch");
+    expect(body.text.body).toBe("Hello from Agile Minds Hub");
   });
 
   it("throws a non-retryable error on a provider rejection", async () => {

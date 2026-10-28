@@ -11,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Course player | Rapid Launch",
+  title: "Course player | Agile Minds Hub",
   robots: { index: false, follow: false },
 };
 

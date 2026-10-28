@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Profile | Rapid Launch",
+  title: "Profile | Agile Minds Hub",
 };
 
 export default async function AccountProfilePage() {

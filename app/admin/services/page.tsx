@@ -11,7 +11,7 @@ import { offeringForServiceSlug } from "@/lib/services/lead-service";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Services | Rapid Launch Back office",
+  title: "Services | Agile Minds Hub Back office",
 };
 
 const TYPE_LABELS: Record<string, string> = {

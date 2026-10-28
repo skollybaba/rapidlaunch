@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   try {
     await adapter.sendEmail({
       to: target,
-      subject: "Rapid Launch SMTP diagnostic",
+      subject: "Agile Minds Hub SMTP diagnostic",
       html: "<p>This is a latency probe from the SMTP diagnostic endpoint.</p>",
       text: "This is a latency probe from the SMTP diagnostic endpoint.",
     });

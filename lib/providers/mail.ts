@@ -226,14 +226,14 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
   ${emailHeader(`${detailLabel}`)}
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">${greeting}</p>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">This is a quick reminder about your one-on-one session with Rapid Launch.</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 18px;color:#35374a;">This is a quick reminder about your one-on-one session with Agile Minds Hub.</p>
     <p style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#c75d3c;font-weight:700;margin:0 0 8px;">${timingLabel}</p>
     ${meetingBlock}
     <p style="font-size:13px;line-height:1.6;margin:22px 0 0;color:#74778c;border-top:1px solid #f3efe8;padding-top:16px;">Running late or need to reschedule? Reply to this email and we will help.</p>
   </div>
 </div>
 </div>`;
-      const text = `${timingLabel}\n\n${greeting}\n\nThis is a quick reminder about your one-on-one session with Rapid Launch.\n\n${timingLabel}.\n\nSession time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nRunning late or need to reschedule? Reply to this email and we will help.`;
+      const text = `${timingLabel}\n\n${greeting}\n\nThis is a quick reminder about your one-on-one session with Agile Minds Hub.\n\n${timingLabel}.\n\nSession time: ${scheduledAt}${meetingUrl ? `\nMeeting link: ${meetingUrl}` : ""}\n\nRunning late or need to reschedule? Reply to this email and we will help.`;
       return { subject, html, text };
     }
     case "payment_reminder": {
@@ -259,7 +259,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
     case "account_welcome": {
       const name = variables.name ?? "there";
       const appUrl = variables.appUrl ?? "#";
-      const subject = "Welcome to Rapid Launch";
+      const subject = "Welcome to Agile Minds Hub";
       const html = `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">
   ${emailHeader("Welcome aboard")}
@@ -271,7 +271,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
   </div>
 </div>
 </div>`;
-      const text = `Welcome to Rapid Launch\n\nHi ${name},\n\nYour account is ready. Your purchases, sessions, and books are now kept in one place.\n\nGo to your account: ${appUrl}/account\n\nQuestions? Reply to this email and we will help.`;
+      const text = `Welcome to Agile Minds Hub\n\nHi ${name},\n\nYour account is ready. Your purchases, sessions, and books are now kept in one place.\n\nGo to your account: ${appUrl}/account\n\nQuestions? Reply to this email and we will help.`;
       return { subject, html, text };
     }
     case "password_reset": {
@@ -360,7 +360,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
       return { subject, html, text };
     }
     case "sequence_step": {
-      const subjectSeq = String(variables.subject ?? "Update from Rapid Launch");
+      const subjectSeq = String(variables.subject ?? "Update from Agile Minds Hub");
       const bodyHtmlSeq = sanitizeEmailHtml(String(variables.body ?? variables.html ?? ""));
       const titleSeq = String(variables.title ?? subjectSeq);
       // Sequence emails share the broadcast shell exactly: dark logo-only
@@ -413,7 +413,7 @@ ${answerHelp ? `<tr><td style="padding:12px 20px;font-size:13px;color:#74778c;">
   <div style="padding:28px 32px;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">A new <strong style="color:#11121d;">${esc(
       itemKind
-    )}</strong> purchase just came through on Rapid Launch.</p>
+    )}</strong> purchase just came through on Agile Minds Hub.</p>
     <table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;">
       ${rows}
     </table>
@@ -462,9 +462,9 @@ Paid at: ${paidAt}${paymentReference ? `\nPayment reference: ${paymentReference}
     }
     default:
       return {
-        subject: "Rapid Launch update",
+        subject: "Agile Minds Hub update",
         html: `<p>${JSON.stringify(variables)}</p>`,
-        text: `Rapid Launch update\n${JSON.stringify(variables)}`,
+        text: `Agile Minds Hub update\n${JSON.stringify(variables)}`,
       };
   }
 }
@@ -557,9 +557,9 @@ export class SmtpMailAdapter implements MailAdapter {
   async sendTestEmail(): Promise<void> {
     await this.sendEmail({
       to: this.fromEmail ?? this.config.user ?? "",
-      subject: "Rapid Launch test email",
-      html: `${emailHeader("Rapid Launch test email")}<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Rapid Launch.</p></div></div></div>`,
-      text: "This is a test email from Rapid Launch.",
+      subject: "Agile Minds Hub test email",
+      html: `${emailHeader("Agile Minds Hub test email")}<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;"><div style="padding:28px 32px;"><p style="font-size:15px;line-height:1.6;margin:0;color:#35374a;">This is a test email from Agile Minds Hub.</p></div></div></div>`,
+      text: "This is a test email from Agile Minds Hub.",
       attachments: brandLogoAttachments(),
     });
   }
@@ -573,7 +573,7 @@ export function createMailAdapter(config?: MailAdapterConfig): MailAdapter {
     secure: port === 465,
     user: process.env.GOOGLE_SMTP_USER,
     password: process.env.GOOGLE_SMTP_PASSWORD,
-    fromName: process.env.MAIL_FROM_NAME || "Rapid Launch",
+    fromName: process.env.MAIL_FROM_NAME || "Agile Minds Hub",
     fromEmail: process.env.MAIL_FROM_EMAIL,
   };
   return new SmtpMailAdapter(cfg);

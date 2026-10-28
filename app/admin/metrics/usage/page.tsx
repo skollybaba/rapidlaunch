@@ -24,7 +24,7 @@ import { StatCard } from "@/components/admin/metrics/stat-card";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Usage metrics | Rapid Launch",
+  title: "Usage metrics | Agile Minds Hub",
 };
 
 export default async function UsagePage({
