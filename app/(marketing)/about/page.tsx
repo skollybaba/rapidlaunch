@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
-  Building2,
   Compass,
   Globe2,
   GraduationCap,
@@ -22,13 +21,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "About Oluwasegun Kolawole | Agile Minds Hub",
   description:
-    "Oluwasegun Kolawole is a product leader with over a decade in tech, eight years in product, and a track record of building software used by millions and teaching thousands more to build with AI.",
+    "Oluwasegun Kolawole is a product leader with over a decade in tech and eight years in product, building fintech products across more than 10 countries and teaching thousands more to build with AI.",
 };
 
 const STATS = [
   { value: "10+", label: "years in tech" },
   { value: "8+", label: "years in product" },
-  { value: "80M+", label: "identities enrolled" },
+  { value: "10+", label: "countries in fintech" },
   { value: "10,000+", label: "people trained" },
 ];
 
@@ -55,16 +54,10 @@ const PATH = [
 
 const IMPACT = [
   {
-    icon: Building2,
-    metric: "80M+",
-    title: "Identities enrolled",
-    body: "Contributed to software delivered with the World Bank and the National Identity Management Commission (NIMC) that has enrolled over 80 million Nigerians into the National Identity Database.",
-  },
-  {
     icon: Globe2,
-    metric: "5 markets",
-    title: "Fintech at real scale",
-    body: "Led product on fintech and payment solutions running across the UK, the US, Canada, Nigeria, and several African markets, spanning mobile and web applications.",
+    metric: "10+ countries",
+    title: "Global fintech product",
+    body: "Built and scaled fintech and payment products used across more than 10 countries, spanning mobile and web applications.",
   },
   {
     icon: GraduationCap,
@@ -240,12 +233,11 @@ export default async function AboutPage() {
                   management, I brought that reality with me.
                 </p>
                 <p>
-                  Over the last eight years I have led product on identity,
-                  fintech, and payment systems used at national and
-                  international scale. I have worked with the World Bank and
-                  NIMC on software that enrolled over 80 million Nigerians, and
-                  led payment products across the UK, the US, Canada, Nigeria,
-                  and several African markets.
+                  Over the last eight years I have led product on fintech and
+                  payment systems used across more than 10 countries, including
+                  the UK, the US, Canada, Nigeria, and several African markets.
+                  I have also worked with the World Bank and NIMC on national
+                  identity software.
                 </p>
                 <p>
                   Alongside that work, I have spent years teaching. As a TME
@@ -312,7 +304,7 @@ export default async function AboutPage() {
               Products and programmes that reached people at scale.
             </h2>
           </Reveal>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {IMPACT.map((item, index) => (
               <Reveal key={item.title} delay={index * 70}>
                 <div className="flex h-full flex-col rounded-md border border-neutral-300 p-6 transition-colors duration-[var(--duration-standard)] hover:border-ink-700">
