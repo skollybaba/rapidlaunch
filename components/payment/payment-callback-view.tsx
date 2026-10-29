@@ -284,6 +284,18 @@ export default function PaymentCallbackView() {
 
         if (json.data.paymentStatus === "PAID" && !json.data.discrepancy) {
           setRenderState("success");
+          try {
+            if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
+              (window as any).fbq("track", "Purchase", {
+                value: json.data.totalMinor ? json.data.totalMinor / 100 : undefined,
+                currency: json.data.currency || "NGN",
+                content_name: json.data.itemTitle,
+                content_ids: [json.data.orderReference],
+              });
+            }
+          } catch {
+            // ignore pixel errors
+          }
           toastRef.current.success({
             title: "Payment confirmed",
             description: "Thanks! Your access is being prepared now.",
