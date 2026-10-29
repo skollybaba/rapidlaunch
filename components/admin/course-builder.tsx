@@ -10,6 +10,7 @@ import {
   Loader2,
   PlayCircle,
   Plus,
+  Star,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -43,6 +44,7 @@ interface EditableModule {
   id: string;
   title: string;
   description: string;
+  isHighlighted: boolean;
   lessons: EditableLesson[];
 }
 
@@ -51,6 +53,7 @@ export interface BuilderModule {
   title: string;
   description?: string;
   isOrientation?: boolean;
+  isHighlighted?: boolean;
   lessons: {
     id: string;
     title: string;
@@ -136,6 +139,7 @@ function toEditable(
     id: repairId(module.id, "module"),
     title: module.title,
     description: module.description ?? "",
+    isHighlighted: module.isHighlighted ?? false,
     lessons: (module.lessons ?? []).map((lesson) => ({
       id: repairId(lesson.id, "lesson"),
       title: lesson.title,
@@ -171,6 +175,9 @@ function findCurriculumProblem(
   for (const [moduleIndex, module] of modules.entries()) {
     if (!module.title.trim()) {
       return `${labels[moduleIndex] ?? "Module"} needs a title.`;
+    }
+    if (module.isHighlighted && !module.lessons.length) {
+      return "The highlighted module needs at least one lesson.";
     }
     for (const [lessonIndex, lesson] of module.lessons.entries()) {
       if (!lesson.title.trim()) {
@@ -235,7 +242,8 @@ export function CourseBuilder({
   const moduleLabels = useMemo(
     () =>
       moduleLabelsFor(
-        modules.map((_, index) => orientationEnabled && index === 0)
+        modules.map((_, index) => orientationEnabled && index === 0),
+        modules.map((module) => module.isHighlighted),
       ),
     [modules, orientationEnabled]
   );
@@ -259,11 +267,38 @@ export function CourseBuilder({
         id,
         title: "",
         description: "",
+        isHighlighted: false,
         lessons: [],
       },
     ]);
     setExpanded((current) => new Set(current).add(id));
     setSavedAt(null);
+  }
+
+  /**
+   * Highlighting is exclusive: turning one module on turns every other off, so
+   * the player always has exactly one card above the curriculum. The
+   * orientation module is not eligible because it already occupies that slot.
+   */
+  function setHighlighted(index: number, highlighted: boolean) {
+    setModules((current) =>
+      current.map((module, i) => ({
+        ...module,
+        isHighlighted: highlighted && i === index,
+      })),
+    );
+    setSavedAt(null);
+    if (highlighted) {
+      const target = modules[index];
+      if (target) {
+        setExpanded((current) => new Set(current).add(target.id));
+        toast.info({
+          title: "Module highlighted",
+          description:
+            "Students will see it as a standalone card at the top of the course player. Save the curriculum to publish it.",
+        });
+      }
+    }
   }
 
   function toggleModule(id: string, open: boolean) {
@@ -409,6 +444,10 @@ export function CourseBuilder({
         title: module.title.trim(),
         description: module.description.trim() || undefined,
         isOrientation: orientationEnabled && moduleIndex === 0,
+        isHighlighted:
+          module.isHighlighted && !(orientationEnabled && moduleIndex === 0)
+            ? true
+            : undefined,
         lessons: module.lessons.map((lesson) => ({
           id: lesson.id,
           title: lesson.title.trim(),
@@ -507,6 +546,15 @@ export function CourseBuilder({
             onChange={(event) => {
               const enabled = event.target.checked;
               setOrientationEnabled(enabled);
+              // The orientation module owns the top slot, so it can never also
+              // carry the highlight.
+              if (enabled) {
+                setModules((current) =>
+                  current.map((module, i) =>
+                    i === 0 ? { ...module, isHighlighted: false } : module,
+                  ),
+                );
+              }
               setSavedAt(null);
               toast.info({
                 title: enabled
@@ -562,6 +610,7 @@ export function CourseBuilder({
                   <span className="mt-0.5 block text-xs text-neutral-500">
                     {module.lessons.length} lesson
                     {module.lessons.length === 1 ? "" : "s"}
+                    {module.isHighlighted ? " · Highlighted" : ""}
                   </span>
                 </span>
                 <ChevronRight
@@ -627,6 +676,31 @@ export function CourseBuilder({
                       <Trash2 aria-hidden="true" className="h-4 w-4" />
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-3 rounded-[10px] border border-neutral-200 bg-white p-3">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={module.isHighlighted}
+                      disabled={orientationEnabled && moduleIndex === 0}
+                      onChange={(event) =>
+                        setHighlighted(moduleIndex, event.target.checked)
+                      }
+                      className="mt-1 size-4 shrink-0 accent-terracotta-600 disabled:opacity-40"
+                    />
+                    <span>
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-neutral-950">
+                        <Star aria-hidden="true" className="h-3.5 w-3.5 text-terracotta-600" />
+                        Highlight this module
+                      </span>
+                      <span className="mt-0.5 block text-sm text-neutral-500">
+                        {orientationEnabled && moduleIndex === 0
+                          ? "The orientation module already sits at the top of the player, so it cannot be highlighted."
+                          : "Students see it as a standalone card above the curriculum, with its lessons one tap away. Only one module can be highlighted at a time."}
+                      </span>
+                    </span>
+                  </label>
                 </div>
 
                 <div className="mt-4 space-y-3">

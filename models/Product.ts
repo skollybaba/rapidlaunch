@@ -55,6 +55,10 @@ const courseModuleSchema = new Schema(
     // resolves to orientation for the first module. An explicit false means an
     // admin turned orientation off.
     isOrientation: { type: Boolean },
+    // Lifts this module out of the numbered curriculum and shows it as the
+    // standalone highlighted card at the top of the player. At most one module
+    // per course; the player resolves duplicates defensively.
+    isHighlighted: { type: Boolean, default: false },
   },
   { _id: false }
 );

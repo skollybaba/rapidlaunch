@@ -48,6 +48,12 @@ export interface CourseModule {
    * so existing courses become orientation-aware without a data migration.
    */
   isOrientation?: boolean;
+  /**
+   * Pulls this module out of the normal curriculum order and shows it as the
+   * highlighted module at the top of the LMS player. The admin UI allows one
+   * highlighted module per course.
+   */
+  isHighlighted?: boolean;
 }
 
 export const ENROLLMENT_STATUSES = ["ACTIVE", "REVOKED"] as const;
@@ -98,6 +104,11 @@ export interface LessonView extends CourseLesson {
 export interface ModuleView {
   /** Resolved server-side: true only for the first module of the course. */
   isOrientation: boolean;
+  /**
+   * Resolved server-side: true for at most one module per course. Rendered as a
+   * standalone card above the normal curriculum in the player.
+   */
+  isHighlighted: boolean;
   id: string;
   title: string;
   description?: string;
@@ -176,24 +187,60 @@ export function resolveOrientationFlags(
 }
 
 /**
+ * Resolves the highlighted flag for every module.
+ *
+ * Highlighting is an editorial "show this above the curriculum" choice, so at
+ * most one module may hold it. The orientation module already occupies the top
+ * LMS slot and therefore never claims the highlight; a second stored `true` is
+ * ignored rather than rendering twice. The first eligible module wins, which
+ * keeps the player stable even if the stored document was hand-edited.
+ */
+export function resolveHighlightedFlags(
+  modules: Pick<CourseModule, "isHighlighted" | "isOrientation">[]
+): boolean[] {
+  const orientationFlags = resolveOrientationFlags(modules);
+  const winner = modules.findIndex(
+    (module, index) => module.isHighlighted === true && !orientationFlags[index]
+  );
+  return modules.map((_, index) => index === winner);
+}
+
+/** Position of the highlighted module, or -1 when nothing is highlighted. */
+export function resolveHighlightedIndex(
+  modules: Pick<CourseModule, "isHighlighted" | "isOrientation">[]
+): number {
+  return resolveHighlightedFlags(modules).indexOf(true);
+}
+
+/**
  * Human label per module position.
  *
  * The orientation module is called "Orientation" and never consumes a course
  * module number, so course modules are numbered from 1 whether or not
- * orientation is switched on.
+ * orientation is switched on. The highlighted module is labelled "Highlighted"
+ * for the same reason: it is lifted out of the numbered sequence and shown as a
+ * standalone card at the top of the player.
  */
-export function moduleLabelsFor(isOrientationFlags: boolean[]): string[] {
+export function moduleLabelsFor(
+  isOrientationFlags: boolean[],
+  isHighlightedFlags: boolean[] = []
+): string[] {
   let courseNumber = 0;
-  return isOrientationFlags.map((isOrientation) =>
-    isOrientation ? "Orientation" : `Module ${++courseNumber}`
-  );
+  return isOrientationFlags.map((isOrientation, index) => {
+    if (isOrientation) return "Orientation";
+    if (isHighlightedFlags[index]) return "Highlighted";
+    return `Module ${++courseNumber}`;
+  });
 }
 
 /** Convenience wrapper that resolves the stored flags first. */
 export function moduleLabels(
-  modules: Pick<CourseModule, "isOrientation">[]
+  modules: Pick<CourseModule, "isOrientation" | "isHighlighted">[]
 ): string[] {
-  return moduleLabelsFor(resolveOrientationFlags(modules));
+  return moduleLabelsFor(
+    resolveOrientationFlags(modules),
+    resolveHighlightedFlags(modules)
+  );
 }
 
 /**

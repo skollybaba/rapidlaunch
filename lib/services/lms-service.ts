@@ -7,6 +7,7 @@ import { Product } from "@/models/Product";
 import {
   countLessons,
   progressPercent,
+  resolveHighlightedFlags,
   resolveOrientationFlags,
   resumeLessonId,
   type BeforeYouStartContent,
@@ -54,6 +55,7 @@ function modulesOf(course: CourseContent): CourseModule[] {
       description: mod.description,
       lessons: Array.isArray(mod.lessons) ? mod.lessons : [],
       isOrientation: mod.isOrientation,
+      isHighlighted: mod.isHighlighted,
     }));
 }
 
@@ -290,12 +292,14 @@ export async function getCourseOutlineForUser(
 
   const storedModules = modulesOf(course as CourseContent);
   const orientationFlags = resolveOrientationFlags(storedModules);
+  const highlightedFlags = resolveHighlightedFlags(storedModules);
 
   const modules: ModuleView[] = storedModules.map((module, index) => ({
     id: module.id,
     title: module.title,
     description: sanitizeCourseDescription(module.description),
     isOrientation: orientationFlags[index] ?? false,
+    isHighlighted: highlightedFlags[index] ?? false,
     lessons: module.lessons.map(
       (lesson): LessonView => ({
         ...lesson,

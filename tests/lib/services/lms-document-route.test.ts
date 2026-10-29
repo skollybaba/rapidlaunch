@@ -28,6 +28,7 @@ const outline: CourseOutline = {
     {
       id: "m1",
       isOrientation: true,
+      isHighlighted: false,
       title: "Module 1",
       lessons: [
         {

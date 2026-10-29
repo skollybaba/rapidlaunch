@@ -15,6 +15,7 @@ import {
   Link2,
   Menu,
   PlayCircle,
+  Star,
   X,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 import {
   moduleLabelsFor,
   courseEntryLessonId,
+  resolveHighlightedFlags,
   type CourseOutline,
   type LessonView,
   type ModuleView,
@@ -161,21 +163,32 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
   }, [active, completed, outline.courseSlug, saving, toast]);
 
   const moduleLabels = moduleLabelsFor(
-    outline.modules.map((module) => module.isOrientation)
+    outline.modules.map((module) => module.isOrientation),
+    resolveHighlightedFlags(outline.modules),
   );
   const orientationIndex = outline.modules.findIndex(
     (module) => module.isOrientation
   );
   const orientationModule =
     orientationIndex >= 0 ? outline.modules[orientationIndex] : undefined;
-  const courseModules = outline.modules.filter((module) => !module.isOrientation);
+
+  // At most one module sits above the numbered curriculum. It is lifted out of
+  // `courseModules` so it can never render twice.
+  const highlightedIndex = resolveHighlightedFlags(outline.modules).indexOf(true);
+  const highlightedModule =
+    highlightedIndex >= 0 ? outline.modules[highlightedIndex] : undefined;
+  const courseModules = outline.modules.filter(
+    (module, index) => !module.isOrientation && index !== highlightedIndex,
+  );
   const activeModule = outline.modules.find(
     (module) => module.id === active?.moduleId
   );
   const activeModuleLabel = activeModule
     ? activeModule.isOrientation
       ? "Before you start"
-      : moduleLabels[outline.modules.indexOf(activeModule)]
+      : highlightedModule?.id === activeModule.id
+        ? "Highlighted module"
+        : moduleLabels[outline.modules.indexOf(activeModule)]
     : "";
 
   // The standalone "Before you start" entry stands in for the orientation
@@ -186,6 +199,104 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
   const beforeYouStartActive = outline.beforeYouStart
     ? activeId === null
     : Boolean(orientationModule && active?.moduleId === orientationModule.id);
+
+  /** One lesson row, shared by the highlighted card and the module accordions. */
+  function renderLessonRow(lesson: LessonView) {
+    const isActive = lesson.id === activeId;
+    const isDone = completed.has(lesson.id);
+    const TypeIcon = LESSON_TYPE_ICON[lesson.type];
+    return (
+      <li key={lesson.id}>
+        <button
+          type="button"
+          onClick={() => setActiveId(lesson.id)}
+          aria-current={isActive ? "true" : undefined}
+          className={cn(
+            "flex w-full items-start gap-3 rounded-[10px] px-3 py-2 text-left transition-colors",
+            isActive ? "bg-terracotta-100" : "hover:bg-neutral-100"
+          )}
+        >
+          <TypeIcon
+            aria-hidden="true"
+            className={cn(
+              "mt-0.5 size-4 shrink-0",
+              isActive
+                ? "text-terracotta-600"
+                : isDone
+                  ? "text-success-600"
+                  : "text-neutral-400"
+            )}
+          />
+          <span className="min-w-0 flex-1">
+            <span
+              className={cn(
+                "block text-sm",
+                isActive
+                  ? "font-semibold text-neutral-950"
+                  : "text-neutral-700"
+              )}
+            >
+              {lesson.title}
+            </span>
+            <span className="mt-0.5 block text-xs text-neutral-500">
+              {lessonKindLabel(lesson)}
+            </span>
+          </span>
+          {isDone ? (
+            <Check
+              aria-label="Completed"
+              className="mt-0.5 size-4 shrink-0 text-success-600"
+            />
+          ) : null}
+        </button>
+      </li>
+    );
+  }
+
+  /**
+   * The standalone highlighted module.
+   *
+   * It is lifted out of the numbered curriculum and pinned above it, so a
+   * student can open this one block without hunting through the course order.
+   * Its lessons stay folded until the card is opened.
+   */
+  function renderHighlightedCard(module: ModuleView) {
+    const doneCount = module.lessons.filter(
+      (lesson) => completed.has(lesson.id) && !lesson.isPreview
+    ).length;
+    return (
+      <li key={module.id}>
+        <details
+          className="group overflow-hidden rounded-[12px] border border-terracotta-600/40 bg-terracotta-100"
+          open={module.lessons.some((lesson) => lesson.id === activeId)}
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 transition-colors duration-[var(--duration-fast)] hover:bg-terracotta-600/10 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)] [&::-webkit-details-marker]:hidden">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta-600 text-white">
+              <Star aria-hidden="true" className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-terracotta-600">
+                Highlighted module
+              </span>
+              <span className="mt-0.5 block text-sm font-bold text-neutral-950">
+                {module.title}
+              </span>
+            </span>
+            <span className="shrink-0 text-xs font-medium tabular-nums text-neutral-700">
+              {doneCount}/{module.lessons.length}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-4 shrink-0 text-neutral-700 transition-transform duration-[var(--duration-fast)] group-open:rotate-180"
+            />
+          </summary>
+          <ul className="space-y-1 border-t border-terracotta-600/20 bg-white p-2">
+            {module.lessons.map(renderLessonRow)}
+          </ul>
+        </details>
+      </li>
+    );
+  }
 
   /** One accordion card, rendered once per course module. */
   function renderModuleCard(module: ModuleView, label: string) {
@@ -225,57 +336,7 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
             />
           </summary>
           <ul className="space-y-1 p-2">
-            {module.lessons.map((lesson) => {
-              const isActive = lesson.id === activeId;
-              const isDone = completed.has(lesson.id);
-              const TypeIcon = LESSON_TYPE_ICON[lesson.type];
-              return (
-                <li key={lesson.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveId(lesson.id)}
-                    aria-current={isActive ? "true" : undefined}
-                    className={cn(
-                      "flex w-full items-start gap-3 rounded-[10px] px-3 py-2 text-left transition-colors",
-                      isActive ? "bg-terracotta-100" : "hover:bg-neutral-100"
-                    )}
-                  >
-                    <TypeIcon
-                      aria-hidden="true"
-                      className={cn(
-                        "mt-0.5 size-4 shrink-0",
-                        isActive
-                          ? "text-terracotta-600"
-                          : isDone
-                            ? "text-success-600"
-                            : "text-neutral-400"
-                      )}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={cn(
-                          "block text-sm",
-                          isActive
-                            ? "font-semibold text-neutral-950"
-                            : "text-neutral-700"
-                        )}
-                      >
-                        {lesson.title}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-neutral-500">
-                        {lessonKindLabel(lesson)}
-                      </span>
-                    </span>
-                    {isDone ? (
-                      <Check
-                        aria-label="Completed"
-                        className="mt-0.5 size-4 shrink-0 text-success-600"
-                      />
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
+            {module.lessons.map(renderLessonRow)}
           </ul>
         </details>
       </li>
@@ -384,6 +445,23 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
               : "hidden md:block"
           )}
         >
+          {highlightedModule ? (
+            <section
+              aria-labelledby="highlighted-module-heading"
+              className="mb-5"
+            >
+              <h2
+                id="highlighted-module-heading"
+                className="px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-terracotta-600"
+              >
+                Highlighted
+              </h2>
+              <ol className="mt-2">
+                {renderHighlightedCard(highlightedModule)}
+              </ol>
+            </section>
+          ) : null}
+
           {showBeforeYouStartEntry ? (
             <section aria-labelledby="before-you-start-heading" className="mb-5">
               <h2
@@ -402,7 +480,7 @@ export function CoursePlayer({ outline }: CoursePlayerProps) {
                 className={cn(
                   "mt-2 flex w-full items-center gap-3 rounded-[12px] border px-3 py-3 text-left transition-colors duration-[var(--duration-fast)] focus:outline-none focus-visible:ring-[3px] focus-visible:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]",
                   beforeYouStartActive
-                    ? "border-terracotta-300 bg-terracotta-100"
+                    ? "border-terracotta-600 bg-terracotta-100"
                     : "border-neutral-300 bg-white hover:bg-lavender-100"
                 )}
               >

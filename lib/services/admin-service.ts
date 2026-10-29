@@ -21,6 +21,7 @@ import {
   courseModulesSchema,
 } from "@/lib/validation/lms";
 import {
+  resolveHighlightedFlags,
   resolveOrientationFlags,
   type CourseModule,
 } from "@/types/lms";
@@ -1079,10 +1080,14 @@ export async function setCourseModules(id: string, input: unknown) {
   // never disagree with what the player renders: only module 1 may be the
   // orientation module, and an undecided module 1 becomes orientation.
   const orientationFlags = resolveOrientationFlags(parsed);
+  // Highlighting is also resolved before saving, so the stored document holds
+  // exactly one highlighted module and never the orientation module.
+  const highlightedFlags = resolveHighlightedFlags(parsed);
   const modules: CourseModule[] = parsed.map((module, index) => ({
     ...module,
     description: sanitizeCourseDescription(module.description),
     isOrientation: orientationFlags[index] ?? false,
+    isHighlighted: highlightedFlags[index] ?? false,
     lessons: module.lessons.map((lesson) => ({
       ...lesson,
       description: sanitizeCourseDescription(lesson.description),

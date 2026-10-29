@@ -161,3 +161,85 @@ describe("getCourseOutlineForUser with a before-you-start page", () => {
     expect(outline.hasStarted).toBe(true);
   });
 });
+
+describe("getCourseOutlineForUser with a highlighted module", () => {
+  const secondLesson = { ...videoLesson, id: "l2", title: "Standalone video" };
+
+  interface HighlightCourse {
+    _id: string;
+    slug: string;
+    title: string;
+    courseDetails: {
+      modules: {
+        id: string;
+        title: string;
+        isHighlighted?: boolean;
+        lessons: (typeof videoLesson)[];
+      }[];
+    };
+  }
+
+  function courseWithHighlight(): HighlightCourse {
+    return {
+      _id: "CRS1",
+      slug: "launch-fast",
+      title: "Launch Fast",
+      courseDetails: {
+        modules: [
+          { id: "m1", title: "Orientation", lessons: [videoLesson] },
+          { id: "m2", title: "Basics", lessons: [{ ...videoLesson, id: "l3" }] },
+          {
+            id: "m3",
+            title: "Standalone",
+            isHighlighted: true,
+            lessons: [secondLesson],
+          },
+        ],
+      },
+    };
+  }
+
+  it("flags the stored module and nothing else", async () => {
+    mockProductFindOne.mockReturnValue(chainWithSelect(courseWithHighlight()));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    const outline = await getCourseOutlineForUser("U1", "launch-fast");
+
+    expect(outline.modules.map((module) => module.isHighlighted)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    expect(outline.modules[2].lessons[0].moduleId).toBe("m3");
+  });
+
+  it("never resolves a highlight onto the orientation module", async () => {
+    const course = courseWithHighlight();
+    course.courseDetails.modules[0].isHighlighted = true;
+    mockProductFindOne.mockReturnValue(chainWithSelect(course));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    const outline = await getCourseOutlineForUser("U1", "launch-fast");
+
+    expect(outline.modules.map((module) => module.isHighlighted)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it("collapses duplicate flags to the first eligible module", async () => {
+    const course = courseWithHighlight();
+    course.courseDetails.modules[1].isHighlighted = true;
+    mockProductFindOne.mockReturnValue(chainWithSelect(course));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    const outline = await getCourseOutlineForUser("U1", "launch-fast");
+
+    expect(outline.modules.map((module) => module.isHighlighted)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+  });
+});

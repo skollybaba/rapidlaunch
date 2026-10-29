@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { LESSON_TYPES } from "@/types/lms";
+import { LESSON_TYPES, resolveOrientationFlags } from "@/types/lms";
 import { parseYouTubeId } from "@/lib/youtube";
 
 /**
@@ -112,11 +112,45 @@ export const courseModuleSchema = z.object({
   description: z.string().trim().max(20000).optional(),
   lessons: z.array(lessonSchema).max(200, "Too many lessons in one module"),
   isOrientation: z.boolean().optional(),
+  isHighlighted: z.boolean().optional(),
 });
+
+/**
+ * Index of the orientation module, or -1 when the course has none. Orientation
+ * is positional, so this is always the first module unless it was turned off.
+ */
+function resolveOrientationIndex(modules: { isOrientation?: boolean }[]): number {
+  return resolveOrientationFlags(modules).indexOf(true);
+}
 
 export const courseModulesSchema = z
   .array(courseModuleSchema)
-  .max(60, "Too many modules");
+  .max(60, "Too many modules")
+  .superRefine((modules, ctx) => {
+    // Highlighting lifts one module out of the numbered curriculum. Two of them
+    // would give the player no single card to show, and the orientation module
+    // already owns the top slot, so both cases are rejected with a message the
+    // admin can act on.
+    const highlighted = modules.filter((module) => module.isHighlighted === true);
+    if (highlighted.length > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only one module can be highlighted at a time",
+      });
+    }
+
+    const orientationIndex = resolveOrientationIndex(modules);
+    if (
+      orientationIndex >= 0 &&
+      modules[orientationIndex]?.isHighlighted === true
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "The orientation module cannot also be highlighted",
+        path: [orientationIndex, "isHighlighted"],
+      });
+    }
+  });
 
 /**
  * Accepts http(s) URLs and root-relative paths for outbound CTA links, so the
