@@ -17,6 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/utils";
 
+type MetaPixelWindow = Window & {
+  fbq?: (...args: unknown[]) => void;
+};
+
 interface VerifyResult {
   ok: boolean;
   data: {
@@ -285,9 +289,12 @@ export default function PaymentCallbackView() {
         if (json.data.paymentStatus === "PAID" && !json.data.discrepancy) {
           setRenderState("success");
           try {
-            if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
-              (window as any).fbq("track", "Purchase", {
-                value: json.data.totalMinor ? json.data.totalMinor / 100 : undefined,
+            const fbq = (window as MetaPixelWindow).fbq;
+            if (typeof fbq === "function") {
+              fbq("track", "Purchase", {
+                value: json.data.totalMinor
+                  ? json.data.totalMinor / 100
+                  : undefined,
                 currency: json.data.currency || "NGN",
                 content_name: json.data.itemTitle,
                 content_ids: [json.data.orderReference],
