@@ -667,3 +667,13 @@ Do not tell Opencode to use Drizzle with MongoDB. Drizzle is not the default cho
 Do not tell Opencode that the requested skills are literally installed as software packages. **Frontend design, Next.js architecture, and AI-SDK integration are knowledge and workflow instructions.** Packages such as `next`, `mongoose`, `zod`, `nodemailer`, `googleapis`, and the chosen AI SDK are installed dependencies; the skill documents are agent instructions.
 
 Do not install every possible library at the beginning. Start with the project foundation, verify the environment, and add provider SDKs when their feature slice is ready. This keeps dependency conflicts and unnecessary attack surface under control.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

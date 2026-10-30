@@ -130,11 +130,43 @@ function webhookEventKey(event: string, payload: unknown): string {
   return `${event}:hash:${hash}`;
 }
 
+/**
+ * The product slug recorded on the order at creation time. It is the stable,
+ * human-readable identifier used in the course confirmation URL.
+ */
+function productSlugFromMetadata(
+  metadata?: Record<string, unknown>
+): string {
+  const slug = metadata?.productSlug;
+  return typeof slug === "string" ? slug.trim() : "";
+}
+
+/**
+ * Path of the post-payment confirmation page for an order.
+ *
+ * Course orders carry the course slug as a path segment
+ * (`/payment/callback/course/<slug>`) so the confirmation URL itself identifies
+ * which course was bought. That lets ad-platform purchase tracking (Facebook
+ * Pixel/CAPI) and support attribute a sale to a specific course, and it
+ * survives providers that append their own query string on redirect.
+ */
 function paymentCallbackPath(order: { metadata?: Record<string, unknown> }): string {
   const type = order.metadata?.productType;
-  if (type === "COURSE") return "/payment/callback/course";
+  if (type === "COURSE") {
+    const slug = productSlugFromMetadata(order.metadata);
+    return slug
+      ? `/payment/callback/course/${encodeURIComponent(slug)}`
+      : "/payment/callback/course";
+  }
   if (type === "CONSULTATION") return "/payment/callback/session";
   return "/payment/callback";
+}
+
+/** Product identifiers returned with a public order summary. */
+function orderProductIdentifiers(order: {
+  metadata?: Record<string, unknown>;
+}): Pick<OrderPublicSummary, "productSlug"> {
+  return { productSlug: productSlugFromMetadata(order.metadata) || undefined };
 }
 
 /**
@@ -746,6 +778,7 @@ async function settleVerifiedPayment(
       discrepancy: false,
       paidAt: order.paidAt?.toISOString() ??
         null,
+      ...orderProductIdentifiers(order),
     };
   }
 
@@ -774,6 +807,7 @@ async function settleVerifiedPayment(
         currency: order.currency,
         paymentStatus: "SUSPICIOUS",
         discrepancy: true,
+        ...orderProductIdentifiers(order),
       };
     }
   }
@@ -869,6 +903,7 @@ async function settleVerifiedPayment(
     paymentStatus: "PAID",
     discrepancy: false,
     paidAt: now.toISOString(),
+    ...orderProductIdentifiers(order),
   };
 }
 
@@ -1649,6 +1684,7 @@ export async function getOrderByReference(
     currency: order.currency,
     paymentStatus: payment?.status ?? "PENDING",
     paidAt: order.paidAt?.toISOString() ?? null,
+    ...orderProductIdentifiers(order),
   };
 }
 

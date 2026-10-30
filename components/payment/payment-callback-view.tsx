@@ -32,6 +32,8 @@ interface VerifyResult {
     currency: string;
     paymentStatus: string;
     discrepancy: boolean;
+    /** Slug of the purchased course, used to attribute the pixel purchase. */
+    productSlug?: string;
   };
   error?: { code: string; message: string };
 }
@@ -232,7 +234,16 @@ function StaticPage({
   );
 }
 
-export default function PaymentCallbackView() {
+export default function PaymentCallbackView({
+  courseSlug,
+}: {
+  /**
+   * Course slug taken from the confirmation URL path
+   * (`/payment/callback/course/<slug>`). Analytics label only — the payment is
+   * always verified server-side from the reference.
+   */
+  courseSlug?: string;
+}) {
   // Render the success view optimistically (matches the previously working
   // behavior) on both server and client so there is no hydration mismatch and
   // the confirmation appears immediately; the fast verify call reconciles the
@@ -291,13 +302,20 @@ export default function PaymentCallbackView() {
           try {
             const fbq = (window as MetaPixelWindow).fbq;
             if (typeof fbq === "function") {
+              // The verified product slug is authoritative; the URL slug covers
+              // the brief window before verification returns.
+              const contentId =
+                json.data.productSlug ||
+                courseSlug ||
+                json.data.orderReference;
               fbq("track", "Purchase", {
                 value: json.data.totalMinor
                   ? json.data.totalMinor / 100
                   : undefined,
                 currency: json.data.currency || "NGN",
                 content_name: json.data.itemTitle,
-                content_ids: [json.data.orderReference],
+                content_ids: [contentId],
+                content_type: "product",
               });
             }
           } catch {
@@ -341,7 +359,7 @@ export default function PaymentCallbackView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [courseSlug]);
 
   if (renderState === "no-reference") {
     return (

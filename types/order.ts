@@ -47,4 +47,9 @@ export interface OrderPublicSummary {
   currency: string;
   paymentStatus?: PaymentStatus;
   paidAt?: string | null;
+  /**
+   * Slug of the purchased product. Used by the confirmation page to attribute a
+   * purchase to a specific course in ad-platform tracking.
+   */
+  productSlug?: string;
 }

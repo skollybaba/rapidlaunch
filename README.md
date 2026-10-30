@@ -47,6 +47,35 @@ provider as not configured.
 - MongoDB running locally (`mongodb://127.0.0.1:27017`) or a hosted instance
   such as MongoDB Atlas (`mongodb+srv://...`) — any MongoDB 7+ instance works.
 
+### Local MongoDB on this machine (already installed)
+
+MongoDB Community 8.2.7 lives at `~/mongodb/mongodb-macos-aarch64--8.2.7`
+(tarball install, no Homebrew), with its data directory at `~/mongodb/data`.
+It is managed by a per-user LaunchAgent so it starts at login and restarts
+automatically if it crashes:
+
+```bash
+# status / pid
+launchctl print gui/$(id -u)/com.agilemindshub.mongodb | grep -E "state =|pid ="
+
+# stop for the session (stays stopped until next login or kickstart)
+launchctl bootout gui/$(id -u)/com.agilemindshub.mongodb
+
+# start again
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.agilemindshub.mongodb.plist
+
+# restart in place
+launchctl kickstart -k gui/$(id -u)/com.agilemindshub.mongodb
+```
+
+Agent file: `~/Library/LaunchAgents/com.agilemindshub.mongodb.plist`
+Logs: `~/mongodb/log/mongod.log`, plus `launchd.out.log` / `launchd.err.log`.
+
+If a previous `mongod` was killed hard, the stale `~/mongodb/data/mongod.lock`
+is harmless — `mongod` detects that the recorded PID is gone and performs
+WiredTiger journal recovery on the next start. Do not delete the data
+directory to "fix" a lock.
+
 ## Local setup
 
 1. Install dependencies:
@@ -227,6 +256,11 @@ action-required fulfillments.
 
 - **`Invalid server environment configuration: MONGODB_URI_MONGODB_URI ...`** — create
   `.env.local` from `.env.example` and set `MONGODB_URI_MONGODB_URI`.
+- **`connect ECONNREFUSED 127.0.0.1:27017`** — the MongoDB server is not running, not a
+  code problem. Start it with
+  `launchctl kickstart -k gui/$(id -u)/com.agilemindshub.mongodb`, then check
+  `launchctl print gui/$(id -u)/com.agilemindshub.mongodb | grep state`. See
+  "Local MongoDB on this machine" above.
 - **Type errors after installing new packages** — run `npm run typecheck`.
 - **Dependency conflict messages** — the project pins `nodemailer@9` while
   `next-auth@4` declares an optional peer of `nodemailer@^7`. Installs are

@@ -34,6 +34,17 @@ vi.mock("@/models/Product", () => ({
   Product: { findOne: vi.fn() },
 }));
 
+// The analytics model is written by the real analytics service through a
+// fire-and-forget call. Without a mock, Mongoose buffers the write for 10s
+// (there is no live connection here) and every checkout test times out.
+vi.mock("@/models/AnalyticsEvent", () => ({
+  AnalyticsEvent: {
+    updateOne: vi.fn().mockReturnValue({
+      exec: vi.fn().mockResolvedValue({}),
+    }),
+  },
+}));
+
 vi.mock("@/models/User", () => ({
   User: {
     findOne: vi.fn().mockReturnValue({
@@ -156,7 +167,11 @@ const orderDoc = {
   discountMinor: 0,
   totalMinor: 5_000_000,
   currency: "NGN",
-  metadata: { productType: "COURSE", productFulfillmentMode: "LMS" },
+  metadata: {
+    productType: "COURSE",
+    productFulfillmentMode: "LMS",
+    productSlug: "ai-product-strategy",
+  },
   paidAt: null,
   createdAt: new Date(),
 };
@@ -456,7 +471,9 @@ describe("initializeCheckoutPayment", () => {
         currency: "NGN",
         email: "buyer@example.com",
         reference: expect.stringMatching(/^QL-PAY-/),
-        callback_url: expect.stringContaining("/payment/callback/course?reference="),
+        callback_url: expect.stringContaining(
+          "/payment/callback/course/ai-product-strategy?reference="
+        ),
       }),
       expect.anything()
     );
@@ -496,6 +513,33 @@ describe("initializeCheckoutPayment", () => {
       }),
       expect.anything()
     );
+
+    const body = mockPost.mock.calls[0][1] as { callback_url: string };
+    expect(body.callback_url).not.toContain("/course");
+  });
+
+  it("falls back to the generic course callback when the order has no slug", async () => {
+    vi.mocked(Order.findOne).mockReturnValue(
+      lean({
+        ...orderDoc,
+        metadata: { productType: "COURSE", productFulfillmentMode: "LMS" },
+      })
+    );
+    vi.mocked(Payment.create).mockResolvedValue(paymentDoc as never);
+    mockPost.mockResolvedValue({
+      data: {
+        data: {
+          authorization_url: "https://checkout.paystack.com/abc",
+          access_code: "ac_1",
+          reference: "QL-PAY-ABC",
+        },
+      },
+    });
+
+    await initializeCheckoutPayment({ orderReference: "QL-XYZ123" });
+
+    const body = mockPost.mock.calls[0][1] as { callback_url: string };
+    expect(body.callback_url).toContain("/payment/callback/course?reference=");
   });
 
   it("rejects an unknown order", async () => {
