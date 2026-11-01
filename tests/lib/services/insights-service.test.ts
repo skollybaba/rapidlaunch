@@ -8,13 +8,13 @@ vi.mock("@/models/Order", () => ({
   Order: { countDocuments: vi.fn(), aggregate: vi.fn(), find: vi.fn() },
 }));
 vi.mock("@/models/Fulfillment", () => ({
-  Fulfillment: { countDocuments: vi.fn(), aggregate: vi.fn(), find: vi.fn() },
+  Fulfillment: { aggregate: vi.fn() },
 }));
 vi.mock("@/models/User", () => ({
   User: { countDocuments: vi.fn() },
 }));
 vi.mock("@/models/Payment", () => ({
-  Payment: { countDocuments: vi.fn() },
+  Payment: { aggregate: vi.fn() },
 }));
 vi.mock("@/models/Booking", () => ({
   Booking: { countDocuments: vi.fn() },
@@ -32,19 +32,22 @@ type MockFn = ReturnType<typeof vi.fn>;
 const mockOrderCount = Order.countDocuments as unknown as MockFn;
 const mockOrderAggregate = Order.aggregate as unknown as MockFn;
 const mockOrderFind = Order.find as unknown as MockFn;
-const mockFulfillmentCount = Fulfillment.countDocuments as unknown as MockFn;
 const mockFulfillmentAggregate = Fulfillment.aggregate as unknown as MockFn;
-const mockFulfillmentFind = Fulfillment.find as unknown as MockFn;
 const mockUserCount = User.countDocuments as unknown as MockFn;
-const mockPaymentCount = Payment.countDocuments as unknown as MockFn;
+const mockPaymentAggregate = Payment.aggregate as unknown as MockFn;
 const mockBookingCount = Booking.countDocuments as unknown as MockFn;
 
 const NOW = new Date("2026-09-04T12:00:00.000Z");
 
 interface AggregateStage {
-  $match?: unknown;
+  $match?: Record<string, unknown>;
   $unwind?: unknown;
   $group?: { _id: unknown };
+  $lookup?: { from: string };
+  $count?: string;
+  $limit?: number;
+  $project?: Record<string, unknown>;
+  $sort?: unknown;
 }
 
 function findChain<T>(resolve: T) {
@@ -91,22 +94,6 @@ beforeEach(() => {
 
   mockUserCount.mockImplementation(() => Promise.resolve(4));
 
-  mockFulfillmentCount.mockImplementation((f: Record<string, unknown>) => {
-    const inList = (f.status as { $in?: string[] } | undefined)?.$in;
-    if (f.status === "FULFILLED") return Promise.resolve(5);
-    if (inList) {
-      if (f.type) return Promise.resolve(inList[0] === "PENDING" ? 1 : 2);
-      return Promise.resolve(3);
-    }
-    return Promise.resolve(0);
-  });
-
-  mockPaymentCount.mockImplementation((f: Record<string, unknown>) => {
-    const inList = (f.status as { $in?: string[] } | undefined)?.$in;
-    if (inList) return Promise.resolve(inList[0] === "FAILED" ? 1 : 2);
-    return Promise.resolve(0);
-  });
-
   mockBookingCount.mockImplementation((f: Record<string, unknown>) => {
     if (f.status === "PENDING") return Promise.resolve(2);
     const inList = (f.status as { $in?: string[] } | undefined)?.$in;
@@ -116,14 +103,57 @@ beforeEach(() => {
 
   mockOrderAggregateDefault();
 
-  mockFulfillmentAggregate.mockImplementation(() =>
-    Promise.resolve([
+  // Fulfillment reads now go through aggregates so orphaned rows (whose order
+  // no longer exists) can be dropped by the pipeline's $lookup.
+  mockFulfillmentAggregate.mockImplementation((pipeline: AggregateStage[]) => {
+    const match = pipeline.find((stage) => stage.$match)?.$match;
+    const status = match?.status as
+      | string
+      | { $in?: string[] }
+      | undefined;
+
+    if (pipeline.some((stage) => stage.$limit === 8)) {
+      return Promise.resolve([
+        {
+          _id: "f1",
+          orderId: "o1",
+          status: "FULFILLED",
+          fulfilledAt: new Date("2026-09-03T10:00:00.000Z"),
+        },
+      ] as never[]);
+    }
+
+    if (pipeline.some((stage) => stage.$count)) {
+      if (match?.type) {
+        if (status === "FULFILLED") return Promise.resolve([{ count: 5 }]);
+        const inList = (status as { $in?: string[] } | undefined)?.$in;
+        if (inList) {
+          return Promise.resolve([
+            { count: inList[0] === "PENDING" ? 1 : 2 },
+          ]);
+        }
+      }
+      // Fulfillment issues are counted across every fulfillment type.
+      return Promise.resolve([{ count: 3 }]);
+    }
+
+    return Promise.resolve([
       {
         _id: new Date("2026-09-01T00:00:00.000Z"),
         enrollments: 2,
       },
-    ] as never[])
-  );
+    ] as never[]);
+  });
+
+  mockPaymentAggregate.mockImplementation((pipeline: AggregateStage[]) => {
+    const status = pipeline.find((stage) => stage.$match)?.$match?.status as
+      | { $in?: string[] }
+      | undefined;
+    const inList = status?.$in;
+    return Promise.resolve([
+      { count: inList?.[0] === "FAILED" ? 1 : 2 },
+    ]);
+  });
 
   mockOrderFind.mockImplementation(() =>
     findChain([
@@ -132,17 +162,6 @@ beforeEach(() => {
         orderReference: "QL-000001",
         customerEmail: "a@test.com",
         items: [{ titleSnapshot: "Course A" }],
-      },
-    ])
-  );
-
-  mockFulfillmentFind.mockImplementation(() =>
-    findChain([
-      {
-        _id: "f1",
-        orderId: "o1",
-        status: "FULFILLED",
-        fulfilledAt: new Date("2026-09-03T10:00:00.000Z"),
       },
     ])
   );
@@ -248,5 +267,32 @@ describe("getInsights", () => {
       pendingBookings: 2,
       upcomingBookings: 3,
     });
+  });
+
+  it("drops fulfillment and payment rows whose order no longer exists", async () => {
+    await getInsights("monthly", { now: NOW });
+
+    const pipelines: AggregateStage[][] = [
+      ...mockFulfillmentAggregate.mock.calls.map((call) => call[0]),
+      ...mockPaymentAggregate.mock.calls.map((call) => call[0]),
+    ];
+
+    expect(pipelines.length).toBeGreaterThan(0);
+
+    for (const pipeline of pipelines) {
+      const lookupIndex = pipeline.findIndex(
+        (stage) => stage.$lookup?.from === "orders"
+      );
+      expect(lookupIndex).toBeGreaterThanOrEqual(0);
+      expect(pipeline[lookupIndex + 1]?.$match).toHaveProperty(
+        "__liveOrder.0"
+      );
+
+      // The join has to run before any stage that consumes or drops orderId.
+      const groupOrCount = pipeline.findIndex(
+        (stage) => stage.$group || stage.$count
+      );
+      if (groupOrCount >= 0) expect(lookupIndex).toBeLessThan(groupOrCount);
+    }
   });
 });

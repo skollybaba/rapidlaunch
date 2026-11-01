@@ -6,8 +6,11 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { User } from "@/models/User";
 import { dbConnect } from "@/lib/db";
+import { countFrom, liveOrderStages } from "@/lib/services/live-order-filter";
 
 const CURRENCY = "NGN";
+
+const ENROLLMENT_TYPES = ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"];
 
 export const INSIGHTS_PERIODS = [
   "daily",
@@ -181,6 +184,13 @@ interface StatusAggRow {
   count: number;
 }
 
+interface RecentFulfillmentRow {
+  _id: unknown;
+  orderId: unknown;
+  status: string;
+  fulfilledAt: Date | null;
+}
+
 export async function getInsights(
   periodInput?: string,
   opts: { now?: Date } = {}
@@ -224,21 +234,39 @@ export async function getInsights(
       role: { $ne: "admin" },
       createdAt: { $gte: windowStart },
     }),
-    Fulfillment.countDocuments({
-      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
-      status: "FULFILLED",
-      fulfilledAt: { $gte: windowStart },
-    }),
-    Fulfillment.countDocuments({
-      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
-      status: { $in: ["PENDING", "RETRY_PENDING"] },
-      createdAt: { $gte: windowStart },
-    }),
-    Fulfillment.countDocuments({
-      type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
-      status: { $in: ["ACTION_REQUIRED", "FAILED"] },
-      createdAt: { $gte: windowStart },
-    }),
+    Fulfillment.aggregate<{ count: number }>([
+      {
+        $match: {
+          type: { $in: ENROLLMENT_TYPES },
+          status: "FULFILLED",
+          fulfilledAt: { $gte: windowStart },
+        },
+      },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
+    Fulfillment.aggregate<{ count: number }>([
+      {
+        $match: {
+          type: { $in: ENROLLMENT_TYPES },
+          status: { $in: ["PENDING", "RETRY_PENDING"] },
+          createdAt: { $gte: windowStart },
+        },
+      },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
+    Fulfillment.aggregate<{ count: number }>([
+      {
+        $match: {
+          type: { $in: ENROLLMENT_TYPES },
+          status: { $in: ["ACTION_REQUIRED", "FAILED"] },
+          createdAt: { $gte: windowStart },
+        },
+      },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
     Order.aggregate<RevenueWindowRow>([
       {
         $match: {
@@ -268,11 +296,12 @@ export async function getInsights(
     Fulfillment.aggregate<EnrollmentTrendRow>([
       {
         $match: {
-          type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] },
+          type: { $in: ENROLLMENT_TYPES },
           status: "FULFILLED",
           fulfilledAt: { $gte: windowStart },
         },
       },
+      ...liveOrderStages(),
       {
         $group: {
           _id: { $dateTrunc: { date: "$fulfilledAt", unit: cfg.unit } },
@@ -300,26 +329,37 @@ export async function getInsights(
     Order.aggregate<StatusAggRow>([
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
-    Fulfillment.countDocuments({
-      status: { $in: ["ACTION_REQUIRED", "FAILED"] },
-    }),
-    Payment.countDocuments({
-      status: { $in: ["PENDING", "CREATED", "INITIALIZATION_FAILED"] },
-    }),
-    Payment.countDocuments({
-      status: { $in: ["FAILED", "ABANDONED", "SUSPICIOUS"] },
-    }),
+    Fulfillment.aggregate<{ count: number }>([
+      { $match: { status: { $in: ["ACTION_REQUIRED", "FAILED"] } } },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
+    Payment.aggregate<{ count: number }>([
+      {
+        $match: {
+          status: { $in: ["PENDING", "CREATED", "INITIALIZATION_FAILED"] },
+        },
+      },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
+    Payment.aggregate<{ count: number }>([
+      { $match: { status: { $in: ["FAILED", "ABANDONED", "SUSPICIOUS"] } } },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ]).then(countFrom),
     Booking.countDocuments({ status: "PENDING" }),
     Booking.countDocuments({
       status: { $in: ["CONFIRMED", "PENDING"] },
       scheduledStartTime: { $gte: now },
     }),
-    Fulfillment.find({ type: { $in: ["LMS_ENROLLMENT", "CLASSROOM_ENROLLMENT"] } })
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .select("_id orderId status fulfilledAt")
-      .lean()
-      .exec(),
+    Fulfillment.aggregate<RecentFulfillmentRow>([
+      { $match: { type: { $in: ENROLLMENT_TYPES } } },
+      ...liveOrderStages(),
+      { $sort: { createdAt: -1 } },
+      { $limit: 8 },
+      { $project: { _id: 1, orderId: 1, status: 1, fulfilledAt: 1 } },
+    ]),
   ]);
 
   const revenueByBucket = new Map<number, RevenueTrendRow>();

@@ -30,12 +30,12 @@ export const metadata: Metadata = {
 export default async function UsagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const data = await getUsageMetrics(params.window ?? "30d");
+  const data = await getUsageMetrics(params);
   const {
     window,
     activeEnrollments,
@@ -70,6 +70,9 @@ export default async function UsagePage({
         title="Usage metrics"
         subtitle="Course engagement, bookings and lead volume over time."
         windowKey={window.key}
+        windowLabel={window.label}
+        rangeStart={window.startDate}
+        rangeEnd={window.endDate}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

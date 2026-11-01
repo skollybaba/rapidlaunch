@@ -37,12 +37,12 @@ const STATUS_TONE: Record<string, string> = {
 export default async function FunnelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const data = await getFunnelMetrics(params.window ?? "30d");
+  const data = await getFunnelMetrics(params);
   const {
     window,
     steps,
@@ -64,6 +64,9 @@ export default async function FunnelPage({
         title="Checkout funnel"
         subtitle="Where buyers drop off between viewing a product and paying."
         windowKey={window.key}
+        windowLabel={window.label}
+        rangeStart={window.startDate}
+        rangeEnd={window.endDate}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

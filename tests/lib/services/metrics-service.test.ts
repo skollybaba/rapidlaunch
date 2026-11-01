@@ -76,10 +76,11 @@ vi.mock("@/models/Lead", () => ({
 vi.mock("@/models/Fulfillment", () => ({
   Fulfillment: {
     countDocuments: mocks.countMock,
+    aggregate: mocks.aggregateMock,
   },
 }));
 
-import { getRevenueMetrics, getFunnelMetrics, getUsageMetrics, getCustomerMetrics, getFocusInsights, getCustomerDetail, METRIC_WINDOWS } from "@/lib/services/metrics-service";
+import { getRevenueMetrics, getFunnelMetrics, getUsageMetrics, getCustomerMetrics, getFocusInsights, getCustomerDetail, resolveWindow, METRIC_WINDOWS, CUSTOM_WINDOW_KEY } from "@/lib/services/metrics-service";
 
 describe("metrics-service", () => {
   beforeEach(() => {
@@ -214,6 +215,96 @@ describe("metrics-service", () => {
       expect(METRIC_WINDOWS).toContain("30d");
       expect(METRIC_WINDOWS).toContain("90d");
       expect(METRIC_WINDOWS).toContain("12m");
+    });
+  });
+
+  describe("resolveWindow", () => {
+    const now = new Date("2026-06-15T12:00:00.000Z");
+
+    it("resolves a preset window from a string key", () => {
+      const window = resolveWindow("90d", now);
+
+      expect(window.key).toBe("90d");
+      expect(window.bucketUnit).toBe("week");
+      expect(window.startDate).toBeUndefined();
+      expect(window.endDate).toBeUndefined();
+    });
+
+    it("defaults to the 30 day window for unknown keys", () => {
+      expect(resolveWindow("nonsense", now).key).toBe("30d");
+      expect(resolveWindow(undefined, now).key).toBe("30d");
+    });
+
+    it("resolves a custom range with an inclusive end date", () => {
+      const window = resolveWindow(
+        { window: CUSTOM_WINDOW_KEY, start: "2026-01-01", end: "2026-01-31" },
+        now
+      );
+
+      expect(window.key).toBe(CUSTOM_WINDOW_KEY);
+      expect(window.start.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+      // The end bound is exclusive so the picked day is fully included.
+      expect(window.end.toISOString()).toBe("2026-02-01T00:00:00.000Z");
+      expect(window.startDate).toBe("2026-01-01");
+      expect(window.endDate).toBe("2026-01-31");
+      expect(window.bucketUnit).toBe("day");
+      expect(window.previousLabel).toBe("Previous 31d");
+      // Previous window has the same length and ends where the current starts.
+      expect(window.previousStart.toISOString()).toBe(
+        "2025-12-01T00:00:00.000Z"
+      );
+    });
+
+    it("selects a weekly bucket for mid-length custom ranges", () => {
+      const window = resolveWindow(
+        { window: CUSTOM_WINDOW_KEY, start: "2026-01-01", end: "2026-03-01" },
+        now
+      );
+      expect(window.bucketUnit).toBe("week");
+    });
+
+    it("selects a monthly bucket for long custom ranges", () => {
+      const window = resolveWindow(
+        { window: CUSTOM_WINDOW_KEY, start: "2025-01-01", end: "2026-01-01" },
+        now
+      );
+      expect(window.bucketUnit).toBe("month");
+    });
+
+    it("clamps a future end date to today", () => {
+      const window = resolveWindow(
+        { window: CUSTOM_WINDOW_KEY, start: "2026-06-01", end: "2026-12-31" },
+        now
+      );
+
+      expect(window.key).toBe(CUSTOM_WINDOW_KEY);
+      expect(window.endDate).toBe("2026-06-15");
+      expect(window.end.toISOString()).toBe("2026-06-16T00:00:00.000Z");
+    });
+
+    it("supports a single-day custom range", () => {
+      const window = resolveWindow(
+        { window: CUSTOM_WINDOW_KEY, start: "2026-06-15", end: "2026-06-15" },
+        now
+      );
+
+      expect(window.key).toBe(CUSTOM_WINDOW_KEY);
+      expect(window.start.toISOString()).toBe("2026-06-15T00:00:00.000Z");
+      expect(window.end.toISOString()).toBe("2026-06-16T00:00:00.000Z");
+    });
+
+    it("falls back to 30 days for invalid custom input", () => {
+      const invalid = [
+        { window: CUSTOM_WINDOW_KEY },
+        { window: CUSTOM_WINDOW_KEY, start: "2026-01-01" },
+        { window: CUSTOM_WINDOW_KEY, start: "2026-02-31", end: "2026-03-01" },
+        { window: CUSTOM_WINDOW_KEY, start: "2026-03-01", end: "2026-01-01" },
+        { window: CUSTOM_WINDOW_KEY, start: "2010-01-01", end: "2026-01-01" },
+      ];
+
+      for (const input of invalid) {
+        expect(resolveWindow(input, now).key).toBe("30d");
+      }
     });
   });
 });

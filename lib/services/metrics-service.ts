@@ -8,10 +8,18 @@ import { Order } from "@/models/Order";
 import { Payment } from "@/models/Payment";
 import { AnalyticsEvent } from "@/models/AnalyticsEvent";
 import { dbConnect } from "@/lib/db";
-import { METRIC_WINDOWS, type MetricWindowKey } from "@/lib/metrics/windows";
+import { countFrom, liveOrderStages } from "@/lib/services/live-order-filter";
+import {
+  CUSTOM_WINDOW_KEY,
+  METRIC_WINDOWS,
+  isIsoDate,
+  isoDateOf,
+  type MetricWindowKey,
+  type MetricWindowSelection,
+} from "@/lib/metrics/windows";
 
-export { METRIC_WINDOWS };
-export type { MetricWindowKey };
+export { METRIC_WINDOWS, CUSTOM_WINDOW_KEY };
+export type { MetricWindowKey, MetricWindowSelection };
 
 /**
  * Server-computed metrics for the admin "Metrics & Analytics" area.
@@ -28,13 +36,17 @@ const CURRENCY = "NGN";
 export type BucketUnit = "day" | "week" | "month";
 
 export interface ResolvedWindow {
-  key: MetricWindowKey;
+  key: MetricWindowSelection;
   start: Date;
   end: Date;
   previousStart: Date;
   label: string;
   previousLabel: string;
   bucketUnit: BucketUnit;
+  /** `YYYY-MM-DD` of the first day in range; only set for custom ranges. */
+  startDate?: string;
+  /** `YYYY-MM-DD` of the last (inclusive) day in range; only for custom. */
+  endDate?: string;
 }
 
 interface WindowConfig {
@@ -50,13 +62,97 @@ const WINDOW_CONFIGS: Record<MetricWindowKey, WindowConfig> = {
   "12m": { days: 365, bucketUnit: "month", label: "Last 12 months" },
 };
 
+const DAY_MS = 86_400_000;
+
+/** Widest custom range we accept, so one query cannot scan years of history. */
+const MAX_CUSTOM_RANGE_DAYS = 1_826;
+
+export interface MetricsWindowInput {
+  window?: string;
+  /** `YYYY-MM-DD` start of a custom range (inclusive). */
+  start?: string;
+  /** `YYYY-MM-DD` end of a custom range (inclusive). */
+  end?: string;
+}
+
+function utcDayStart(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function bucketUnitForDays(days: number): BucketUnit {
+  if (days <= 31) return "day";
+  if (days <= 92) return "week";
+  return "month";
+}
+
+function formatUtcDay(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Resolves a custom start/end pair into a window. Returns null when the input
+ * is missing, not a real date, backwards, empty, or wider than the allowed
+ * span — callers then fall back to the default preset.
+ */
+function resolveCustomWindow(
+  startInput?: string,
+  endInput?: string,
+  now: Date = new Date()
+): ResolvedWindow | null {
+  if (!isIsoDate(startInput) || !isIsoDate(endInput)) return null;
+
+  const start = new Date(`${startInput}T00:00:00.000Z`);
+  // The picked end date is inclusive, so the exclusive bound is the next day.
+  const end = addUtcDays(new Date(`${endInput}T00:00:00.000Z`), 1);
+  if (end <= start) return null;
+
+  // Never report future data: clamp an end date beyond today to end of today.
+  const todayEnd = addUtcDays(utcDayStart(now), 1);
+  const clampedEnd = end > todayEnd ? todayEnd : end;
+  if (clampedEnd <= start) return null;
+
+  const days = Math.round((clampedEnd.getTime() - start.getTime()) / DAY_MS);
+  if (days < 1 || days > MAX_CUSTOM_RANGE_DAYS) return null;
+
+  return {
+    key: CUSTOM_WINDOW_KEY,
+    start,
+    end: clampedEnd,
+    previousStart: addUtcDays(start, -days),
+    label: `${formatUtcDay(start)} – ${formatUtcDay(addUtcDays(clampedEnd, -1))}`,
+    previousLabel: `Previous ${days}d`,
+    bucketUnit: bucketUnitForDays(days),
+    startDate: isoDateOf(start),
+    endDate: isoDateOf(addUtcDays(clampedEnd, -1)),
+  };
+}
+
 export function resolveWindow(
-  keyInput?: string,
+  input?: string | MetricsWindowInput,
   now: Date = new Date()
 ): ResolvedWindow {
+  const requested: MetricsWindowInput =
+    typeof input === "string" ? { window: input } : (input ?? {});
+
+  if (requested.window === CUSTOM_WINDOW_KEY) {
+    const custom = resolveCustomWindow(requested.start, requested.end, now);
+    if (custom) return custom;
+  }
+
   const key: MetricWindowKey =
-    (METRIC_WINDOWS as readonly string[]).includes(keyInput ?? "")
-      ? (keyInput as MetricWindowKey)
+    (METRIC_WINDOWS as readonly string[]).includes(requested.window ?? "")
+      ? (requested.window as MetricWindowKey)
       : "30d";
   const cfg = WINDOW_CONFIGS[key];
   const end = new Date(now);
@@ -66,9 +162,9 @@ export function resolveWindow(
       end.getUTCMonth(),
       end.getUTCDate()
     ) -
-      (cfg.days - 1) * 86_400_000
+      (cfg.days - 1) * DAY_MS
   );
-  const previousStart = new Date(start.getTime() - cfg.days * 86_400_000);
+  const previousStart = new Date(start.getTime() - cfg.days * DAY_MS);
   return {
     key,
     start,
@@ -234,12 +330,12 @@ export const TYPE_TITLES: Record<string, string> = {
 };
 
 export async function getRevenueMetrics(
-  windowKey?: string,
+  windowInput?: string | MetricsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<RevenueMetrics> {
   await dbConnect();
 
-  const window = resolveWindow(windowKey, opts.now);
+  const window = resolveWindow(windowInput, opts.now);
   const rows = (await Order.find({
     status: "PAID",
     currency: CURRENCY,
@@ -440,12 +536,12 @@ export interface FunnelMetrics {
 }
 
 export async function getFunnelMetrics(
-  windowKey?: string,
+  windowInput?: string | MetricsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<FunnelMetrics> {
   await dbConnect();
 
-  const window = resolveWindow(windowKey, opts.now);
+  const window = resolveWindow(windowInput, opts.now);
   const inWindow = { $gte: window.start, $lt: window.end };
 
   const [checkoutViews, ordersCreated, paymentsStarted, paidOrders, paymentAgg] =
@@ -537,12 +633,12 @@ export interface UsageMetrics {
 }
 
 export async function getUsageMetrics(
-  windowKey?: string,
+  windowInput?: string | MetricsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<UsageMetrics> {
   await dbConnect();
 
-  const window = resolveWindow(windowKey, opts.now);
+  const window = resolveWindow(windowInput, opts.now);
   const inWindow = { $gte: window.start, $lt: window.end };
 
   const [
@@ -635,26 +731,23 @@ function buildEnrollmentTrend(
   const byBucket = new Map(
     sparse.map((row) => [truncateTo(row._id, window.bucketUnit).getTime(), row])
   );
-  const bucketCount =
-    window.bucketUnit === "day"
-      ? Math.floor((window.end.getTime() - window.start.getTime()) / 86_400_000)
-      : window.bucketUnit === "week"
-        ? Math.max(1, Math.ceil((window.end.getTime() - window.start.getTime()) / 604_800_000))
-        : 12;
   const out: EnrollmentTrendPoint[] = [];
-  for (let i = 0; i < bucketCount; i++) {
-    const copy = new Date(window.start);
-    if (window.bucketUnit === "day") copy.setUTCDate(copy.getUTCDate() + i);
-    else if (window.bucketUnit === "week")
-      copy.setUTCDate(copy.getUTCDate() + i * 7);
-    else copy.setUTCMonth(copy.getUTCMonth() + i);
-    const key = truncateTo(copy, window.bucketUnit).getTime();
+  // Walk bucket starts from the one containing the window start up to the one
+  // containing the last day in range. This keeps day/week/month buckets correct
+  // for any span, including arbitrary custom ranges.
+  const cursor = truncateTo(window.start, window.bucketUnit);
+  for (let i = 0; i < 5000 && cursor.getTime() < window.end.getTime(); i++) {
+    const key = cursor.getTime();
     const found = byBucket.get(key);
     out.push({
-      label: bucketLabel(copy, window.bucketUnit),
+      label: bucketLabel(cursor, window.bucketUnit),
       purchased: found?.purchased ?? 0,
       bonus: found?.bonus ?? 0,
     });
+    if (window.bucketUnit === "day") cursor.setUTCDate(cursor.getUTCDate() + 1);
+    else if (window.bucketUnit === "week")
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+    else cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
   return out;
 }
@@ -683,12 +776,12 @@ export interface CustomerMetrics {
 }
 
 export async function getCustomerMetrics(
-  windowKey?: string,
+  windowInput?: string | MetricsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<CustomerMetrics> {
   await dbConnect();
 
-  const window = resolveWindow(windowKey, opts.now);
+  const window = resolveWindow(windowInput, opts.now);
   const end = window.end;
 
   const perCustomerAgg = await Order.aggregate<{
@@ -852,16 +945,16 @@ export interface FocusInsight {
 }
 
 export async function getFocusInsights(
-  windowKey?: string,
+  windowInput?: string | MetricsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<FocusInsight[]> {
   await dbConnect();
 
   const [revenue, funnel, customers, usage] = await Promise.all([
-    getRevenueMetrics(windowKey, opts),
-    getFunnelMetrics(windowKey, opts),
-    getCustomerMetrics(windowKey, opts),
-    getUsageMetrics(windowKey, opts),
+    getRevenueMetrics(windowInput, opts),
+    getFunnelMetrics(windowInput, opts),
+    getCustomerMetrics(windowInput, opts),
+    getUsageMetrics(windowInput, opts),
   ]);
 
   const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
@@ -962,9 +1055,13 @@ export async function getFocusInsights(
     });
   }
 
-  const fulfillmentIssues = await Fulfillment.countDocuments({
-    status: { $in: ["ACTION_REQUIRED", "FAILED"] },
-  });
+  const fulfillmentIssues = countFrom(
+    await Fulfillment.aggregate<{ count: number }>([
+      { $match: { status: { $in: ["ACTION_REQUIRED", "FAILED"] } } },
+      ...liveOrderStages(),
+      { $count: "count" },
+    ])
+  );
   if (fulfillmentIssues > 0) {
     insights.push({
       severity: "high",

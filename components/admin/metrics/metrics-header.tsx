@@ -1,12 +1,20 @@
 import type { ReactNode } from "react";
 
+import { CustomRangeForm } from "@/components/admin/metrics/custom-range-form";
 import { WindowTabs } from "@/components/admin/metrics/window-tabs";
+import { CUSTOM_WINDOW_KEY } from "@/lib/metrics/windows";
 
 interface MetricsHeaderProps {
   title: string;
   subtitle: string;
   eyebrow?: string;
   windowKey?: string;
+  /** Human-readable label for the active window (e.g. "Jan 1, 2026 – Mar 31, 2026"). */
+  windowLabel?: string;
+  /** `YYYY-MM-DD` start of the active custom range, if one is selected. */
+  rangeStart?: string;
+  /** `YYYY-MM-DD` inclusive end of the active custom range. */
+  rangeEnd?: string;
   children?: ReactNode;
 }
 
@@ -15,6 +23,9 @@ export function MetricsHeader({
   subtitle,
   eyebrow = "Analytics",
   windowKey,
+  windowLabel,
+  rangeStart,
+  rangeEnd,
   children,
 }: MetricsHeaderProps) {
   return (
@@ -28,9 +39,20 @@ export function MetricsHeader({
         </h1>
         <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:items-end">
         {children}
-        {windowKey ? <WindowTabs windowKey={windowKey} /> : null}
+        {windowKey ? (
+          <>
+            <WindowTabs windowKey={windowKey} />
+            <CustomRangeForm
+              key={`${windowKey}-${rangeStart ?? ""}-${rangeEnd ?? ""}`}
+              start={rangeStart}
+              end={rangeEnd}
+              label={windowLabel}
+              active={windowKey === CUSTOM_WINDOW_KEY}
+            />
+          </>
+        ) : null}
       </div>
     </header>
   );

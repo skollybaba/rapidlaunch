@@ -33,12 +33,12 @@ export const metadata: Metadata = {
 export default async function RevenuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const data = await getRevenueMetrics(params.window ?? "30d");
+  const data = await getRevenueMetrics(params);
   const {
     window,
     gross,
@@ -65,6 +65,9 @@ export default async function RevenuePage({
         title="Revenue analytics"
         subtitle="Where the money comes from — gross, net, discounts and product mix."
         windowKey={window.key}
+        windowLabel={window.label}
+        rangeStart={window.startDate}
+        rangeEnd={window.endDate}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth/admin";
-import { getCustomerMetrics } from "@/lib/services/metrics-service";
+import { getCustomerMetrics, resolveWindow } from "@/lib/services/metrics-service";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const windowKey = params.window ?? "30d";
-  const data = await getCustomerMetrics(windowKey);
+  const window = resolveWindow(params);
+  const data = await getCustomerMetrics(params);
   const {
     totalCustomers,
     repeatCustomers,
@@ -58,7 +58,10 @@ export default async function CustomersPage({
       <MetricsHeader
         title="Customers & LTV"
         subtitle="Lifetime value, retention and your highest-value customers."
-        windowKey={windowKey}
+        windowKey={window.key}
+        windowLabel={window.label}
+        rangeStart={window.startDate}
+        rangeEnd={window.endDate}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

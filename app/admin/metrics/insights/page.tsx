@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth/admin";
-import { getFocusInsights } from "@/lib/services/metrics-service";
+import { getFocusInsights, resolveWindow } from "@/lib/services/metrics-service";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InsightCard } from "@/components/admin/metrics/insight-card";
 import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 export default async function InsightsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
-  const windowKey = params.window ?? "30d";
-  const insights = await getFocusInsights(windowKey);
+  const window = resolveWindow(params);
+  const insights = await getFocusInsights(params);
 
   const high = insights.filter((i) => i.severity === "high").length;
   const medium = insights.filter((i) => i.severity === "medium").length;
@@ -38,7 +38,10 @@ export default async function InsightsPage({
       <MetricsHeader
         title="Insights & focus"
         subtitle="Rule-based observations on where to spend your attention next."
-        windowKey={windowKey}
+        windowKey={window.key}
+        windowLabel={window.label}
+        rangeStart={window.startDate}
+        rangeEnd={window.endDate}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
