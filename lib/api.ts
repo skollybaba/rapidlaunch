@@ -12,6 +12,7 @@ import { ResourceServiceError } from "@/lib/services/resource-service";
 import { AccountServiceError } from "@/lib/services/account-service";
 import { LeadServiceError } from "@/lib/services/lead-service";
 import { LmsServiceError } from "@/lib/services/lms-service";
+import { CourseAccessServiceError } from "@/lib/services/course-access-service";
 import { ProfitReportServiceError } from "@/lib/services/profit-service";
 import { CouponServiceError } from "@/lib/services/coupon-service";
 
@@ -82,6 +83,10 @@ export function handleApiError(
   }
 
   if (error instanceof LmsServiceError) {
+    return apiError(error.status, error.code, error.message, requestId);
+  }
+
+  if (error instanceof CourseAccessServiceError) {
     return apiError(error.status, error.code, error.message, requestId);
   }
 

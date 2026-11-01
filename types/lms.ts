@@ -60,6 +60,37 @@ export const ENROLLMENT_STATUSES = ["ACTIVE", "REVOKED"] as const;
 
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
+/**
+ * Where an enrollment came from.
+ *
+ * - `PURCHASE`    the student paid for the course (the only source that counts
+ *                 as a sale in analytics)
+ * - `BONUS`       a course included with another purchase, still tied to an order
+ * - `ADMIN_GRANT` complimentary access handed out by an admin. No order exists,
+ *                 so these records must never be counted as revenue, sales or
+ *                 learner activity in analytics.
+ */
+export const ENROLLMENT_ACCESS_SOURCES = [
+  "PURCHASE",
+  "BONUS",
+  "ADMIN_GRANT",
+] as const;
+
+export type EnrollmentAccessSource =
+  (typeof ENROLLMENT_ACCESS_SOURCES)[number];
+
+/**
+ * Records created before access sources existed have no stored value; they all
+ * came from paid orders or bundles, so `isBonus` is the best available signal.
+ */
+export function normalizeAccessSource(
+  stored: EnrollmentAccessSource | undefined | null,
+  isBonus?: boolean | null
+): EnrollmentAccessSource {
+  if (stored) return stored;
+  return isBonus ? "BONUS" : "PURCHASE";
+}
+
 export interface EnrollmentDoc {
   _id: unknown;
   userId: unknown;
@@ -67,6 +98,12 @@ export interface EnrollmentDoc {
   status: EnrollmentStatus;
   sourceOrderId?: unknown;
   isBonus: boolean;
+  /** Why this student has access. Missing on records created before it existed. */
+  accessSource?: EnrollmentAccessSource;
+  /** Admin who granted complimentary access; null for purchased access. */
+  grantedBy?: unknown;
+  /** Free-text note from the admin explaining a complimentary grant. */
+  grantNote?: string | null;
   /** Lesson ids the student has marked complete. */
   completedLessonIds: string[];
   /** Where to resume, so "continue" returns to the last opened lesson. */
@@ -85,6 +122,7 @@ export interface EnrollmentView {
   thumbnailUrl?: string;
   status: EnrollmentStatus;
   isBonus: boolean;
+  accessSource: EnrollmentAccessSource;
   enrolledAt: string;
   lastAccessedAt: string | null;
   completedLessonIds: string[];

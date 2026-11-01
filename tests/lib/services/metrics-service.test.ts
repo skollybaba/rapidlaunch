@@ -170,6 +170,43 @@ describe("metrics-service", () => {
       expect(result.bookingsConfirmed).toBe(0);
       expect(result.leadsTotal).toBe(0);
     });
+
+    it("excludes complimentary admin grants from every enrollment metric", async () => {
+      mocks.countMock.mockResolvedValue(0);
+      mocks.aggregateMock.mockResolvedValue([]);
+      mocks.execMock.mockResolvedValue([]);
+
+      await getRevenueMetrics("30d");
+      await getUsageMetrics("30d");
+
+      // Enrollment filters are the ones that key on bonus status or progress.
+      const enrollmentFilters = mocks.countMock.mock.calls
+        .map(([filter]) => filter as Record<string, unknown>)
+        .filter(
+          (filter) =>
+            filter &&
+            ("isBonus" in filter || "completedLessonIds.0" in filter)
+        );
+
+      expect(enrollmentFilters.length).toBeGreaterThan(0);
+      for (const filter of enrollmentFilters) {
+        expect(filter.accessSource).toEqual({ $ne: "ADMIN_GRANT" });
+      }
+
+      const activeMatches = mocks.aggregateMock.mock.calls
+        .flatMap(([pipeline]) =>
+          (pipeline as Record<string, unknown>[]).map((stage) => stage.$match)
+        )
+        .filter(
+          (match): match is Record<string, unknown> =>
+            Boolean(match) && (match as Record<string, unknown>).status === "ACTIVE"
+        );
+
+      expect(activeMatches.length).toBeGreaterThan(0);
+      for (const match of activeMatches) {
+        expect(match.accessSource).toEqual({ $ne: "ADMIN_GRANT" });
+      }
+    });
   });
 
   describe("getCustomerMetrics", () => {

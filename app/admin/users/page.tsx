@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { GrantCourseAccessDialog } from "@/components/admin/grant-course-access-dialog";
 import { UserRoleControl } from "@/components/admin/user-role-control";
 import { requireAdmin } from "@/lib/auth/admin";
-import { getAdminUsers } from "@/lib/services/admin-service";
+import {
+  getAdminUsers,
+  getCourseBundleChoices,
+} from "@/lib/services/admin-service";
 import { USER_ROLES } from "@/types/user";
 import { formatDate } from "@/lib/utils";
 
@@ -30,6 +34,10 @@ export default async function AdminUsersPage({
   const page = Number(sp.page) || 1;
 
   const data = await getAdminUsers({ q, role, page, pageSize: 25 });
+  const courses = (await getCourseBundleChoices()).map((course) => ({
+    id: course.id,
+    title: course.title,
+  }));
 
   return (
     <div className="admin-enter space-y-8">
@@ -98,6 +106,7 @@ export default async function AdminUsersPage({
                   <th className="px-5 py-3 font-semibold">Joined</th>
                   <th className="px-5 py-3 font-semibold">Orders</th>
                   <th className="px-5 py-3 font-semibold">Paid</th>
+                  <th className="px-5 py-3 text-right font-semibold">Access</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -121,6 +130,13 @@ export default async function AdminUsersPage({
                     <td className="px-5 py-4 text-neutral-700">{formatDate(user.createdAt)}</td>
                     <td className="px-5 py-4 text-neutral-700">{user.orderCount}</td>
                     <td className="px-5 py-4 text-neutral-700">{user.paidCount}</td>
+                    <td className="px-5 py-4 text-right">
+                      <GrantCourseAccessDialog
+                        userId={user.id}
+                        email={user.email}
+                        courses={courses}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

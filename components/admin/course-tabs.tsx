@@ -1,32 +1,39 @@
 "use client";
 
 import { useState, type ComponentProps } from "react";
-import { Info, ListTree } from "lucide-react";
+import { Info, KeyRound, ListTree } from "lucide-react";
 
+import { CourseAccessManager } from "@/components/admin/course-access-manager";
 import { CourseBuilder } from "@/components/admin/course-builder";
 import { CourseForm } from "@/components/admin/course-form";
+import type { CourseAccessRow } from "@/types/course-access";
 import { cn } from "@/lib/utils";
 
 type CourseFormProps = ComponentProps<typeof CourseForm>;
 type CourseBuilderProps = ComponentProps<typeof CourseBuilder>;
 
-type TabId = "information" | "curriculum";
+type TabId = "information" | "curriculum" | "access";
 
 const TABS: { id: TabId; label: string; icon: typeof Info }[] = [
   { id: "information", label: "Course information", icon: Info },
   { id: "curriculum", label: "Course curriculum", icon: ListTree },
+  { id: "access", label: "Course access", icon: KeyRound },
 ];
 
 export function CourseTabs({
   courseId,
+  courseTitle,
   initial,
   bundleChoices,
   modules,
+  accessRows,
 }: {
   courseId: string;
+  courseTitle: string;
   initial: CourseFormProps["initial"];
   bundleChoices: CourseFormProps["bundleChoices"];
   modules: CourseBuilderProps["initialModules"];
+  accessRows: CourseAccessRow[];
 }) {
   const [active, setActive] = useState<TabId>("information");
 
@@ -72,8 +79,14 @@ export function CourseTabs({
       >
         {active === "information" ? (
           <CourseForm initial={initial} bundleChoices={bundleChoices} />
-        ) : (
+        ) : active === "curriculum" ? (
           <CourseBuilder courseId={courseId} initialModules={modules} />
+        ) : (
+          <CourseAccessManager
+            courseId={courseId}
+            courseTitle={courseTitle}
+            initialRows={accessRows}
+          />
         )}
       </div>
     </div>

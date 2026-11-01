@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { CourseTabs } from "@/components/admin/course-tabs";
 import type { BuilderModule } from "@/components/admin/course-builder";
 import { requireAdmin } from "@/lib/auth/admin";
+import { listCourseAccess } from "@/lib/services/course-access-service";
 import {
   getCourseBundleChoices,
   getCourseById,
@@ -28,6 +29,7 @@ export default async function AdminEditCoursePage({
   if (!course) notFound();
 
   const choices = await getCourseBundleChoices();
+  const accessRows = await listCourseAccess(id);
 
   const { _id, ...rest } = course;
 
@@ -59,9 +61,11 @@ export default async function AdminEditCoursePage({
       </div>
       <CourseTabs
         courseId={String(_id)}
+        courseTitle={course.title}
         initial={initial}
         bundleChoices={choices}
         modules={modules}
+        accessRows={accessRows}
       />
     </div>
   );

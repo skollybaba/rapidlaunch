@@ -6,6 +6,7 @@ import { Enrollment } from "@/models/Enrollment";
 import { Product } from "@/models/Product";
 import {
   countLessons,
+  normalizeAccessSource,
   progressPercent,
   resolveHighlightedFlags,
   resolveOrientationFlags,
@@ -13,6 +14,7 @@ import {
   type BeforeYouStartContent,
   type CourseModule,
   type CourseOutline,
+  type EnrollmentAccessSource,
   type EnrollmentView,
   type LessonView,
   type ModuleView,
@@ -93,15 +95,27 @@ function beforeYouStartView(
  *
  * Idempotent by design: a retried payment webhook or a manual admin grant must
  * not create a second enrollment or reset progress, so an existing ACTIVE
- * record is returned untouched.
+ * record is returned untouched. Paid access always outranks a complimentary
+ * grant: if an admin-granted student later buys the course, the record is
+ * upgraded to a purchase so the sale is counted, but a paid record is never
+ * downgraded to `ADMIN_GRANT`.
  */
 export async function grantCourseAccess(input: {
   userId: string;
   courseId: string;
   sourceOrderId?: string | null;
   isBonus?: boolean;
-}) {
+  /** Defaults to PURCHASE, or BONUS when `isBonus` is set. */
+  accessSource?: EnrollmentAccessSource;
+  /** Admin who granted complimentary access. */
+  grantedBy?: string | null;
+  grantNote?: string | null;
+}): Promise<{ id: string; created: boolean; upgraded: boolean }> {
   await dbConnect();
+
+  const requestedSource: EnrollmentAccessSource =
+    input.accessSource ?? (input.isBonus ? "BONUS" : "PURCHASE");
+  const isAdminGrant = requestedSource === "ADMIN_GRANT";
 
   const existing = await Enrollment.findOne({
     userId: input.userId,
@@ -110,23 +124,43 @@ export async function grantCourseAccess(input: {
     .lean()
     .exec();
 
-  if (existing && existing.status === "ACTIVE") {
-    return { id: String(existing._id), created: false };
-  }
-
   if (existing) {
+    const existingSource = normalizeAccessSource(
+      existing.accessSource,
+      existing.isBonus
+    );
+    const nextSource =
+      isAdminGrant && existingSource !== "ADMIN_GRANT"
+        ? existingSource
+        : requestedSource;
+
+    if (existing.status === "ACTIVE" && nextSource === existingSource) {
+      return { id: String(existing._id), created: false, upgraded: false };
+    }
+
     // Re-granting after a revoke restores access without discarding progress.
-    await Enrollment.updateOne(
-      { _id: existing._id },
-      {
-        $set: {
-          status: "ACTIVE",
-          sourceOrderId: input.sourceOrderId ?? null,
-          lastAccessedAt: new Date(),
-        },
-      }
-    ).exec();
-    return { id: String(existing._id), created: false };
+    const set: Record<string, unknown> = {
+      status: "ACTIVE",
+      accessSource: nextSource,
+      lastAccessedAt: new Date(),
+    };
+
+    if (nextSource === "ADMIN_GRANT") {
+      set.grantedBy = input.grantedBy ?? existing.grantedBy ?? null;
+      set.grantNote = input.grantNote ?? existing.grantNote ?? null;
+    } else {
+      set.sourceOrderId = input.sourceOrderId ?? null;
+      set.isBonus = input.isBonus ?? false;
+      set.grantedBy = null;
+      set.grantNote = null;
+    }
+
+    await Enrollment.updateOne({ _id: existing._id }, { $set: set }).exec();
+    return {
+      id: String(existing._id),
+      created: false,
+      upgraded: nextSource !== existingSource,
+    };
   }
 
   const created = await Enrollment.create({
@@ -135,12 +169,15 @@ export async function grantCourseAccess(input: {
     status: "ACTIVE",
     sourceOrderId: input.sourceOrderId ?? null,
     isBonus: input.isBonus ?? false,
+    accessSource: requestedSource,
+    grantedBy: input.grantedBy ?? null,
+    grantNote: input.grantNote ?? null,
     completedLessonIds: [],
     enrolledAt: new Date(),
     lastAccessedAt: new Date(),
   });
 
-  return { id: String(created._id), created: true };
+  return { id: String(created._id), created: true, upgraded: false };
 }
 
 /**
@@ -235,6 +272,10 @@ export async function getEnrollmentsForUser(
       thumbnailUrl: course.thumbnailUrl ?? undefined,
       status: enrollment.status,
       isBonus: enrollment.isBonus ?? false,
+      accessSource: normalizeAccessSource(
+        enrollment.accessSource,
+        enrollment.isBonus
+      ),
       enrolledAt: new Date(enrollment.enrolledAt).toISOString(),
       lastAccessedAt: enrollment.lastAccessedAt
         ? new Date(enrollment.lastAccessedAt).toISOString()

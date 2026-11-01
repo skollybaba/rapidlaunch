@@ -399,11 +399,14 @@ export async function getRevenueMetrics(
     Enrollment.countDocuments({
       status: { $in: ["ACTIVE", "REVOKED"] },
       isBonus: false,
+      // Complimentary admin grants are not sales.
+      accessSource: { $ne: "ADMIN_GRANT" },
       enrolledAt: { $gte: window.previousStart, $lt: window.end },
     }),
     Enrollment.countDocuments({
       status: { $in: ["ACTIVE", "REVOKED"] },
       isBonus: true,
+      accessSource: { $ne: "ADMIN_GRANT" },
       enrolledAt: { $gte: window.previousStart, $lt: window.end },
     }),
   ]);
@@ -621,28 +624,48 @@ export async function getUsageMetrics(
     leadsInWindow,
     leadsTotal,
   ] = await Promise.all([
-    Enrollment.countDocuments({ status: "ACTIVE" }),
-    Enrollment.countDocuments({ status: "ACTIVE", enrolledAt: inWindow }),
+    Enrollment.countDocuments({
+      status: "ACTIVE",
+      accessSource: { $ne: "ADMIN_GRANT" },
+    }),
+    Enrollment.countDocuments({
+      status: "ACTIVE",
+      accessSource: { $ne: "ADMIN_GRANT" },
+      enrolledAt: inWindow,
+    }),
     Enrollment.aggregate<{ _id: string }>([
-      { $match: { status: "ACTIVE", lastAccessedAt: inWindow } },
+      {
+        $match: {
+          status: "ACTIVE",
+          accessSource: { $ne: "ADMIN_GRANT" },
+          lastAccessedAt: inWindow,
+        },
+      },
       { $group: { _id: "$userId" } },
     ]),
     Enrollment.aggregate<{ _id: string }>([
-      { $match: { status: "ACTIVE" } },
+      { $match: { status: "ACTIVE", accessSource: { $ne: "ADMIN_GRANT" } } },
       { $group: { _id: "$userId" } },
     ]),
     Enrollment.countDocuments({
       status: "ACTIVE",
+      accessSource: { $ne: "ADMIN_GRANT" },
       "completedLessonIds.0": { $exists: true },
     }),
     Enrollment.aggregate<{ total: number }>([
-      { $match: { status: "ACTIVE" } },
+      { $match: { status: "ACTIVE", accessSource: { $ne: "ADMIN_GRANT" } } },
       {
         $group: { _id: null, total: { $sum: { $size: "$completedLessonIds" } } },
       },
     ]),
     Enrollment.aggregate<{ _id: Date; purchased: number; bonus: number }>([
-      { $match: { status: "ACTIVE", enrolledAt: { $gte: window.previousStart, $lt: window.end } } },
+      {
+        $match: {
+          status: "ACTIVE",
+          accessSource: { $ne: "ADMIN_GRANT" },
+          enrolledAt: { $gte: window.previousStart, $lt: window.end },
+        },
+      },
       {
         $group: {
           _id: { $dateTrunc: { date: "$enrolledAt", unit: window.bucketUnit } },

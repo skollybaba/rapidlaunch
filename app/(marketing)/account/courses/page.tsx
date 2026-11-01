@@ -56,6 +56,9 @@ export default async function AccountCoursesPage() {
                             {course.isBonus ? (
                               <Badge tone="info">Bonus</Badge>
                             ) : null}
+                            {course.accessSource === "ADMIN_GRANT" ? (
+                              <Badge tone="neutral">Complimentary</Badge>
+                            ) : null}
                           </div>
                           <p className="mt-1 text-sm text-neutral-500">
                             Enrolled {formatDate(course.enrolledAt)}
