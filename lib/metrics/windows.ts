@@ -45,3 +45,82 @@ export function isIsoDate(value?: string | null): value is string {
 export function isoDateOf(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
+
+const DAY_MS = 86_400_000;
+
+/** Widest custom range we accept, so one query cannot scan years of history. */
+export const MAX_CUSTOM_RANGE_DAYS = 1_826;
+
+export interface CustomDateRange {
+  /** UTC midnight of the first day in range (inclusive). */
+  start: Date;
+  /** UTC midnight after the last day in range (exclusive). */
+  end: Date;
+  /** `YYYY-MM-DD` of the first day. */
+  startDate: string;
+  /** `YYYY-MM-DD` of the last, inclusive day. */
+  endDate: string;
+  /** Number of full days in the range. */
+  days: number;
+}
+
+export function utcDayStart(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+export function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+/**
+ * Resolves a custom start/end pair into concrete UTC day bounds. The end date
+ * is inclusive, so the exclusive bound is the following day. Returns null when
+ * the input is missing, not a real date, backwards, empty, or wider than the
+ * allowed span — callers then fall back to their default window.
+ */
+export function resolveCustomDateRange(
+  startInput?: string,
+  endInput?: string,
+  now: Date = new Date()
+): CustomDateRange | null {
+  if (!isIsoDate(startInput) || !isIsoDate(endInput)) return null;
+
+  const start = new Date(`${startInput}T00:00:00.000Z`);
+  const end = addUtcDays(new Date(`${endInput}T00:00:00.000Z`), 1);
+  if (end <= start) return null;
+
+  // Never report future data: clamp an end date beyond today to end of today.
+  const todayEnd = addUtcDays(utcDayStart(now), 1);
+  const clampedEnd = end > todayEnd ? todayEnd : end;
+  if (clampedEnd <= start) return null;
+
+  const days = Math.round((clampedEnd.getTime() - start.getTime()) / DAY_MS);
+  if (days < 1 || days > MAX_CUSTOM_RANGE_DAYS) return null;
+
+  return {
+    start,
+    end: clampedEnd,
+    startDate: isoDateOf(start),
+    endDate: isoDateOf(addUtcDays(clampedEnd, -1)),
+    days,
+  };
+}
+
+/** "Jan 1, 2026" in UTC. */
+export function formatUtcDay(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** "Jan 1, 2026 – Mar 31, 2026" for a resolved custom range. */
+export function formatRangeLabel(range: CustomDateRange): string {
+  return `${formatUtcDay(range.start)} – ${formatUtcDay(
+    addUtcDays(range.end, -1)
+  )}`;
+}

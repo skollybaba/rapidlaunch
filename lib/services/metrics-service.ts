@@ -12,8 +12,9 @@ import { countFrom, liveOrderStages } from "@/lib/services/live-order-filter";
 import {
   CUSTOM_WINDOW_KEY,
   METRIC_WINDOWS,
-  isIsoDate,
-  isoDateOf,
+  addUtcDays,
+  formatRangeLabel,
+  resolveCustomDateRange,
   type MetricWindowKey,
   type MetricWindowSelection,
 } from "@/lib/metrics/windows";
@@ -64,9 +65,6 @@ const WINDOW_CONFIGS: Record<MetricWindowKey, WindowConfig> = {
 
 const DAY_MS = 86_400_000;
 
-/** Widest custom range we accept, so one query cannot scan years of history. */
-const MAX_CUSTOM_RANGE_DAYS = 1_826;
-
 export interface MetricsWindowInput {
   window?: string;
   /** `YYYY-MM-DD` start of a custom range (inclusive). */
@@ -75,66 +73,34 @@ export interface MetricsWindowInput {
   end?: string;
 }
 
-function utcDayStart(date: Date): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * DAY_MS);
-}
-
 function bucketUnitForDays(days: number): BucketUnit {
   if (days <= 31) return "day";
   if (days <= 92) return "week";
   return "month";
 }
 
-function formatUtcDay(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 /**
- * Resolves a custom start/end pair into a window. Returns null when the input
- * is missing, not a real date, backwards, empty, or wider than the allowed
- * span — callers then fall back to the default preset.
+ * Resolves a custom start/end pair into a window, or null when the input is
+ * invalid so the caller can fall back to the default preset.
  */
 function resolveCustomWindow(
   startInput?: string,
   endInput?: string,
   now: Date = new Date()
 ): ResolvedWindow | null {
-  if (!isIsoDate(startInput) || !isIsoDate(endInput)) return null;
-
-  const start = new Date(`${startInput}T00:00:00.000Z`);
-  // The picked end date is inclusive, so the exclusive bound is the next day.
-  const end = addUtcDays(new Date(`${endInput}T00:00:00.000Z`), 1);
-  if (end <= start) return null;
-
-  // Never report future data: clamp an end date beyond today to end of today.
-  const todayEnd = addUtcDays(utcDayStart(now), 1);
-  const clampedEnd = end > todayEnd ? todayEnd : end;
-  if (clampedEnd <= start) return null;
-
-  const days = Math.round((clampedEnd.getTime() - start.getTime()) / DAY_MS);
-  if (days < 1 || days > MAX_CUSTOM_RANGE_DAYS) return null;
+  const range = resolveCustomDateRange(startInput, endInput, now);
+  if (!range) return null;
 
   return {
     key: CUSTOM_WINDOW_KEY,
-    start,
-    end: clampedEnd,
-    previousStart: addUtcDays(start, -days),
-    label: `${formatUtcDay(start)} – ${formatUtcDay(addUtcDays(clampedEnd, -1))}`,
-    previousLabel: `Previous ${days}d`,
-    bucketUnit: bucketUnitForDays(days),
-    startDate: isoDateOf(start),
-    endDate: isoDateOf(addUtcDays(clampedEnd, -1)),
+    start: range.start,
+    end: range.end,
+    previousStart: addUtcDays(range.start, -range.days),
+    label: formatRangeLabel(range),
+    previousLabel: `Previous ${range.days}d`,
+    bucketUnit: bucketUnitForDays(range.days),
+    startDate: range.startDate,
+    endDate: range.endDate,
   };
 }
 

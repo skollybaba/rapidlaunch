@@ -182,6 +182,111 @@ describe("getInsights", () => {
     expect(snapshot.trend).toHaveLength(30);
   });
 
+  it("builds a daily trend for a custom range", async () => {
+    const snapshot = await getInsights(
+      { window: "custom", start: "2026-06-01", end: "2026-06-30" },
+      { now: NOW }
+    );
+
+    expect(snapshot.period).toBe("custom");
+    expect(snapshot.rangeStart).toBe("2026-06-01");
+    expect(snapshot.rangeEnd).toBe("2026-06-30");
+    expect(snapshot.windowDescription).toBe("Jun 1, 2026 – Jun 30, 2026");
+    expect(snapshot.windowStart).toBe("2026-06-01T00:00:00.000Z");
+    expect(snapshot.trend).toHaveLength(30);
+    expect(snapshot.trend[0].label).toBe("Jun 01");
+    expect(snapshot.trend[29].label).toBe("Jun 30");
+  });
+
+  it("coarsens buckets for long custom ranges", async () => {
+    const weekly = await getInsights(
+      { window: "custom", start: "2026-01-01", end: "2026-03-31" },
+      { now: NOW }
+    );
+    // 90 days → weekly buckets starting on the Monday of the first week.
+    expect(weekly.period).toBe("custom");
+    expect(weekly.trend[0].label).toBe("w/c Dec 29");
+    expect(weekly.trend).toHaveLength(14);
+
+    const monthly = await getInsights(
+      { window: "custom", start: "2025-01-01", end: "2026-06-30" },
+      { now: NOW }
+    );
+    expect(monthly.period).toBe("custom");
+    expect(monthly.trend[0].label).toBe("Jan");
+    expect(monthly.trend).toHaveLength(18);
+  });
+
+  it("applies an exclusive upper bound to every period query", async () => {
+    await getInsights(
+      { window: "custom", start: "2026-06-01", end: "2026-06-30" },
+      { now: NOW }
+    );
+
+    const expected = {
+      $gte: new Date("2026-06-01T00:00:00.000Z"),
+      $lt: new Date("2026-07-01T00:00:00.000Z"),
+    };
+
+    expect(mockOrderCount).toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: expected })
+    );
+    expect(mockOrderCount).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "PAID", paidAt: expected })
+    );
+    expect(mockUserCount).toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: expected })
+    );
+
+    const paidProductPipeline = mockOrderAggregate.mock.calls
+      .map((call) => call[0] as AggregateStage[])
+      .find((pipeline) => pipeline.some((stage) => stage.$unwind));
+    expect(paidProductPipeline?.[0]?.$match).toMatchObject({
+      status: "PAID",
+      paidAt: expected,
+    });
+  });
+
+  it("uses the coarse bucket unit for custom aggregation truncation", async () => {
+    await getInsights(
+      { window: "custom", start: "2026-01-01", end: "2026-03-31" },
+      { now: NOW }
+    );
+
+    const trendPipelines = mockOrderAggregate.mock.calls
+      .map((call) => call[0] as AggregateStage[])
+      .filter((pipeline) =>
+        pipeline.some(
+          (stage) =>
+            stage.$group &&
+            typeof stage.$group._id === "object" &&
+            stage.$group._id !== null &&
+            "$dateTrunc" in (stage.$group._id as Record<string, unknown>)
+        )
+      );
+
+    expect(trendPipelines.length).toBeGreaterThan(0);
+    for (const pipeline of trendPipelines) {
+      const group = pipeline.find((stage) => stage.$group)?.$group;
+      expect(
+        (group?._id as { $dateTrunc: { unit: string } }).$dateTrunc.unit
+      ).toBe("week");
+    }
+  });
+
+  it("falls back to monthly for an invalid custom range", async () => {
+    const snapshot = await getInsights(
+      { window: "custom", start: "not-a-date", end: "2026-06-30" },
+      { now: NOW }
+    );
+
+    expect(snapshot.period).toBe("monthly");
+    expect(snapshot.rangeStart).toBeUndefined();
+    expect(snapshot.rangeEnd).toBeUndefined();
+    expect(snapshot.windowDescription).toBe("Last 12 months");
+    expect(snapshot.trend).toHaveLength(12);
+  });
+
   it("computes KPIs for the window", async () => {
     const snapshot = await getInsights("monthly", { now: NOW });
 

@@ -7,6 +7,11 @@ import { Payment } from "@/models/Payment";
 import { User } from "@/models/User";
 import { dbConnect } from "@/lib/db";
 import { countFrom, liveOrderStages } from "@/lib/services/live-order-filter";
+import {
+  CUSTOM_WINDOW_KEY,
+  formatRangeLabel,
+  resolveCustomDateRange,
+} from "@/lib/metrics/windows";
 
 const CURRENCY = "NGN";
 
@@ -21,8 +26,13 @@ export const INSIGHTS_PERIODS = [
 
 export type InsightsPeriod = (typeof INSIGHTS_PERIODS)[number];
 
+/** `custom` is selected when the admin picks an explicit start and end date. */
+export type InsightsWindow = InsightsPeriod | typeof CUSTOM_WINDOW_KEY;
+
+type BucketUnit = "day" | "week" | "month" | "year";
+
 interface PeriodConfig {
-  unit: "day" | "week" | "month" | "year";
+  unit: BucketUnit;
   buckets: number;
   windowDescription: string;
   truncate: (d: Date) => Date;
@@ -40,6 +50,14 @@ function startOfUtcWeek(d: Date) {
   return start;
 }
 
+function startOfUtcMonth(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+function startOfUtcYear(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+}
+
 function shortDate(d: Date) {
   return d.toLocaleDateString("en-US", {
     month: "short",
@@ -47,6 +65,21 @@ function shortDate(d: Date) {
     timeZone: "UTC",
   });
 }
+
+const TRUNCATES: Record<BucketUnit, (d: Date) => Date> = {
+  day: startOfUtcDay,
+  week: startOfUtcWeek,
+  month: startOfUtcMonth,
+  year: startOfUtcYear,
+};
+
+const LABELS: Record<BucketUnit, (d: Date) => string> = {
+  day: shortDate,
+  week: (d) => `w/c ${shortDate(d)}`,
+  month: (d) =>
+    d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+  year: (d) => String(d.getUTCFullYear()),
+};
 
 const PERIODS: Record<InsightsPeriod, PeriodConfig> = {
   daily: {
@@ -67,7 +100,7 @@ const PERIODS: Record<InsightsPeriod, PeriodConfig> = {
     unit: "month",
     buckets: 12,
     windowDescription: "Last 12 months",
-    truncate: (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)),
+    truncate: startOfUtcMonth,
     label: (d) =>
       d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
   },
@@ -75,23 +108,50 @@ const PERIODS: Record<InsightsPeriod, PeriodConfig> = {
     unit: "year",
     buckets: 5,
     windowDescription: "Last 5 years",
-    truncate: (d) => new Date(Date.UTC(d.getUTCFullYear(), 0, 1)),
+    truncate: startOfUtcYear,
     label: (d) => String(d.getUTCFullYear()),
   },
 };
+
+function addUnits(date: Date, unit: BucketUnit, amount: number): Date {
+  const copy = new Date(date);
+  if (unit === "day") copy.setUTCDate(copy.getUTCDate() + amount);
+  else if (unit === "week") copy.setUTCDate(copy.getUTCDate() + amount * 7);
+  else if (unit === "month") copy.setUTCMonth(copy.getUTCMonth() + amount);
+  else copy.setUTCFullYear(copy.getUTCFullYear() + amount);
+  return copy;
+}
 
 function buildBucketStarts(cfg: PeriodConfig, now: Date): Date[] {
   const base = cfg.truncate(now);
   const starts: Date[] = [];
   for (let i = cfg.buckets - 1; i >= 0; i--) {
-    const copy = new Date(base);
-    if (cfg.unit === "day") copy.setUTCDate(copy.getUTCDate() - i);
-    else if (cfg.unit === "week") copy.setUTCDate(copy.getUTCDate() - i * 7);
-    else if (cfg.unit === "month") copy.setUTCMonth(copy.getUTCMonth() - i);
-    else copy.setUTCFullYear(copy.getUTCFullYear() - i);
-    starts.push(copy);
+    starts.push(addUnits(base, cfg.unit, -i));
   }
   return starts;
+}
+
+/** Buckets that cover `[start, end)` for an arbitrary custom range. */
+function buildBucketStartsBetween(
+  unit: BucketUnit,
+  start: Date,
+  end: Date
+): Date[] {
+  const starts: Date[] = [];
+  let cursor = TRUNCATES[unit](start);
+  for (let i = 0; i < 5000 && cursor.getTime() < end.getTime(); i++) {
+    starts.push(cursor);
+    cursor = addUnits(cursor, unit, 1);
+  }
+  return starts;
+}
+
+/** Coarser buckets keep long custom ranges readable. */
+function customUnitForDays(days: number): BucketUnit {
+  if (days <= 62) return "day";
+  if (days <= 400) return "week";
+  if (days <= 1100) return "month";
+  return "year";
 }
 
 export interface TrendPoint {
@@ -144,9 +204,13 @@ export interface EnrollmentActivityRow {
 }
 
 export interface InsightSnapshot {
-  period: InsightsPeriod;
+  period: InsightsWindow;
   windowDescription: string;
   windowStart: string;
+  /** `YYYY-MM-DD` first day; only set for a custom range. */
+  rangeStart?: string;
+  /** `YYYY-MM-DD` last inclusive day; only set for a custom range. */
+  rangeEnd?: string;
   trend: TrendPoint[];
   kpis: InsightsKpis;
   productsByRevenue: ProductMetric[];
@@ -191,23 +255,76 @@ interface RecentFulfillmentRow {
   fulfilledAt: Date | null;
 }
 
+export interface InsightsWindowInput {
+  period?: string;
+  window?: string;
+  /** `YYYY-MM-DD` start of a custom range (inclusive). */
+  start?: string;
+  /** `YYYY-MM-DD` end of a custom range (inclusive). */
+  end?: string;
+}
+
 export async function getInsights(
-  periodInput?: string,
+  input?: string | InsightsWindowInput,
   opts: { now?: Date } = {}
 ): Promise<InsightSnapshot> {
   await dbConnect();
 
   const now = opts.now ?? new Date();
-  const period: InsightsPeriod =
-    periodInput === "daily" ||
-    periodInput === "weekly" ||
-    periodInput === "monthly" ||
-    periodInput === "yearly"
-      ? periodInput
-      : "monthly";
-  const cfg = PERIODS[period];
-  const bucketStarts = buildBucketStarts(cfg, now);
-  const windowStart = bucketStarts[0];
+  const requested: InsightsWindowInput =
+    typeof input === "string" ? { period: input } : (input ?? {});
+
+  const customRange =
+    requested.window === CUSTOM_WINDOW_KEY
+      ? resolveCustomDateRange(requested.start, requested.end, now)
+      : null;
+
+  let period: InsightsWindow;
+  let bucketStarts: Date[];
+  let bucketUnit: BucketUnit;
+  let bucketLabel: (d: Date) => string;
+  let windowStart: Date;
+  /** Exclusive upper bound; only custom ranges are capped. */
+  let windowEnd: Date | null = null;
+  let rangeStart: string | undefined;
+  let rangeEnd: string | undefined;
+  let windowDescription: string;
+
+  if (customRange) {
+    const unit = customUnitForDays(customRange.days);
+    period = CUSTOM_WINDOW_KEY;
+    bucketUnit = unit;
+    bucketLabel = LABELS[unit];
+    bucketStarts = buildBucketStartsBetween(
+      unit,
+      customRange.start,
+      customRange.end
+    );
+    windowStart = customRange.start;
+    windowEnd = customRange.end;
+    rangeStart = customRange.startDate;
+    rangeEnd = customRange.endDate;
+    windowDescription = formatRangeLabel(customRange);
+  } else {
+    period =
+      requested.period === "daily" ||
+      requested.period === "weekly" ||
+      requested.period === "monthly" ||
+      requested.period === "yearly"
+        ? requested.period
+        : "monthly";
+    const cfg = PERIODS[period];
+    bucketUnit = cfg.unit;
+    bucketLabel = cfg.label;
+    bucketStarts = buildBucketStarts(cfg, now);
+    windowStart = bucketStarts[0];
+    windowDescription = cfg.windowDescription;
+  }
+
+  // Custom ranges end in the past, so every period query needs an upper bound.
+  const windowMatch = windowEnd
+    ? { $gte: windowStart, $lt: windowEnd }
+    : { $gte: windowStart };
 
   const [
     ordersCreated,
@@ -228,18 +345,18 @@ export async function getInsights(
     upcomingBookings,
     recentFulfillments,
   ] = await Promise.all([
-    Order.countDocuments({ createdAt: { $gte: windowStart } }),
-    Order.countDocuments({ status: "PAID", paidAt: { $gte: windowStart } }),
+    Order.countDocuments({ createdAt: windowMatch }),
+    Order.countDocuments({ status: "PAID", paidAt: windowMatch }),
     User.countDocuments({
       role: { $ne: "admin" },
-      createdAt: { $gte: windowStart },
+      createdAt: windowMatch,
     }),
     Fulfillment.aggregate<{ count: number }>([
       {
         $match: {
           type: { $in: ENROLLMENT_TYPES },
           status: "FULFILLED",
-          fulfilledAt: { $gte: windowStart },
+          fulfilledAt: windowMatch,
         },
       },
       ...liveOrderStages(),
@@ -250,7 +367,7 @@ export async function getInsights(
         $match: {
           type: { $in: ENROLLMENT_TYPES },
           status: { $in: ["PENDING", "RETRY_PENDING"] },
-          createdAt: { $gte: windowStart },
+          createdAt: windowMatch,
         },
       },
       ...liveOrderStages(),
@@ -261,7 +378,7 @@ export async function getInsights(
         $match: {
           type: { $in: ENROLLMENT_TYPES },
           status: { $in: ["ACTION_REQUIRED", "FAILED"] },
-          createdAt: { $gte: windowStart },
+          createdAt: windowMatch,
         },
       },
       ...liveOrderStages(),
@@ -272,7 +389,7 @@ export async function getInsights(
         $match: {
           status: "PAID",
           currency: CURRENCY,
-          paidAt: { $gte: windowStart },
+          paidAt: windowMatch,
         },
       },
       { $group: { _id: null, revenueMinor: { $sum: "$totalMinor" } } },
@@ -282,12 +399,12 @@ export async function getInsights(
         $match: {
           status: "PAID",
           currency: CURRENCY,
-          paidAt: { $gte: windowStart },
+          paidAt: windowMatch,
         },
       },
       {
         $group: {
-          _id: { $dateTrunc: { date: "$paidAt", unit: cfg.unit } },
+          _id: { $dateTrunc: { date: "$paidAt", unit: bucketUnit } },
           revenueMinor: { $sum: "$totalMinor" },
           orders: { $sum: 1 },
         },
@@ -298,19 +415,19 @@ export async function getInsights(
         $match: {
           type: { $in: ENROLLMENT_TYPES },
           status: "FULFILLED",
-          fulfilledAt: { $gte: windowStart },
+          fulfilledAt: windowMatch,
         },
       },
       ...liveOrderStages(),
       {
         $group: {
-          _id: { $dateTrunc: { date: "$fulfilledAt", unit: cfg.unit } },
+          _id: { $dateTrunc: { date: "$fulfilledAt", unit: bucketUnit } },
           enrollments: { $sum: 1 },
         },
       },
     ]),
     Order.aggregate<ProductAggRow>([
-      { $match: { status: "PAID", currency: CURRENCY } },
+      { $match: { status: "PAID", currency: CURRENCY, paidAt: windowMatch } },
       { $unwind: "$items" },
       {
         $group: {
@@ -375,7 +492,7 @@ export async function getInsights(
   const trend: TrendPoint[] = bucketStarts.map((start) => {
     const revenue = revenueByBucket.get(start.getTime());
     return {
-      label: cfg.label(start),
+      label: bucketLabel(start),
       revenueMinor: revenue?.revenueMinor ?? 0,
       orders: revenue?.orders ?? 0,
       enrollments: enrollmentsByBucket.get(start.getTime()) ?? 0,
@@ -425,8 +542,10 @@ export async function getInsights(
 
   return {
     period,
-    windowDescription: cfg.windowDescription,
+    windowDescription,
     windowStart: windowStart.toISOString(),
+    rangeStart,
+    rangeEnd,
     trend,
     kpis: {
       revenueMinor,

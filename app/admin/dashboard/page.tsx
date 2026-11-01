@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { AnimatedNumber } from "@/components/admin/animated-number";
+import { CustomRangeForm } from "@/components/admin/metrics/custom-range-form";
 import { TestEmailButton } from "@/components/admin/test-email-button";
 import { TrendChart } from "@/components/admin/trend-chart";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
   getInsights,
   type InsightsPeriod,
 } from "@/lib/services/insights-service";
+import { CUSTOM_WINDOW_KEY } from "@/lib/metrics/windows";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -109,20 +111,26 @@ function StatCard({
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{
+    period?: string;
+    window?: string;
+    start?: string;
+    end?: string;
+  }>;
 }) {
   await requireAdmin();
 
   const sp = await searchParams;
   const [recentOrders, snapshot, nextSessionResult] = await Promise.all([
     getAdminOrders({ page: 1, pageSize: 8 }),
-    getInsights(sp.period),
+    getInsights(sp),
     getNextUpcomingSession(),
   ]);
 
   const { kpis, trend, productsByRevenue, ordersByStatus, operations } =
     snapshot;
   const nextSession = nextSessionResult.session;
+  const customActive = snapshot.period === CUSTOM_WINDOW_KEY;
 
   const attention: { label: string; count: number; href: string }[] = [];
   if (operations.pendingBookings > 0)
@@ -165,31 +173,43 @@ export default async function AdminDashboardPage({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <TestEmailButton />
-          <div
-            role="group"
-            aria-label="Time period"
-            className="flex rounded-pill border border-neutral-300 bg-white p-1"
-          >
-            {PERIOD_OPTIONS.map((option) => {
-              const active = option.value === snapshot.period;
-              return (
-                <Link
-                  key={option.value}
-                  href={`/admin/dashboard?period=${option.value}`}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-pill px-4 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
-                    active
-                      ? "bg-ink-900 text-white"
-                      : "text-neutral-500 hover:text-neutral-950"
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <TestEmailButton />
+            <div
+              role="group"
+              aria-label="Time period"
+              className="flex rounded-pill border border-neutral-300 bg-white p-1"
+            >
+              {PERIOD_OPTIONS.map((option) => {
+                const active =
+                  !customActive && option.value === snapshot.period;
+                return (
+                  <Link
+                    key={option.value}
+                    href={`/admin/dashboard?period=${option.value}`}
+                    aria-current={active ? "page" : undefined}
+                    className={`rounded-pill px-4 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
+                      active
+                        ? "bg-ink-900 text-white"
+                        : "text-neutral-500 hover:text-neutral-950"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
+          <CustomRangeForm
+            key={`${snapshot.period}-${snapshot.rangeStart ?? ""}-${
+              snapshot.rangeEnd ?? ""
+            }`}
+            start={snapshot.rangeStart}
+            end={snapshot.rangeEnd}
+            label={snapshot.windowDescription}
+            active={customActive}
+          />
         </div>
       </div>
 
