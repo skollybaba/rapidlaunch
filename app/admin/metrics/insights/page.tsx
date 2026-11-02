@@ -5,6 +5,7 @@ import { AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { getFocusInsights, resolveWindow } from "@/lib/services/metrics-service";
+import { resolveProductFilter } from "@/lib/metrics/product-filter";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InsightCard } from "@/components/admin/metrics/insight-card";
 import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
@@ -19,7 +20,12 @@ export const metadata: Metadata = {
 export default async function InsightsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    start?: string;
+    end?: string;
+    product?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -42,6 +48,7 @@ export default async function InsightsPage({
         windowLabel={window.label}
         rangeStart={window.startDate}
         rangeEnd={window.endDate}
+        productId={resolveProductFilter(params.product)?.id}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">

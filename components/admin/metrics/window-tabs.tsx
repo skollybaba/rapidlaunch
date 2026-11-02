@@ -5,10 +5,12 @@ import { METRIC_WINDOWS, WINDOW_SHORT_LABELS } from "@/lib/metrics/windows";
 
 interface WindowTabsProps {
   windowKey: string;
+  /** Product filter carried across window changes. */
+  productId?: string;
   className?: string;
 }
 
-export function WindowTabs({ windowKey, className }: WindowTabsProps) {
+export function WindowTabs({ windowKey, productId, className }: WindowTabsProps) {
   return (
     <div
       role="group"
@@ -23,7 +25,9 @@ export function WindowTabs({ windowKey, className }: WindowTabsProps) {
         return (
           <Link
             key={key}
-            href={`?window=${key}`}
+            href={`?window=${key}${
+              productId ? `&product=${encodeURIComponent(productId)}` : ""
+            }`}
             aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-pill px-3.5 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)]",

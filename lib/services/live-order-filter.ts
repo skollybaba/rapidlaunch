@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { PipelineStage } from "mongoose";
+import type { PipelineStage, Types } from "mongoose";
 
 /**
  * `fulfillments` and `payments` rows can outlive their parent order. The app has
@@ -23,9 +23,13 @@ import type { PipelineStage } from "mongoose";
  *
  * `getCourseEnrollees` enforces the same rule in memory when it skips
  * fulfillments whose order cannot be found.
+ *
+ * Pass `productId` to keep only rows whose parent order contains that product.
+ * This is how product-filtered metrics scope payments and fulfillments, which
+ * have no product column of their own.
  */
-export function liveOrderStages(): PipelineStage[] {
-  return [
+export function liveOrderStages(productId?: Types.ObjectId): PipelineStage[] {
+  const stages: PipelineStage[] = [
     {
       $lookup: {
         from: "orders",
@@ -35,8 +39,16 @@ export function liveOrderStages(): PipelineStage[] {
       },
     },
     { $match: { "__liveOrder.0": { $exists: true } } },
-    { $project: { __liveOrder: 0 } },
   ];
+
+  if (productId) {
+    stages.push({
+      $match: { "__liveOrder.items.productId": productId },
+    });
+  }
+
+  stages.push({ $project: { __liveOrder: 0 } });
+  return stages;
 }
 
 /** A `$count` aggregate returns a single row; treat a missing row as zero. */

@@ -15,6 +15,7 @@ import {
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { getRevenueMetrics } from "@/lib/services/metrics-service";
+import { resolveProductFilter } from "@/lib/metrics/product-filter";
 import { formatPrice } from "@/lib/utils";
 import { buildPieSlices, buildRankedBars } from "@/lib/metrics/chart-data";
 import { AreaTrendChart } from "@/components/admin/metrics/area-trend-chart";
@@ -33,7 +34,12 @@ export const metadata: Metadata = {
 export default async function RevenuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    start?: string;
+    end?: string;
+    product?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -68,6 +74,7 @@ export default async function RevenuePage({
         windowLabel={window.label}
         rangeStart={window.startDate}
         rangeEnd={window.endDate}
+        productId={resolveProductFilter(params.product)?.id}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

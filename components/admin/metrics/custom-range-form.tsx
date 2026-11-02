@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarRange, X } from "lucide-react";
 
 import { CUSTOM_WINDOW_KEY, CUSTOM_WINDOW_LABEL } from "@/lib/metrics/windows";
@@ -35,10 +35,28 @@ export function CustomRangeForm({
 }: CustomRangeFormProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [from, setFrom] = useState(start ?? "");
   const [to, setTo] = useState(end ?? "");
   const [error, setError] = useState<string | null>(null);
   const today = localIsoDate(new Date());
+
+  /**
+   * Copies the current query string so other filters (notably `product`) keep
+   * applying when the date range changes or is cleared.
+   */
+  function buildQuery(range?: { start: string; end: string }) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("window");
+    params.delete("start");
+    params.delete("end");
+    if (range) {
+      params.set("window", CUSTOM_WINDOW_KEY);
+      params.set("start", range.start);
+      params.set("end", range.end);
+    }
+    return params.toString();
+  }
 
   function apply(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,17 +73,13 @@ export function CustomRangeForm({
       return;
     }
     setError(null);
-    const params = new URLSearchParams({
-      window: CUSTOM_WINDOW_KEY,
-      start: from,
-      end: to,
-    });
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`${pathname}?${buildQuery({ start: from, end: to })}`);
   }
 
   function clear() {
     setError(null);
-    router.push(pathname);
+    const query = buildQuery();
+    router.push(query ? `${pathname}?${query}` : pathname);
   }
 
   return (

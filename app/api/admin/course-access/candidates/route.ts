@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
       courseId: request.nextUrl.searchParams.get("courseId") ?? "",
       q: request.nextUrl.searchParams.get("q") ?? undefined,
     });
-    const candidates = await searchCourseAccessCandidates(parsed);
+    const candidates = await searchCourseAccessCandidates({
+      courseId: parsed.courseId,
+      query: parsed.q,
+    });
     return apiOk({ candidates });
   } catch (caught) {
     return handleApiError(caught, requestId);

@@ -16,6 +16,7 @@ import {
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { getUsageMetrics } from "@/lib/services/metrics-service";
+import { resolveProductFilter } from "@/lib/metrics/product-filter";
 import { AreaTrendChart } from "@/components/admin/metrics/area-trend-chart";
 import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
 import { SectionCard } from "@/components/admin/metrics/section-card";
@@ -30,7 +31,12 @@ export const metadata: Metadata = {
 export default async function UsagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    start?: string;
+    end?: string;
+    product?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -73,6 +79,7 @@ export default async function UsagePage({
         windowLabel={window.label}
         rangeStart={window.startDate}
         rangeEnd={window.endDate}
+        productId={resolveProductFilter(params.product)?.id}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

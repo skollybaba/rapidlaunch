@@ -13,6 +13,7 @@ import {
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { getFunnelMetrics } from "@/lib/services/metrics-service";
+import { resolveProductFilter } from "@/lib/metrics/product-filter";
 import { FunnelChart } from "@/components/admin/metrics/funnel-chart";
 import { MetricsHeader } from "@/components/admin/metrics/metrics-header";
 import { SectionCard } from "@/components/admin/metrics/section-card";
@@ -37,7 +38,12 @@ const STATUS_TONE: Record<string, string> = {
 export default async function FunnelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    start?: string;
+    end?: string;
+    product?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -67,6 +73,7 @@ export default async function FunnelPage({
         windowLabel={window.label}
         rangeStart={window.startDate}
         rangeEnd={window.endDate}
+        productId={resolveProductFilter(params.product)?.id}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -14,6 +14,7 @@ import {
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { getCustomerMetrics, resolveWindow } from "@/lib/services/metrics-service";
+import { resolveProductFilter } from "@/lib/metrics/product-filter";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,7 +31,12 @@ export const metadata: Metadata = {
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string; start?: string; end?: string }>;
+  searchParams: Promise<{
+    window?: string;
+    start?: string;
+    end?: string;
+    product?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -62,6 +68,7 @@ export default async function CustomersPage({
         windowLabel={window.label}
         rangeStart={window.startDate}
         rangeEnd={window.endDate}
+        productId={resolveProductFilter(params.product)?.id}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

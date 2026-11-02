@@ -18,6 +18,8 @@ import {
   type MetricWindowKey,
   type MetricWindowSelection,
 } from "@/lib/metrics/windows";
+import { PRODUCT_TYPE_LABELS } from "@/lib/metrics/labels";
+import { productFilterFrom } from "@/lib/metrics/product-filter";
 
 export { METRIC_WINDOWS, CUSTOM_WINDOW_KEY };
 export type { MetricWindowKey, MetricWindowSelection };
@@ -71,6 +73,8 @@ export interface MetricsWindowInput {
   start?: string;
   /** `YYYY-MM-DD` end of a custom range (inclusive). */
   end?: string;
+  /** Product id; narrows every metric on the page to that product. */
+  product?: string;
 }
 
 function bucketUnitForDays(days: number): BucketUnit {
@@ -288,12 +292,7 @@ function previousWindowPaidRows(
   );
 }
 
-export const TYPE_TITLES: Record<string, string> = {
-  COURSE: "Online courses",
-  BOOK: "Digital books",
-  CONSULTATION: "Sessions",
-  MVP_SERVICE: "MVP services",
-};
+export const TYPE_TITLES: Record<string, string> = PRODUCT_TYPE_LABELS;
 
 export async function getRevenueMetrics(
   windowInput?: string | MetricsWindowInput,
@@ -302,6 +301,7 @@ export async function getRevenueMetrics(
   await dbConnect();
 
   const window = resolveWindow(windowInput, opts.now);
+  const product = productFilterFrom(windowInput);
   const rows = (await Order.find({
     status: "PAID",
     currency: CURRENCY,
@@ -309,6 +309,7 @@ export async function getRevenueMetrics(
       $gte: window.previousStart,
       $lt: window.end,
     },
+    ...(product ? { "items.productId": product.objectId } : {}),
   } as unknown as Parameters<typeof Order.find>[0])
     .select(
       "_id orderReference customerEmail paidAt subtotalMinor discountMinor totalMinor items metadata"
@@ -332,7 +333,10 @@ export async function getRevenueMetrics(
 
   const byProduct = new Map<string, ProductRevenueRow>();
   for (const row of current) {
-    const item = row.items[0];
+    // With a product filter, only the matching line item is attributed.
+    const item = product
+      ? row.items.find((entry) => String(entry.productId) === product.id)
+      : row.items[0];
     if (!item) continue;
     const id = String(item.productId);
     const entry = byProduct.get(id) ?? {
@@ -402,12 +406,14 @@ export async function getRevenueMetrics(
       // Complimentary admin grants are not sales.
       accessSource: { $ne: "ADMIN_GRANT" },
       enrolledAt: { $gte: window.previousStart, $lt: window.end },
+      ...(product ? { courseId: product.objectId } : {}),
     }),
     Enrollment.countDocuments({
       status: { $in: ["ACTIVE", "REVOKED"] },
       isBonus: true,
       accessSource: { $ne: "ADMIN_GRANT" },
       enrolledAt: { $gte: window.previousStart, $lt: window.end },
+      ...(product ? { courseId: product.objectId } : {}),
     }),
   ]);
 
@@ -511,17 +517,40 @@ export async function getFunnelMetrics(
   await dbConnect();
 
   const window = resolveWindow(windowInput, opts.now);
+  const product = productFilterFrom(windowInput);
   const inWindow = { $gte: window.start, $lt: window.end };
 
   const [checkoutViews, ordersCreated, paymentsStarted, paidOrders, paymentAgg] =
     await Promise.all([
-      AnalyticsEvent.countDocuments({ eventType: "CHECKOUT_VIEWED", occurredAt: inWindow }),
-      Order.countDocuments({ createdAt: inWindow }),
-      Payment.countDocuments({ createdAt: inWindow }),
-      Order.countDocuments({ status: "PAID", paidAt: inWindow }),
-      Payment.aggregate<PaymentOutcomeRow>([{ $match: { createdAt: inWindow } }, {
-        $group: { _id: "$status", count: { $sum: 1 } },
-      }]),
+      AnalyticsEvent.countDocuments({
+        eventType: "CHECKOUT_VIEWED",
+        occurredAt: inWindow,
+        // AnalyticsEvent stores the product id as a plain string.
+        ...(product ? { productId: product.id } : {}),
+      }),
+      Order.countDocuments({
+        createdAt: inWindow,
+        ...(product ? { "items.productId": product.objectId } : {}),
+      }),
+      product
+        ? Payment.aggregate<{ count: number }>([
+            { $match: { createdAt: inWindow } },
+            ...liveOrderStages(product.objectId),
+            { $count: "count" },
+          ]).then(countFrom)
+        : Payment.countDocuments({ createdAt: inWindow }),
+      Order.countDocuments({
+        status: "PAID",
+        paidAt: inWindow,
+        ...(product ? { "items.productId": product.objectId } : {}),
+      }),
+      Payment.aggregate<PaymentOutcomeRow>([
+        { $match: { createdAt: inWindow } },
+        ...(product ? liveOrderStages(product.objectId) : []),
+        {
+          $group: { _id: "$status", count: { $sum: 1 } },
+        },
+      ]),
     ]);
 
   const steps: FunnelStep[] = [
@@ -608,7 +637,10 @@ export async function getUsageMetrics(
   await dbConnect();
 
   const window = resolveWindow(windowInput, opts.now);
+  const product = productFilterFrom(windowInput);
   const inWindow = { $gte: window.start, $lt: window.end };
+  const courseScope = product ? { courseId: product.objectId } : {};
+  const productScope = product ? { productId: product.objectId } : {};
 
   const [
     activeEnrollments,
@@ -627,11 +659,13 @@ export async function getUsageMetrics(
     Enrollment.countDocuments({
       status: "ACTIVE",
       accessSource: { $ne: "ADMIN_GRANT" },
+      ...courseScope,
     }),
     Enrollment.countDocuments({
       status: "ACTIVE",
       accessSource: { $ne: "ADMIN_GRANT" },
       enrolledAt: inWindow,
+      ...courseScope,
     }),
     Enrollment.aggregate<{ _id: string }>([
       {
@@ -639,21 +673,35 @@ export async function getUsageMetrics(
           status: "ACTIVE",
           accessSource: { $ne: "ADMIN_GRANT" },
           lastAccessedAt: inWindow,
+          ...courseScope,
         },
       },
       { $group: { _id: "$userId" } },
     ]),
     Enrollment.aggregate<{ _id: string }>([
-      { $match: { status: "ACTIVE", accessSource: { $ne: "ADMIN_GRANT" } } },
+      {
+        $match: {
+          status: "ACTIVE",
+          accessSource: { $ne: "ADMIN_GRANT" },
+          ...courseScope,
+        },
+      },
       { $group: { _id: "$userId" } },
     ]),
     Enrollment.countDocuments({
       status: "ACTIVE",
       accessSource: { $ne: "ADMIN_GRANT" },
       "completedLessonIds.0": { $exists: true },
+      ...courseScope,
     }),
     Enrollment.aggregate<{ total: number }>([
-      { $match: { status: "ACTIVE", accessSource: { $ne: "ADMIN_GRANT" } } },
+      {
+        $match: {
+          status: "ACTIVE",
+          accessSource: { $ne: "ADMIN_GRANT" },
+          ...courseScope,
+        },
+      },
       {
         $group: { _id: null, total: { $sum: { $size: "$completedLessonIds" } } },
       },
@@ -664,6 +712,7 @@ export async function getUsageMetrics(
           status: "ACTIVE",
           accessSource: { $ne: "ADMIN_GRANT" },
           enrolledAt: { $gte: window.previousStart, $lt: window.end },
+          ...courseScope,
         },
       },
       {
@@ -674,11 +723,19 @@ export async function getUsageMetrics(
         },
       },
     ]),
-    Booking.countDocuments({ status: "CONFIRMED", createdAt: inWindow }),
-    Booking.countDocuments({ status: "PENDING" }),
-    Booking.countDocuments({ status: "CANCELLED", createdAt: inWindow }),
-    Lead.countDocuments({ createdAt: inWindow }),
-    Lead.countDocuments({}),
+    Booking.countDocuments({
+      status: "CONFIRMED",
+      createdAt: inWindow,
+      ...productScope,
+    }),
+    Booking.countDocuments({ status: "PENDING", ...productScope }),
+    Booking.countDocuments({
+      status: "CANCELLED",
+      createdAt: inWindow,
+      ...productScope,
+    }),
+    Lead.countDocuments({ createdAt: inWindow, ...productScope }),
+    Lead.countDocuments({ ...productScope }),
   ]);
 
   const enrollmentsTrend = buildEnrollmentTrend(enrollTrendAgg, window);
@@ -771,6 +828,7 @@ export async function getCustomerMetrics(
   await dbConnect();
 
   const window = resolveWindow(windowInput, opts.now);
+  const product = productFilterFrom(windowInput);
   const end = window.end;
 
   const perCustomerAgg = await Order.aggregate<{
@@ -780,7 +838,14 @@ export async function getCustomerMetrics(
     firstPurchase: Date;
     lastPurchase: Date;
   }>([
-    { $match: { status: "PAID", currency: CURRENCY, paidAt: { $lt: end } } },
+    {
+      $match: {
+        status: "PAID",
+        currency: CURRENCY,
+        paidAt: { $lt: end },
+        ...(product ? { "items.productId": product.objectId } : {}),
+      },
+    },
     {
       $group: {
         _id: "$customerEmail",
@@ -939,6 +1004,8 @@ export async function getFocusInsights(
 ): Promise<FocusInsight[]> {
   await dbConnect();
 
+  const product = productFilterFrom(windowInput);
+
   const [revenue, funnel, customers, usage] = await Promise.all([
     getRevenueMetrics(windowInput, opts),
     getFunnelMetrics(windowInput, opts),
@@ -1047,7 +1114,7 @@ export async function getFocusInsights(
   const fulfillmentIssues = countFrom(
     await Fulfillment.aggregate<{ count: number }>([
       { $match: { status: { $in: ["ACTION_REQUIRED", "FAILED"] } } },
-      ...liveOrderStages(),
+      ...liveOrderStages(product?.objectId),
       { $count: "count" },
     ])
   );

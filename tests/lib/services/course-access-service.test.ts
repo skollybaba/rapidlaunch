@@ -359,4 +359,52 @@ describe("searchCourseAccessCandidates", () => {
     });
     expect(candidates[1].hasAccess).toBe(false);
   });
+
+  it("filters accounts by email or name instead of returning everyone", async () => {
+    mocks.productExists.mockResolvedValue({ _id: COURSE_ID });
+    mocks.userFind.mockReturnValue(query([user()]));
+    mocks.enrollmentFind.mockReturnValue(query([]));
+
+    await searchCourseAccessCandidates({ courseId: COURSE_ID, query: "ada" });
+
+    const filter = mocks.userFind.mock.calls[0][0] as {
+      $or?: Array<Record<string, RegExp>>;
+    };
+    expect(filter.$or).toHaveLength(2);
+    const [emailClause, nameClause] = filter.$or ?? [];
+    expect(Object.keys(emailClause)).toEqual(["email"]);
+    expect(Object.keys(nameClause)).toEqual(["name"]);
+    expect(emailClause.email).toBeInstanceOf(RegExp);
+    expect(emailClause.email.source).toBe("ada");
+    expect(emailClause.email.flags).toContain("i");
+  });
+
+  it("trims the search term and escapes regex metacharacters", async () => {
+    mocks.productExists.mockResolvedValue({ _id: COURSE_ID });
+    mocks.userFind.mockReturnValue(query([]));
+    mocks.enrollmentFind.mockReturnValue(query([]));
+
+    await searchCourseAccessCandidates({
+      courseId: COURSE_ID,
+      query: "  ada.b@example.com  ",
+    });
+
+    const filter = mocks.userFind.mock.calls[0][0] as {
+      $or?: Array<Record<string, RegExp>>;
+    };
+    // `a.b` must match a literal dot, not any character.
+    expect(filter.$or?.[0].email.source).toBe("ada\\.b@example\\.com");
+    expect(filter.$or?.[0].email.test("ada.b@example.com")).toBe(true);
+    expect(filter.$or?.[0].email.test("adaXb@example.com")).toBe(false);
+  });
+
+  it("returns recent accounts without a filter when the query is empty", async () => {
+    mocks.productExists.mockResolvedValue({ _id: COURSE_ID });
+    mocks.userFind.mockReturnValue(query([user()]));
+    mocks.enrollmentFind.mockReturnValue(query([]));
+
+    await searchCourseAccessCandidates({ courseId: COURSE_ID, query: "   " });
+
+    expect(mocks.userFind).toHaveBeenCalledWith({});
+  });
 });

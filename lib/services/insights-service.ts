@@ -12,6 +12,7 @@ import {
   formatRangeLabel,
   resolveCustomDateRange,
 } from "@/lib/metrics/windows";
+import { productFilterFrom } from "@/lib/metrics/product-filter";
 
 const CURRENCY = "NGN";
 
@@ -207,6 +208,8 @@ export interface InsightSnapshot {
   period: InsightsWindow;
   windowDescription: string;
   windowStart: string;
+  /** Product the snapshot is narrowed to, when the admin picked one. */
+  productId?: string;
   /** `YYYY-MM-DD` first day; only set for a custom range. */
   rangeStart?: string;
   /** `YYYY-MM-DD` last inclusive day; only set for a custom range. */
@@ -262,6 +265,8 @@ export interface InsightsWindowInput {
   start?: string;
   /** `YYYY-MM-DD` end of a custom range (inclusive). */
   end?: string;
+  /** Product id; narrows the snapshot to that product. */
+  product?: string;
 }
 
 export async function getInsights(
@@ -273,6 +278,10 @@ export async function getInsights(
   const now = opts.now ?? new Date();
   const requested: InsightsWindowInput =
     typeof input === "string" ? { period: input } : (input ?? {});
+  const product = productFilterFrom(requested);
+  const orderScope = product ? { "items.productId": product.objectId } : {};
+  const bookingScope = product ? { productId: product.objectId } : {};
+  const productStages = liveOrderStages(product?.objectId);
 
   const customRange =
     requested.window === CUSTOM_WINDOW_KEY
@@ -345,12 +354,25 @@ export async function getInsights(
     upcomingBookings,
     recentFulfillments,
   ] = await Promise.all([
-    Order.countDocuments({ createdAt: windowMatch }),
-    Order.countDocuments({ status: "PAID", paidAt: windowMatch }),
-    User.countDocuments({
-      role: { $ne: "admin" },
-      createdAt: windowMatch,
-    }),
+    Order.countDocuments({ createdAt: windowMatch, ...orderScope }),
+    Order.countDocuments({ status: "PAID", paidAt: windowMatch, ...orderScope }),
+    product
+      ? Order.aggregate<{ count: number }>([
+          {
+            $match: {
+              status: "PAID",
+              currency: CURRENCY,
+              paidAt: windowMatch,
+              ...orderScope,
+            },
+          },
+          { $group: { _id: "$customerEmail" } },
+          { $count: "count" },
+        ]).then(countFrom)
+      : User.countDocuments({
+          role: { $ne: "admin" },
+          createdAt: windowMatch,
+        }),
     Fulfillment.aggregate<{ count: number }>([
       {
         $match: {
@@ -359,7 +381,7 @@ export async function getInsights(
           fulfilledAt: windowMatch,
         },
       },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
     Fulfillment.aggregate<{ count: number }>([
@@ -370,7 +392,7 @@ export async function getInsights(
           createdAt: windowMatch,
         },
       },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
     Fulfillment.aggregate<{ count: number }>([
@@ -381,7 +403,7 @@ export async function getInsights(
           createdAt: windowMatch,
         },
       },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
     Order.aggregate<RevenueWindowRow>([
@@ -390,6 +412,7 @@ export async function getInsights(
           status: "PAID",
           currency: CURRENCY,
           paidAt: windowMatch,
+          ...orderScope,
         },
       },
       { $group: { _id: null, revenueMinor: { $sum: "$totalMinor" } } },
@@ -400,6 +423,7 @@ export async function getInsights(
           status: "PAID",
           currency: CURRENCY,
           paidAt: windowMatch,
+          ...orderScope,
         },
       },
       {
@@ -418,7 +442,7 @@ export async function getInsights(
           fulfilledAt: windowMatch,
         },
       },
-      ...liveOrderStages(),
+      ...productStages,
       {
         $group: {
           _id: { $dateTrunc: { date: "$fulfilledAt", unit: bucketUnit } },
@@ -427,8 +451,17 @@ export async function getInsights(
       },
     ]),
     Order.aggregate<ProductAggRow>([
-      { $match: { status: "PAID", currency: CURRENCY, paidAt: windowMatch } },
+      {
+        $match: {
+          status: "PAID",
+          currency: CURRENCY,
+          paidAt: windowMatch,
+          ...orderScope,
+        },
+      },
       { $unwind: "$items" },
+      // A filtered order may carry several items; only the chosen product counts.
+      ...(product ? [{ $match: { "items.productId": product.objectId } }] : []),
       {
         $group: {
           _id: "$items.productId",
@@ -444,11 +477,12 @@ export async function getInsights(
       { $limit: 6 },
     ]),
     Order.aggregate<StatusAggRow>([
+      { $match: { ...orderScope } },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
     Fulfillment.aggregate<{ count: number }>([
       { $match: { status: { $in: ["ACTION_REQUIRED", "FAILED"] } } },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
     Payment.aggregate<{ count: number }>([
@@ -457,22 +491,23 @@ export async function getInsights(
           status: { $in: ["PENDING", "CREATED", "INITIALIZATION_FAILED"] },
         },
       },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
     Payment.aggregate<{ count: number }>([
       { $match: { status: { $in: ["FAILED", "ABANDONED", "SUSPICIOUS"] } } },
-      ...liveOrderStages(),
+      ...productStages,
       { $count: "count" },
     ]).then(countFrom),
-    Booking.countDocuments({ status: "PENDING" }),
+    Booking.countDocuments({ status: "PENDING", ...bookingScope }),
     Booking.countDocuments({
       status: { $in: ["CONFIRMED", "PENDING"] },
       scheduledStartTime: { $gte: now },
+      ...bookingScope,
     }),
     Fulfillment.aggregate<RecentFulfillmentRow>([
       { $match: { type: { $in: ENROLLMENT_TYPES } } },
-      ...liveOrderStages(),
+      ...productStages,
       { $sort: { createdAt: -1 } },
       { $limit: 8 },
       { $project: { _id: 1, orderId: 1, status: 1, fulfilledAt: 1 } },
@@ -544,6 +579,7 @@ export async function getInsights(
     period,
     windowDescription,
     windowStart: windowStart.toISOString(),
+    productId: product?.id,
     rangeStart,
     rangeEnd,
     trend,

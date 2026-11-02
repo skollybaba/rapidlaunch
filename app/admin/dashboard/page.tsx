@@ -15,10 +15,12 @@ import {
 
 import { AnimatedNumber } from "@/components/admin/animated-number";
 import { CustomRangeForm } from "@/components/admin/metrics/custom-range-form";
+import { ProductFilter } from "@/components/admin/metrics/product-filter";
 import { TestEmailButton } from "@/components/admin/test-email-button";
 import { TrendChart } from "@/components/admin/trend-chart";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { requireAdmin } from "@/lib/auth/admin";
+import { getMetricProductOptions } from "@/lib/metrics/product-options";
 import {
   getAdminOrders,
   getNextUpcomingSession,
@@ -116,21 +118,27 @@ export default async function AdminDashboardPage({
     window?: string;
     start?: string;
     end?: string;
+    product?: string;
   }>;
 }) {
   await requireAdmin();
 
   const sp = await searchParams;
-  const [recentOrders, snapshot, nextSessionResult] = await Promise.all([
-    getAdminOrders({ page: 1, pageSize: 8 }),
-    getInsights(sp),
-    getNextUpcomingSession(),
-  ]);
+  const [recentOrders, snapshot, nextSessionResult, productOptions] =
+    await Promise.all([
+      getAdminOrders({ page: 1, pageSize: 8 }),
+      getInsights(sp),
+      getNextUpcomingSession(),
+      getMetricProductOptions(),
+    ]);
 
   const { kpis, trend, productsByRevenue, ordersByStatus, operations } =
     snapshot;
   const nextSession = nextSessionResult.session;
   const customActive = snapshot.period === CUSTOM_WINDOW_KEY;
+  const activeProduct = productOptions.find(
+    (option) => option.id === snapshot.productId
+  );
 
   const attention: { label: string; count: number; href: string }[] = [];
   if (operations.pendingBookings > 0)
@@ -160,46 +168,57 @@ export default async function AdminDashboardPage({
 
   return (
     <div className="admin-enter flex flex-1 flex-col">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
-            Back office
-          </p>
-          <h1 className="mt-1 text-[32px] leading-[1.286] md:text-[1.75rem]">
-            Dashboard &amp; Insights
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            What needs your attention today — {snapshot.windowDescription}.
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+              Back office
+            </p>
+            <h1 className="mt-1 text-[32px] leading-[1.286] md:text-[1.75rem]">
+              Dashboard &amp; Insights
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              What needs your attention today — {snapshot.windowDescription}
+              {activeProduct ? ` · ${activeProduct.title}` : ""}.
+            </p>
+          </div>
+          <TestEmailButton />
         </div>
 
-        <div className="flex flex-col items-start gap-3 sm:items-end">
-          <div className="flex flex-wrap items-center gap-2">
-            <TestEmailButton />
-            <div
-              role="group"
-              aria-label="Time period"
-              className="flex rounded-pill border border-neutral-300 bg-white p-1"
-            >
-              {PERIOD_OPTIONS.map((option) => {
-                const active =
-                  !customActive && option.value === snapshot.period;
-                return (
-                  <Link
-                    key={option.value}
-                    href={`/admin/dashboard?period=${option.value}`}
-                    aria-current={active ? "page" : undefined}
-                    className={`rounded-pill px-4 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
-                      active
-                        ? "bg-ink-900 text-white"
-                        : "text-neutral-500 hover:text-neutral-950"
-                    }`}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
-            </div>
+        {/* Product, period and custom range share one row so the active scope
+            reads left to right instead of stacking three separate controls. */}
+        <div className="flex w-full flex-wrap items-end gap-3">
+          <ProductFilter
+            productId={snapshot.productId}
+            options={productOptions}
+          />
+          <div
+            role="group"
+            aria-label="Time period"
+            className="flex rounded-pill border border-neutral-300 bg-white p-1"
+          >
+            {PERIOD_OPTIONS.map((option) => {
+              const active =
+                !customActive && option.value === snapshot.period;
+              return (
+                <Link
+                  key={option.value}
+                  href={`/admin/dashboard?period=${option.value}${
+                    snapshot.productId
+                      ? `&product=${encodeURIComponent(snapshot.productId)}`
+                      : ""
+                  }`}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-pill px-3.5 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
+                    active
+                      ? "bg-ink-900 text-white"
+                      : "text-neutral-500 hover:text-neutral-950"
+                  }`}
+                >
+                  {option.label}
+                </Link>
+              );
+            })}
           </div>
           <CustomRangeForm
             key={`${snapshot.period}-${snapshot.rangeStart ?? ""}-${
@@ -321,7 +340,11 @@ export default async function AdminDashboardPage({
         <StatCard
           label="New customers"
           value={kpis.newCustomers}
-          hint="accounts created in period"
+          hint={
+            activeProduct
+              ? "buyers of this product in period"
+              : "accounts created in period"
+          }
           icon={Users}
         />
         <StatCard

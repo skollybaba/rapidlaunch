@@ -45,6 +45,11 @@ function requireObjectId(value: string, code: string, message: string) {
   }
 }
 
+/** Literal text for a regex, so a search for `a.b` does not match `axb`. */
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Everyone with active access to a course, paid and complimentary, for the
  * course editor's access tab. One query per collection, not per student.
@@ -135,10 +140,8 @@ export async function searchCourseAccessCandidates(input: {
   const trimmed = (input.query ?? "").trim();
   const filter: Record<string, unknown> = {};
   if (trimmed) {
-    filter.$or = [
-      { email: { $regex: trimmed, $options: "i" } },
-      { name: { $regex: trimmed, $options: "i" } },
-    ];
+    const pattern = new RegExp(escapeRegExp(trimmed), "i");
+    filter.$or = [{ email: pattern }, { name: pattern }];
   }
 
   const [users, activeEnrollments] = await Promise.all([
