@@ -2,21 +2,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const execMock = vi.fn();
-  const countMock = vi.fn();
-  const aggregateMock = vi.fn();
-  const makeFindChain = () => ({
-    select: vi.fn(() => ({
-      sort: vi.fn(() => ({
-        lean: vi.fn(() => ({ exec: execMock })),
-      })),
-    })),
-  });
+  const findChain = () => {
+    const chain = {
+      select: vi.fn(() => chain),
+      sort: vi.fn(() => chain),
+      lean: vi.fn(() => chain),
+      exec: execMock,
+    };
+    return chain;
+  };
 
+  // One set of mocks per model so a test can assert which collection a filter
+  // belongs to instead of guessing from the shape of the filter.
   return {
     execMock,
-    countMock,
-    aggregateMock,
-    makeFindChain,
+    findChain,
+    order: {
+      find: vi.fn(findChain),
+      countDocuments: vi.fn(),
+      aggregate: vi.fn(),
+    },
+    payment: { countDocuments: vi.fn(), aggregate: vi.fn() },
+    analyticsEvent: { countDocuments: vi.fn() },
+    enrollment: { countDocuments: vi.fn(), aggregate: vi.fn() },
+    booking: { countDocuments: vi.fn() },
+    lead: { countDocuments: vi.fn() },
+    fulfillment: { countDocuments: vi.fn(), aggregate: vi.fn() },
   };
 });
 
@@ -25,77 +36,71 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/models/Order", () => ({
-  Order: {
-    find: vi.fn(() => ({
-      select: vi.fn(() => ({
-        sort: vi.fn(() => ({
-          lean: vi.fn(() => ({ exec: mocks.execMock })),
-        })),
-      })),
-      sort: vi.fn(() => ({
-        lean: vi.fn(() => ({ exec: mocks.execMock })),
-      })),
-    })),
-    countDocuments: mocks.countMock,
-    aggregate: mocks.aggregateMock,
-  },
+  Order: mocks.order,
 }));
 
 vi.mock("@/models/Payment", () => ({
-  Payment: {
-    countDocuments: mocks.countMock,
-    aggregate: mocks.aggregateMock,
-  },
+  Payment: mocks.payment,
 }));
 
 vi.mock("@/models/AnalyticsEvent", () => ({
-  AnalyticsEvent: {
-    countDocuments: mocks.countMock,
-  },
+  AnalyticsEvent: mocks.analyticsEvent,
 }));
 
 vi.mock("@/models/Enrollment", () => ({
-  Enrollment: {
-    countDocuments: mocks.countMock,
-    aggregate: mocks.aggregateMock,
-  },
+  Enrollment: mocks.enrollment,
 }));
 
 vi.mock("@/models/Booking", () => ({
-  Booking: {
-    countDocuments: mocks.countMock,
-  },
+  Booking: mocks.booking,
 }));
 
 vi.mock("@/models/Lead", () => ({
-  Lead: {
-    countDocuments: mocks.countMock,
-  },
+  Lead: mocks.lead,
 }));
 
 vi.mock("@/models/Fulfillment", () => ({
-  Fulfillment: {
-    countDocuments: mocks.countMock,
-    aggregate: mocks.aggregateMock,
-  },
+  Fulfillment: mocks.fulfillment,
 }));
 
 import { getRevenueMetrics, getFunnelMetrics, getUsageMetrics, getCustomerMetrics, getFocusInsights, getCustomerDetail, resolveWindow, METRIC_WINDOWS, CUSTOM_WINDOW_KEY } from "@/lib/services/metrics-service";
 
+const COUNT_MOCKS = [
+  mocks.order.countDocuments,
+  mocks.payment.countDocuments,
+  mocks.analyticsEvent.countDocuments,
+  mocks.enrollment.countDocuments,
+  mocks.booking.countDocuments,
+  mocks.lead.countDocuments,
+  mocks.fulfillment.countDocuments,
+];
+
+const AGGREGATE_MOCKS = [
+  mocks.order.aggregate,
+  mocks.payment.aggregate,
+  mocks.enrollment.aggregate,
+  mocks.fulfillment.aggregate,
+];
+
+const PRODUCT_ID = "64b000000000000000000001";
+
 describe("metrics-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.countMock.mockReset();
-    mocks.aggregateMock.mockReset();
     mocks.execMock.mockReset();
     mocks.execMock.mockResolvedValue([]);
+    for (const mock of COUNT_MOCKS) {
+      mock.mockReset();
+      mock.mockResolvedValue(0);
+    }
+    for (const mock of AGGREGATE_MOCKS) {
+      mock.mockReset();
+      mock.mockResolvedValue([]);
+    }
   });
 
   describe("getRevenueMetrics", () => {
     it("returns zero KPIs when no orders", async () => {
-      mocks.execMock.mockResolvedValue([]);
-      mocks.countMock.mockResolvedValue(0);
-
       const result = await getRevenueMetrics("30d");
 
       expect(result.window.key).toBe("30d");
@@ -132,7 +137,6 @@ describe("metrics-service", () => {
         },
       ];
       mocks.execMock.mockResolvedValue(orders);
-      mocks.countMock.mockResolvedValue(0);
 
       const result = await getRevenueMetrics("30d");
 
@@ -146,9 +150,6 @@ describe("metrics-service", () => {
 
   describe("getFunnelMetrics", () => {
     it("returns zero steps when no data", async () => {
-      mocks.countMock.mockResolvedValue(0);
-      mocks.aggregateMock.mockResolvedValue([]);
-
       const result = await getFunnelMetrics("30d");
 
       expect(result.checkoutViews).toBe(0);
@@ -160,9 +161,6 @@ describe("metrics-service", () => {
 
   describe("getUsageMetrics", () => {
     it("returns zero counts when no data", async () => {
-      mocks.countMock.mockResolvedValue(0);
-      mocks.aggregateMock.mockResolvedValue([]);
-
       const result = await getUsageMetrics("30d");
 
       expect(result.activeEnrollments).toBe(0);
@@ -172,36 +170,25 @@ describe("metrics-service", () => {
     });
 
     it("excludes complimentary admin grants from every enrollment metric", async () => {
-      mocks.countMock.mockResolvedValue(0);
-      mocks.aggregateMock.mockResolvedValue([]);
-      mocks.execMock.mockResolvedValue([]);
-
       await getRevenueMetrics("30d");
       await getUsageMetrics("30d");
 
-      // Enrollment filters are the ones that key on bonus status or progress.
-      const enrollmentFilters = mocks.countMock.mock.calls
-        .map(([filter]) => filter as Record<string, unknown>)
-        .filter(
-          (filter) =>
-            filter &&
-            ("isBonus" in filter || "completedLessonIds.0" in filter)
-        );
-
-      expect(enrollmentFilters.length).toBeGreaterThan(0);
-      for (const filter of enrollmentFilters) {
+      // Every enrollment query — counts and aggregates alike — must skip seats
+      // an admin handed out for free.
+      const filters = mocks.enrollment.countDocuments.mock.calls.map(
+        ([filter]) => filter as Record<string, unknown>
+      );
+      expect(filters.length).toBeGreaterThan(0);
+      for (const filter of filters) {
         expect(filter.accessSource).toEqual({ $ne: "ADMIN_GRANT" });
       }
 
-      const activeMatches = mocks.aggregateMock.mock.calls
-        .flatMap(([pipeline]) =>
-          (pipeline as Record<string, unknown>[]).map((stage) => stage.$match)
-        )
-        .filter(
-          (match): match is Record<string, unknown> =>
-            Boolean(match) && (match as Record<string, unknown>).status === "ACTIVE"
-        );
-
+      const activeMatches = mocks.enrollment.aggregate.mock.calls.flatMap(
+        ([pipeline]) =>
+          (pipeline as Record<string, unknown>[])
+            .map((stage) => stage.$match as Record<string, unknown> | undefined)
+            .filter((match): match is Record<string, unknown> => Boolean(match))
+      );
       expect(activeMatches.length).toBeGreaterThan(0);
       for (const match of activeMatches) {
         expect(match.accessSource).toEqual({ $ne: "ADMIN_GRANT" });
@@ -211,8 +198,6 @@ describe("metrics-service", () => {
 
   describe("getCustomerMetrics", () => {
     it("returns zero metrics when no customers", async () => {
-      mocks.aggregateMock.mockResolvedValue([]);
-
       const result = await getCustomerMetrics("30d");
 
       expect(result.totalCustomers).toBe(0);
@@ -223,10 +208,6 @@ describe("metrics-service", () => {
 
   describe("getFocusInsights", () => {
     it("returns healthy baseline when no issues", async () => {
-      mocks.aggregateMock.mockResolvedValue([]);
-      mocks.countMock.mockResolvedValue(0);
-      mocks.execMock.mockResolvedValue([]);
-
       const insights = await getFocusInsights("30d");
 
       expect(insights.length).toBeGreaterThan(0);
@@ -237,12 +218,183 @@ describe("metrics-service", () => {
 
   describe("getCustomerDetail", () => {
     it("returns empty when no orders", async () => {
-      mocks.execMock.mockResolvedValue([]);
-
       const result = await getCustomerDetail("test@example.com");
 
       expect(result.email).toBe("test@example.com");
       expect(result.orders).toEqual([]);
+    });
+  });
+
+  describe("product filter", () => {
+    it("scopes revenue orders and enrollment counts to the product", async () => {
+      await getRevenueMetrics({ window: "30d", product: PRODUCT_ID });
+
+      const [orderFilter] = mocks.order.find.mock.calls[0] as unknown as [
+        Record<string, unknown>,
+      ];
+      expect(String(orderFilter["items.productId"])).toBe(PRODUCT_ID);
+
+      // Purchased and bonus seat counts both narrow to this course.
+      expect(mocks.enrollment.countDocuments).toHaveBeenCalledTimes(2);
+      for (const [filter] of mocks.enrollment.countDocuments.mock.calls) {
+        expect(String((filter as Record<string, unknown>).courseId)).toBe(
+          PRODUCT_ID
+        );
+      }
+    });
+
+    it("attributes revenue only to the matching line item", async () => {
+      mocks.execMock.mockResolvedValue([
+        {
+          _id: "o1",
+          orderReference: "QL-1",
+          customerEmail: "a@b.com",
+          paidAt: new Date(Date.now() - 3_600_000),
+          subtotalMinor: 30000,
+          discountMinor: 0,
+          totalMinor: 30000,
+          items: [
+            {
+              productId: "64b000000000000000000002",
+              titleSnapshot: "Other course",
+              typeSnapshot: "COURSE",
+              unitPriceMinor: 20000,
+              quantity: 1,
+            },
+            {
+              productId: PRODUCT_ID,
+              titleSnapshot: "Filtered course",
+              typeSnapshot: "COURSE",
+              unitPriceMinor: 10000,
+              quantity: 1,
+            },
+          ],
+          metadata: {},
+        },
+      ]);
+
+      const result = await getRevenueMetrics({
+        window: "30d",
+        product: PRODUCT_ID,
+      });
+
+      expect(result.productsByRevenue).toHaveLength(1);
+      expect(result.productsByRevenue[0]).toMatchObject({
+        productId: PRODUCT_ID,
+        title: "Filtered course",
+        orders: 1,
+      });
+    });
+
+    it("scopes analytics events, orders and payment lookups in the funnel", async () => {
+      await getFunnelMetrics({ window: "30d", product: PRODUCT_ID });
+
+      // AnalyticsEvent stores the product id as a plain string.
+      const [analyticsFilter] = mocks.analyticsEvent.countDocuments.mock
+        .calls[0] as [Record<string, unknown>];
+      expect(analyticsFilter.productId).toBe(PRODUCT_ID);
+
+      const orderFilters = mocks.order.countDocuments.mock.calls.map(
+        ([filter]) => filter as Record<string, unknown>
+      );
+      expect(orderFilters).toHaveLength(2);
+      for (const filter of orderFilters) {
+        expect(String(filter["items.productId"])).toBe(PRODUCT_ID);
+      }
+
+      // Payments carry no product column, so both pipelines join their order.
+      const pipelines = mocks.payment.aggregate.mock.calls.map(
+        ([pipeline]) => pipeline as Record<string, unknown>[]
+      );
+      expect(pipelines).toHaveLength(2);
+      for (const pipeline of pipelines) {
+        const productMatches = pipeline
+          .map((stage) => stage.$match as Record<string, unknown> | undefined)
+          .filter(Boolean);
+        expect(
+          productMatches.some(
+            (match) =>
+              String(match!["__liveOrder.items.productId"]) === PRODUCT_ID
+          )
+        ).toBe(true);
+      }
+      expect(mocks.payment.countDocuments).not.toHaveBeenCalled();
+    });
+
+    it("scopes enrollments, bookings and leads to the product", async () => {
+      await getUsageMetrics({ window: "30d", product: PRODUCT_ID });
+
+      expect(mocks.enrollment.countDocuments).toHaveBeenCalled();
+      for (const [filter] of mocks.enrollment.countDocuments.mock.calls) {
+        expect(String((filter as Record<string, unknown>).courseId)).toBe(
+          PRODUCT_ID
+        );
+      }
+
+      const enrollmentMatches = mocks.enrollment.aggregate.mock.calls.flatMap(
+        ([pipeline]) =>
+          (pipeline as Record<string, unknown>[])
+            .map((stage) => stage.$match as Record<string, unknown> | undefined)
+            .filter(Boolean)
+      );
+      expect(enrollmentMatches.length).toBeGreaterThan(0);
+      for (const match of enrollmentMatches) {
+        expect(String(match!.courseId)).toBe(PRODUCT_ID);
+      }
+
+      expect(mocks.booking.countDocuments).toHaveBeenCalledTimes(3);
+      for (const [filter] of mocks.booking.countDocuments.mock.calls) {
+        expect(String((filter as Record<string, unknown>).productId)).toBe(
+          PRODUCT_ID
+        );
+      }
+
+      expect(mocks.lead.countDocuments).toHaveBeenCalledTimes(2);
+      for (const [filter] of mocks.lead.countDocuments.mock.calls) {
+        expect(String((filter as Record<string, unknown>).productId)).toBe(
+          PRODUCT_ID
+        );
+      }
+    });
+
+    it("scopes the customer aggregate to the product", async () => {
+      await getCustomerMetrics({ window: "30d", product: PRODUCT_ID });
+
+      const [pipeline] = mocks.order.aggregate.mock.calls[0] as [
+        Record<string, unknown>[],
+      ];
+      const [firstStage] = pipeline;
+      const match = firstStage.$match as Record<string, unknown>;
+      expect(String(match["items.productId"])).toBe(PRODUCT_ID);
+    });
+
+    it("scopes fulfillment issues to the product's orders", async () => {
+      await getFocusInsights({ window: "30d", product: PRODUCT_ID });
+
+      const pipelines = mocks.fulfillment.aggregate.mock.calls.map(
+        ([pipeline]) => pipeline as Record<string, unknown>[]
+      );
+      const scoped = pipelines.some((pipeline) =>
+        pipeline.some(
+          (stage) =>
+            stage.$match &&
+            String(
+              (stage.$match as Record<string, unknown>)[
+                "__liveOrder.items.productId"
+              ]
+            ) === PRODUCT_ID
+        )
+      );
+      expect(scoped).toBe(true);
+    });
+
+    it("ignores a malformed product id and reports the whole business", async () => {
+      await getRevenueMetrics({ window: "30d", product: "not-an-id" });
+
+      const [orderFilter] = mocks.order.find.mock.calls[0] as unknown as [
+        Record<string, unknown>,
+      ];
+      expect(orderFilter["items.productId"]).toBeUndefined();
     });
   });
 

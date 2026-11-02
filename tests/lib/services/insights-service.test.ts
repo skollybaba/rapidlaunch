@@ -84,25 +84,28 @@ function mockOrderAggregateDefault() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
-
+  // A few tests replace these implementations, so re-register the defaults for
+  // every test and only keep the call history clean.
+  mockOrderCount.mockClear();
+  mockUserCount.mockClear();
+  mockBookingCount.mockClear();
+  mockOrderAggregate.mockClear();
+  mockOrderFind.mockClear();
+  mockFulfillmentAggregate.mockClear();
+  mockPaymentAggregate.mockClear();
+  mockOrderAggregateDefault();
   mockOrderCount.mockImplementation((f: Record<string, unknown>) => {
     if (f.status === "PAID") return Promise.resolve(8);
     if (f.createdAt) return Promise.resolve(12);
     return Promise.resolve(0);
   });
-
   mockUserCount.mockImplementation(() => Promise.resolve(4));
-
   mockBookingCount.mockImplementation((f: Record<string, unknown>) => {
     if (f.status === "PENDING") return Promise.resolve(2);
     const inList = (f.status as { $in?: string[] } | undefined)?.$in;
     if (inList) return Promise.resolve(3);
     return Promise.resolve(0);
   });
-
-  mockOrderAggregateDefault();
-
   // Fulfillment reads now go through aggregates so orphaned rows (whose order
   // no longer exists) can be dropped by the pipeline's $lookup.
   mockFulfillmentAggregate.mockImplementation((pipeline: AggregateStage[]) => {
@@ -144,7 +147,6 @@ beforeEach(() => {
       },
     ] as never[]);
   });
-
   mockPaymentAggregate.mockImplementation((pipeline: AggregateStage[]) => {
     const status = pipeline.find((stage) => stage.$match)?.$match?.status as
       | { $in?: string[] }
@@ -154,7 +156,6 @@ beforeEach(() => {
       { count: inList?.[0] === "FAILED" ? 1 : 2 },
     ]);
   });
-
   mockOrderFind.mockImplementation(() =>
     findChain([
       {
@@ -398,6 +399,88 @@ describe("getInsights", () => {
         (stage) => stage.$group || stage.$count
       );
       if (groupOrCount >= 0) expect(lookupIndex).toBeLessThan(groupOrCount);
+    }
+  });
+
+  it("scopes every query to the selected product", async () => {
+    const productId = "64b000000000000000000001";
+
+    const snapshot = await getInsights(
+      { window: "monthly", product: productId },
+      { now: NOW }
+    );
+
+    expect(snapshot.productId).toBe(productId);
+
+    // Orders are matched on their line items.
+    expect(mockOrderCount).toHaveBeenCalledWith(
+      expect.objectContaining({ "items.productId": expect.anything() })
+    );
+
+    // New customers become distinct buyers of that product instead of accounts.
+    expect(mockUserCount).not.toHaveBeenCalled();
+    const buyerPipeline = mockOrderAggregate.mock.calls
+      .map((call) => call[0] as AggregateStage[])
+      .find((pipeline) =>
+        pipeline.some(
+          (stage) => stage.$group && stage.$group._id === "$customerEmail"
+        )
+      );
+    expect(buyerPipeline?.[0]?.$match).toMatchObject({
+      status: "PAID",
+      "items.productId": expect.anything(),
+    });
+
+    // Orders carry the product on their line items...
+    const orderPipelines = mockOrderAggregate.mock.calls.map(
+      (call) => call[0] as AggregateStage[]
+    );
+    expect(orderPipelines.length).toBeGreaterThan(0);
+    for (const pipeline of orderPipelines) {
+      expect(
+        pipeline.some(
+          (stage) =>
+            stage.$match && "items.productId" in (stage.$match as object)
+        )
+      ).toBe(true);
+    }
+
+    // ...while payments and fulfillments have no product column, so they join
+    // their parent order instead.
+    const joinedPipelines = [
+      ...mockFulfillmentAggregate.mock.calls.map(
+        (call) => call[0] as AggregateStage[]
+      ),
+      ...mockPaymentAggregate.mock.calls.map(
+        (call) => call[0] as AggregateStage[]
+      ),
+    ];
+    expect(joinedPipelines.length).toBeGreaterThan(0);
+    for (const pipeline of joinedPipelines) {
+      expect(
+        pipeline.some(
+          (stage) =>
+            stage.$match &&
+            "__liveOrder.items.productId" in (stage.$match as object)
+        )
+      ).toBe(true);
+    }
+
+    expect(mockBookingCount).toHaveBeenCalledWith(
+      expect.objectContaining({ productId: expect.anything() })
+    );
+  });
+
+  it("leaves the queries unscoped without a product", async () => {
+    const snapshot = await getInsights("monthly", { now: NOW });
+
+    expect(snapshot.productId).toBeUndefined();
+    expect(mockUserCount).toHaveBeenCalled();
+    for (const [filter] of mockOrderCount.mock.calls) {
+      expect(filter).not.toHaveProperty("items.productId");
+    }
+    for (const [filter] of mockBookingCount.mock.calls) {
+      expect(filter).not.toHaveProperty("productId");
     }
   });
 });

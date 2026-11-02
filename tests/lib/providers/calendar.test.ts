@@ -39,6 +39,10 @@ function nextMondayFrom(date = new Date()): Date {
   const start = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
   );
+  // Begin at tomorrow so the day under test is always in the future. Slots
+  // whose end has already passed are filtered out, so a same-day Monday would
+  // lose its morning slots and make the expected count depend on the clock.
+  start.setUTCDate(start.getUTCDate() + 1);
   while (start.getUTCDay() !== 1) start.setUTCDate(start.getUTCDate() + 1);
   return start;
 }
