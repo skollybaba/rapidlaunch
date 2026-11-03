@@ -52,15 +52,15 @@ export function DonutChart({
   }
 
   return (
-    <div className="rounded-[16px] border border-neutral-300 bg-white p-5">
+    <div className="overflow-hidden rounded-[16px] border border-neutral-300 bg-white p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-base font-bold text-neutral-950">{title}</h3>
         {legendTitle ? (
-          <p className="text-xs text-neutral-500">{legendTitle}</p>
+          <p className="shrink-0 text-xs text-neutral-500">{legendTitle}</p>
         ) : null}
       </div>
 
-      <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
+      <div className="mt-5 flex w-full min-w-0 flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
         <div className="relative h-[190px] w-[190px] shrink-0">
           <svg
             viewBox="0 0 100 100"
@@ -102,8 +102,11 @@ export function DonutChart({
               );
             })}
           </svg>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-xl font-bold tabular-nums text-neutral-950">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
+            <span
+              title={activeIndex !== null ? arcs[activeIndex].valueLabel : totalLabel}
+              className="max-w-full truncate text-lg font-bold tabular-nums text-neutral-950 xl:text-xl"
+            >
               {activeIndex !== null ? arcs[activeIndex].valueLabel : totalLabel}
             </span>
             <span className="mt-0.5 max-w-[120px] truncate text-xs text-neutral-500">
@@ -115,7 +118,7 @@ export function DonutChart({
         </div>
 
         <ul
-          className="w-full flex-1 space-y-1.5"
+          className="w-full min-w-0 flex-1 space-y-1.5"
           aria-label={`${title} breakdown`}
         >
           {sorted.map((slice, index) => (

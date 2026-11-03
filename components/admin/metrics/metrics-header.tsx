@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SlidersHorizontal } from "lucide-react";
 
 import { CustomRangeForm } from "@/components/admin/metrics/custom-range-form";
 import { ProductFilter } from "@/components/admin/metrics/product-filter";
@@ -48,24 +49,35 @@ export async function MetricsHeader({
         <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
       </div>
 
-      {/* One filter row: product, window presets and the custom range sit
-          together so the active scope reads left to right. */}
+      {/* One toolbar card holds every scope control so the active window,
+          product and date range read as a single filter row. */}
       {windowKey || children ? (
-        <div className="flex w-full flex-wrap items-end gap-3">
-          {windowKey ? (
-            <>
-              <ProductFilter productId={productId} options={productOptions} />
-              <WindowTabs windowKey={windowKey} productId={productId} />
-              <CustomRangeForm
-                key={`${windowKey}-${rangeStart ?? ""}-${rangeEnd ?? ""}`}
-                start={rangeStart}
-                end={rangeEnd}
-                label={windowLabel}
-                active={windowKey === CUSTOM_WINDOW_KEY}
-              />
-            </>
-          ) : null}
-          {children}
+        <div className="mt-2 rounded-[16px] border border-neutral-300 bg-white p-3 shadow-[0_2px_8px_rgb(17_18_29_/_4%)] sm:p-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500">
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              Scope
+            </span>
+
+            {windowKey ? (
+              <>
+                <ProductFilter productId={productId} options={productOptions} />
+                <span
+                  aria-hidden="true"
+                  className="hidden h-6 w-px bg-neutral-100 sm:block"
+                />
+                <WindowTabs windowKey={windowKey} productId={productId} />
+                <CustomRangeForm
+                  key={`${windowKey}-${rangeStart ?? ""}-${rangeEnd ?? ""}`}
+                  start={rangeStart}
+                  end={rangeEnd}
+                  label={windowLabel}
+                  active={windowKey === CUSTOM_WINDOW_KEY}
+                />
+              </>
+            ) : null}
+            {children}
+          </div>
         </div>
       ) : null}
     </header>

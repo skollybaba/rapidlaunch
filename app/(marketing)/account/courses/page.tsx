@@ -23,7 +23,7 @@ export default async function AccountCoursesPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-paper-50">
-      <div className="mx-auto w-[98%] flex-1 px-6 py-16 md:w-[min(83%,96rem)] lg:px-8 lg:py-24">
+      <div className="mx-auto w-[98%] flex-1 px-6 pb-16 pt-16 md:w-[min(83%,96rem)] lg:px-8 lg:pb-24 lg:pt-24">
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
           My account
         </p>

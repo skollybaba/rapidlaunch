@@ -73,10 +73,10 @@ export function SiteFooter() {
           <p className="inline-flex items-center gap-2 text-sm text-neutral-500">
             <Mail aria-hidden="true" className="h-4 w-4 text-terracotta-600" />
             <a
-              href="mailto:support@quicklaunch.example"
+              href="mailto:agilemindshubcentral@gmail.com"
               className="transition-colors duration-[var(--duration-fast)] hover:text-white"
             >
-              support@quicklaunch.example
+              agilemindshubcentral@gmail.com
             </a>
           </p>
           <p className="text-sm text-neutral-500">

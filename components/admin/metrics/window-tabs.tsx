@@ -16,7 +16,7 @@ export function WindowTabs({ windowKey, productId, className }: WindowTabsProps)
       role="group"
       aria-label="Time window"
       className={cn(
-        "flex rounded-pill border border-neutral-300 bg-white p-1",
+        "flex rounded-[10px] bg-lavender-100 p-1",
         className
       )}
     >
@@ -30,10 +30,10 @@ export function WindowTabs({ windowKey, productId, className }: WindowTabsProps)
             }`}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-pill px-3.5 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)]",
+              "rounded-[7px] px-3 py-1.5 text-sm font-semibold transition-all duration-[var(--duration-fast)]",
               active
-                ? "bg-ink-900 text-white"
-                : "text-neutral-500 hover:text-neutral-950"
+                ? "bg-white text-terracotta-600 shadow-sm"
+                : "text-neutral-500 hover:bg-white/60 hover:text-neutral-950"
             )}
           >
             {WINDOW_SHORT_LABELS[key]}

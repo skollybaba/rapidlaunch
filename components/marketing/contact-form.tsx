@@ -32,7 +32,7 @@ const INTENTS = [
   },
 ] as const;
 
-const SUPPORT_EMAIL = "support@quicklaunch.example";
+const SUPPORT_EMAIL = "agilemindshubcentral@gmail.com";
 
 export function ContactForm() {
   const [intent, setIntent] = useState<(typeof INTENTS)[number]>(INTENTS[0]);

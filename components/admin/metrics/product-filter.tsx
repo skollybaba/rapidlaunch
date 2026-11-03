@@ -46,17 +46,16 @@ export function ProductFilter({
 
   return (
     <div className={cn("w-full sm:w-auto", className)}>
-      <label
-        htmlFor="metrics-product"
-        className="block text-xs font-semibold text-neutral-500"
-      >
+      {/* The visible context comes from the "Scope" toolbar label; this label
+          keeps the select programmatically named. */}
+      <label htmlFor="metrics-product" className="sr-only">
         Product
       </label>
       <select
         id="metrics-product"
         value={productId ?? ""}
         onChange={(event) => select(event.target.value)}
-        className="mt-1 h-[38px] w-full rounded-[12px] border border-neutral-300 bg-white px-3 text-sm text-neutral-950 focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)] sm:w-[220px]"
+        className="h-9 w-full rounded-[10px] border border-neutral-300 bg-white px-3 text-sm text-neutral-950 transition-colors duration-[var(--duration-fast)] hover:border-neutral-500 focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)] sm:w-[200px]"
       >
         <option value="">All products</option>
         {[...groups.entries()].map(([type, list]) => (

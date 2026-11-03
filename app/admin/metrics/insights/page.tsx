@@ -51,7 +51,7 @@ export default async function InsightsPage({
         productId={resolveProductFilter(params.product)?.id}
       />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="admin-enter mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard
           label="High priority"
           value={high.toLocaleString()}
@@ -75,7 +75,7 @@ export default async function InsightsPage({
         />
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="admin-enter mt-6 grid max-w-4xl grid-cols-1 gap-4">
         {insights.length === 0 ? (
           <EmptyState
             title="No insights for this window"

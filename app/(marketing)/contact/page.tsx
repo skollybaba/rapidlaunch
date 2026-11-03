@@ -79,7 +79,7 @@ export default function ContactPage() {
                   <ul className="mt-4 text-sm font-semibold text-terracotta-600">
                     <li className="border-t border-neutral-100 py-2">
                       <a
-                        href="mailto:support@quicklaunch.example?subject=Social%20link"
+                        href="mailto:agilemindshubcentral@gmail.com?subject=Social%20link"
                         className="transition-colors duration-[var(--duration-fast)] hover:text-terracotta-500"
                       >
                         Request social links

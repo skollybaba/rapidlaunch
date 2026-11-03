@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  CalendarRange,
   CircleDollarSign,
   FileText,
   Mail,
@@ -12,6 +13,7 @@ import {
   ReceiptText,
   Save,
   Send,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 
@@ -238,37 +240,45 @@ function ProfitCalculator() {
 
   return (
     <div className="admin-enter flex flex-1 flex-col">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
-            Finance
-          </p>
-          <h1 className="mt-1 text-[32px] leading-[1.286] md:text-[1.75rem]">
-            Profit calculator
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Net revenue after Paystack fees and operating expenses. Save and
-            email monthly reports.
-          </p>
-        </div>
-        <div>
-          <label
-            htmlFor="profit-month"
-            className="block text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500"
-          >
-            Month
-          </label>
-          <input
-            id="profit-month"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className={cn(inputClass, "mt-1 w-44")}
-          />
-        </div>
+      <header>
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+          Finance
+        </p>
+        <h1 className="mt-1 text-[32px] leading-[1.286] md:text-[1.75rem]">
+          Profit calculator
+        </h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Net revenue after Paystack fees and operating expenses. Save and email
+          monthly reports.
+        </p>
       </header>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-2 rounded-[16px] border border-neutral-300 bg-white p-3 shadow-[0_2px_8px_rgb(17_18_29_/_4%)] sm:p-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500">
+            <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+            Scope
+          </span>
+          <div className="flex h-9 items-center gap-2 rounded-[10px] border border-neutral-300 bg-white px-3 transition-colors duration-[var(--duration-fast)] hover:border-neutral-500 focus-within:border-terracotta-600 focus-within:ring-[3px] focus-within:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]">
+            <CalendarRange
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-neutral-500"
+            />
+            <label htmlFor="profit-month" className="sr-only">
+              Reporting month
+            </label>
+            <input
+              id="profit-month"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="bg-transparent text-sm text-neutral-950 tabular-nums focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-enter mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Net revenue"
           value={formatMinor(netMinor)}
@@ -300,7 +310,7 @@ function ProfitCalculator() {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="admin-enter mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <section className="rounded-[16px] border border-neutral-300 bg-white p-5">
             <h2 className="text-base font-bold text-neutral-950">

@@ -20,7 +20,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="rapid-launch-recipients-template.csv"',
+      "Content-Disposition": 'attachment; filename="agile-minds-hub-recipients-template.csv"',
       "Cache-Control": "no-store",
     },
   });

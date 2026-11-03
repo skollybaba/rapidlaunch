@@ -10,9 +10,9 @@ import {
   ShoppingCart,
   Tag,
   Users,
-  Wallet,
 } from "lucide-react";
 
+import { AnimatedNumber } from "@/components/admin/animated-number";
 import { requireAdmin } from "@/lib/auth/admin";
 import { getRevenueMetrics } from "@/lib/services/metrics-service";
 import { resolveProductFilter } from "@/lib/metrics/product-filter";
@@ -64,6 +64,7 @@ export default async function RevenuePage({
 
   const format = (v: number) => formatPrice(v, "NGN");
   const deltaLabel = `vs ${window.previousLabel.toLowerCase()}`;
+  const netDelta = net.deltaPct;
 
   return (
     <div className="admin-enter flex flex-1 flex-col">
@@ -77,7 +78,48 @@ export default async function RevenuePage({
         productId={resolveProductFilter(params.product)?.id}
       />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        aria-labelledby="net-revenue-heading"
+        className="mt-8 rounded-[16px] bg-ink-950 p-6 text-white md:p-7"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p
+              id="net-revenue-heading"
+              className="text-xs font-semibold uppercase tracking-[0.1em] text-white/60"
+            >
+              Net revenue · {window.label}
+            </p>
+            <p className="mt-1.5 text-3xl font-bold tracking-tight tabular-nums sm:text-4xl md:text-5xl">
+              <AnimatedNumber
+                value={net.current}
+                format="price"
+                currency="NGN"
+                durationMs={1100}
+              />
+            </p>
+          </div>
+          <p className="flex flex-wrap items-center gap-2 text-sm text-white/70">
+            {typeof netDelta === "number" ? (
+              <span
+                className={
+                  netDelta >= 0
+                    ? "inline-flex items-center rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-semibold text-success-600"
+                    : "inline-flex items-center rounded-full bg-danger-100 px-2.5 py-0.5 text-xs font-semibold text-danger-600"
+                }
+              >
+                {netDelta >= 0 ? "+" : "−"}
+                {Math.abs(netDelta)}%
+              </span>
+            ) : null}
+            {typeof netDelta === "number"
+              ? deltaLabel
+              : "No prior data to compare"}
+          </p>
+        </div>
+      </section>
+
+      <div className="admin-enter mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label="Gross revenue"
           value={format(gross.current)}
@@ -85,32 +127,6 @@ export default async function RevenuePage({
           deltaLabel={deltaLabel}
           icon={CircleDollarSign}
         />
-        <StatCard
-          label="Net revenue"
-          value={format(net.current)}
-          deltaPct={net.deltaPct}
-          deltaLabel={deltaLabel}
-          icon={Wallet}
-          tone="success"
-        />
-        <StatCard
-          label="Paid orders"
-          value={paidOrders.current.toLocaleString()}
-          deltaPct={paidOrders.deltaPct}
-          deltaLabel={deltaLabel}
-          icon={ShoppingCart}
-        />
-        <StatCard
-          label="Unique customers"
-          value={uniqueCustomers.current.toLocaleString()}
-          deltaPct={uniqueCustomers.deltaPct}
-          deltaLabel={deltaLabel}
-          icon={Users}
-          tone="info"
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Discounts given"
           value={format(discounts.current)}
@@ -127,6 +143,21 @@ export default async function RevenuePage({
           icon={ReceiptText}
         />
         <StatCard
+          label="Paid orders"
+          value={paidOrders.current.toLocaleString()}
+          deltaPct={paidOrders.deltaPct}
+          deltaLabel={deltaLabel}
+          icon={ShoppingCart}
+        />
+        <StatCard
+          label="Unique customers"
+          value={uniqueCustomers.current.toLocaleString()}
+          deltaPct={uniqueCustomers.deltaPct}
+          deltaLabel={deltaLabel}
+          icon={Users}
+          tone="info"
+        />
+        <StatCard
           label="Discounted orders"
           value={discountedOrders.current.toLocaleString()}
           deltaPct={discountedOrders.deltaPct}
@@ -136,25 +167,9 @@ export default async function RevenuePage({
         />
       </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <DonutChart
-          title="Revenue by product"
-          totalLabel={format(net.current)}
-          centerLabel="Net revenue"
-          slices={buildPieSlices(productsByRevenue, format)}
-          legendTitle={`${productsByRevenue.length} product${
-            productsByRevenue.length === 1 ? "" : "s"
-          }`}
-        />
-        <RankedBarChart
-          title="Products by revenue"
-          bars={buildRankedBars(productsByRevenue, format)}
-          hint={`Top ${Math.min(productsByRevenue.length, 8)}`}
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="admin-enter mt-6 grid gap-4 lg:grid-cols-12">
         <AreaTrendChart
+          className="lg:col-span-8"
           title="Net revenue trend"
           subtitle={window.label}
           totalLabel={format(net.current)}
@@ -164,15 +179,33 @@ export default async function RevenuePage({
             valueLabel: format(p.netMinor),
           }))}
         />
-        <DonutChart
+        <div className="min-w-0 lg:col-span-4">
+          <DonutChart
+            title="Revenue by product"
+            totalLabel={format(net.current)}
+            centerLabel="Net revenue"
+            slices={buildPieSlices(productsByRevenue, format)}
+            legendTitle={`${productsByRevenue.length} product${
+              productsByRevenue.length === 1 ? "" : "s"
+            }`}
+          />
+        </div>
+      </div>
+
+      <div className="admin-enter mt-6 grid gap-4 lg:grid-cols-2">
+        <RankedBarChart
+          title="Products by revenue"
+          bars={buildRankedBars(productsByRevenue, format)}
+          hint={`Top ${Math.min(productsByRevenue.length, 8)}`}
+        />
+        <RankedBarChart
           title="Revenue by type"
-          totalLabel={format(net.current)}
-          centerLabel="Net revenue"
-          slices={buildPieSlices(revenueByType, format)}
+          bars={buildRankedBars(revenueByType, format)}
+          hint="Courses, sessions, and books"
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="admin-enter mt-6 grid gap-4 lg:grid-cols-2">
         <SectionCard
           title="Coupon usage"
           subtitle="Discount codes applied in this window"

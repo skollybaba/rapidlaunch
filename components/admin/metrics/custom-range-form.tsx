@@ -7,9 +7,6 @@ import { CalendarRange, X } from "lucide-react";
 import { CUSTOM_WINDOW_KEY, CUSTOM_WINDOW_LABEL } from "@/lib/metrics/windows";
 import { buttonStyles } from "@/components/ui/button";
 
-const inputClasses =
-  "mt-1 h-[38px] w-[148px] rounded-[12px] border border-neutral-300 bg-white px-3 text-sm text-neutral-950 tabular-nums focus:border-terracotta-600 focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]";
-
 /** Today's date in the viewer's timezone, as a `YYYY-MM-DD` value. */
 function localIsoDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -86,13 +83,14 @@ export function CustomRangeForm({
     <form
       onSubmit={apply}
       aria-label="Custom date range"
-      className="flex w-full flex-wrap items-end gap-2 sm:w-auto sm:justify-end"
+      className="flex w-full flex-wrap items-center gap-2 sm:w-auto"
     >
-      <div>
-        <label
-          htmlFor="metrics-range-start"
-          className="block text-xs font-semibold text-neutral-500"
-        >
+      <div className="flex h-9 items-center gap-2 rounded-[10px] border border-neutral-300 bg-white px-3 transition-colors duration-[var(--duration-fast)] focus-within:border-terracotta-600 focus-within:ring-[3px] focus-within:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)] hover:border-neutral-500">
+        <CalendarRange
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-neutral-500"
+        />
+        <label htmlFor="metrics-range-start" className="sr-only">
           From
         </label>
         <input
@@ -104,14 +102,12 @@ export function CustomRangeForm({
           onChange={(event) => setFrom(event.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "metrics-range-error" : undefined}
-          className={inputClasses}
+          className="w-[124px] bg-transparent text-sm text-neutral-950 tabular-nums focus:outline-none"
         />
-      </div>
-      <div>
-        <label
-          htmlFor="metrics-range-end"
-          className="block text-xs font-semibold text-neutral-500"
-        >
+        <span aria-hidden="true" className="text-neutral-300">
+          –
+        </span>
+        <label htmlFor="metrics-range-end" className="sr-only">
           To
         </label>
         <input
@@ -123,19 +119,18 @@ export function CustomRangeForm({
           onChange={(event) => setTo(event.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "metrics-range-error" : undefined}
-          className={inputClasses}
+          className="w-[124px] bg-transparent text-sm text-neutral-950 tabular-nums focus:outline-none"
         />
       </div>
       <button
         type="submit"
         className={buttonStyles({ variant: "primary", size: "sm" })}
       >
-        <CalendarRange aria-hidden="true" className="h-4 w-4" />
-        Apply range
+        Apply
       </button>
 
       {active ? (
-        <span className="flex items-center gap-2 self-end">
+        <span className="flex items-center gap-2">
           <span className="inline-flex h-9 items-center rounded-pill bg-ink-900 px-3 text-xs font-semibold text-white">
             {label ?? CUSTOM_WINDOW_LABEL}
           </span>

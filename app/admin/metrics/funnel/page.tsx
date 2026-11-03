@@ -76,7 +76,7 @@ export default async function FunnelPage({
         productId={resolveProductFilter(params.product)?.id}
       />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-enter mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Order page views"
           value={checkoutViews.toLocaleString()}
@@ -103,7 +103,7 @@ export default async function FunnelPage({
         />
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <div className="admin-enter mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
           label="View → paid"
           value={viewToPaidPct !== null ? `${viewToPaidPct}%` : "—"}
@@ -202,7 +202,7 @@ export default async function FunnelPage({
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-neutral-100">
                     <div
                       className={cn(
-                        "h-full rounded-full",
+                        "animate-bar-x h-full rounded-full",
                         STATUS_TONE[outcome.status] ?? "bg-terracotta-500"
                       )}
                       style={{ width: `${pct}%` }}

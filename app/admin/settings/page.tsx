@@ -35,13 +35,18 @@ export default async function AdminSettingsPage() {
   } as PaymentSettingsState;
 
   return (
-    <div className="admin-enter space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-neutral-950">Settings</h1>
+    <div className="admin-enter space-y-8">
+      <header>
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-terracotta-600">
+          Back office
+        </p>
+        <h1 className="mt-1 text-[1.75rem] font-bold leading-tight text-neutral-950">
+          Settings
+        </h1>
         <p className="mt-1 text-sm text-neutral-500">
           Manage checkout, currency display, and public site content.
         </p>
-      </div>
+      </header>
 
       <SettingsTabs
         paymentInitial={initial}

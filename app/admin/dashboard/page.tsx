@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Receipt,
   ShoppingCart,
+  SlidersHorizontal,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -30,7 +31,7 @@ import {
   type InsightsPeriod,
 } from "@/lib/services/insights-service";
 import { CUSTOM_WINDOW_KEY } from "@/lib/metrics/windows";
-import { formatDateTime, formatPrice } from "@/lib/utils";
+import { cn, formatDateTime, formatPrice } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -185,50 +186,61 @@ export default async function AdminDashboardPage({
           <TestEmailButton />
         </div>
 
-        {/* Product, period and custom range share one row so the active scope
-            reads left to right instead of stacking three separate controls. */}
-        <div className="flex w-full flex-wrap items-end gap-3">
-          <ProductFilter
-            productId={snapshot.productId}
-            options={productOptions}
-          />
-          <div
-            role="group"
-            aria-label="Time period"
-            className="flex rounded-pill border border-neutral-300 bg-white p-1"
-          >
-            {PERIOD_OPTIONS.map((option) => {
-              const active =
-                !customActive && option.value === snapshot.period;
-              return (
-                <Link
-                  key={option.value}
-                  href={`/admin/dashboard?period=${option.value}${
-                    snapshot.productId
-                      ? `&product=${encodeURIComponent(snapshot.productId)}`
-                      : ""
-                  }`}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-pill px-3.5 py-2 text-sm font-semibold transition-colors duration-[var(--duration-fast)] ${
-                    active
-                      ? "bg-ink-900 text-white"
-                      : "text-neutral-500 hover:text-neutral-950"
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              );
-            })}
+        {/* Product, period and custom range share one Scope toolbar so the
+            active scope reads left to right, matching the metrics pages. */}
+        <div className="mt-2 rounded-[16px] border border-neutral-300 bg-white p-3 shadow-[0_2px_8px_rgb(17_18_29_/_4%)] sm:p-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500">
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              Scope
+            </span>
+            <ProductFilter
+              productId={snapshot.productId}
+              options={productOptions}
+            />
+            <span
+              aria-hidden="true"
+              className="hidden h-6 w-px bg-neutral-100 sm:block"
+            />
+            <div
+              role="group"
+              aria-label="Time period"
+              className="flex rounded-[10px] bg-lavender-100 p-1"
+            >
+              {PERIOD_OPTIONS.map((option) => {
+                const active =
+                  !customActive && option.value === snapshot.period;
+                return (
+                  <Link
+                    key={option.value}
+                    href={`/admin/dashboard?period=${option.value}${
+                      snapshot.productId
+                        ? `&product=${encodeURIComponent(snapshot.productId)}`
+                        : ""
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "rounded-[7px] px-3 py-1.5 text-sm font-semibold transition-all duration-[var(--duration-fast)]",
+                      active
+                        ? "bg-white text-terracotta-600 shadow-sm"
+                        : "text-neutral-500 hover:bg-white/60 hover:text-neutral-950"
+                    )}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <CustomRangeForm
+              key={`${snapshot.period}-${snapshot.rangeStart ?? ""}-${
+                snapshot.rangeEnd ?? ""
+              }`}
+              start={snapshot.rangeStart}
+              end={snapshot.rangeEnd}
+              label={snapshot.windowDescription}
+              active={customActive}
+            />
           </div>
-          <CustomRangeForm
-            key={`${snapshot.period}-${snapshot.rangeStart ?? ""}-${
-              snapshot.rangeEnd ?? ""
-            }`}
-            start={snapshot.rangeStart}
-            end={snapshot.rangeEnd}
-            label={snapshot.windowDescription}
-            active={customActive}
-          />
         </div>
       </div>
 
