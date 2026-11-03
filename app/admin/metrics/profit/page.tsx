@@ -346,15 +346,18 @@ function ProfitCalculator() {
                   htmlFor="flat-fee"
                   className="block text-sm font-medium text-neutral-700"
                 >
-                  Flat fee per order (minor)
+                  Flat fee per order (₦)
                 </label>
                 <input
                   id="flat-fee"
                   type="number"
+                  step="0.01"
                   min="0"
-                  value={flatFeeMinor}
+                  value={flatFeeMinor === 0 ? 0 : flatFeeMinor / 100}
                   onChange={(e) =>
-                    setFlatFeeMinor(parseInt(e.target.value, 10) || 0)
+                    setFlatFeeMinor(
+                      Math.round((parseFloat(e.target.value) || 0) * 100)
+                    )
                   }
                   className={cn(inputClass, "mt-1")}
                 />
@@ -419,15 +422,16 @@ function ProfitCalculator() {
                     />
                     <input
                       type="number"
-                      aria-label={`Expense ${idx + 1} amount in minor units`}
-                      placeholder="Amount (minor)"
+                      aria-label={`Expense ${idx + 1} amount in naira`}
+                      placeholder="e.g. 13000"
+                      step="0.01"
                       min="0"
-                      value={expense.amountMinor}
+                      value={expense.amountMinor === 0 ? "" : expense.amountMinor / 100}
                       onChange={(e) =>
                         updateExpense(
                           idx,
                           "amountMinor",
-                          parseInt(e.target.value, 10) || 0
+                          Math.round((parseFloat(e.target.value) || 0) * 100)
                         )
                       }
                       className={cn(inputClass, "text-right")}
