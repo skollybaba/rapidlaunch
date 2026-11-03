@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
 
@@ -10,8 +11,16 @@ import { AdminNav } from "@/components/admin/admin-nav";
  * on `lg` and above it is always expanded as a fixed column.
  */
 export function AdminSidebar() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [lastPathname, setLastPathname] = useState(pathname);
   const toggleRef = useRef<HTMLButtonElement>(null);
+
+  // Any navigation closes the mobile nav panel, click handler or not.
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;

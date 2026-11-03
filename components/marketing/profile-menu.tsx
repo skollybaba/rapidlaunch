@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, LogOut, UserRound } from "lucide-react";
 
 import { useAuth } from "@/components/auth/auth-provider";
@@ -25,8 +25,16 @@ export function ProfileMenu() {
   const { user, logout } = useAuth();
   const toast = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [lastPathname, setLastPathname] = useState(pathname);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Navigating away closes the menu, whatever triggered the navigation.
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;

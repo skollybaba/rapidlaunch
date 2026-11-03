@@ -20,8 +20,14 @@ export function SiteHeader() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-
+  const [lastPathname, setLastPathname] = useState(pathname);
   const closeMenu = () => setMenuOpen(false);
+
+  // Navigating away (link click, back button, soft nav) closes the mobile menu.
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setMenuOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-ink-950/95 shadow-sm shadow-ink-950/20 backdrop-blur">
