@@ -106,6 +106,21 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Formats an amount stored in minor units (kobo) as Naira text for emails.
+ * Amounts are stored and passed between services as minor units, so rendering
+ * them without dividing by 100 overstates every figure a hundred-fold —
+ * e.g. ₦14,999.00 must not display as ₦1,499,900.
+ */
+function formatNairaMinor(amountMinor: number): string {
+  const value = Number(amountMinor);
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    currencyDisplay: "narrowSymbol",
+  }).format(Number.isFinite(value) ? value / 100 : 0);
+}
+
 function buildTemplate(
   templateKey: EmailTemplateKey,
   variables: Record<string, string>
@@ -450,10 +465,18 @@ Paid at: ${paidAt}${paymentReference ? `\nPayment reference: ${paymentReference}
 
     case "profit_report": {
       const month = variables.month ?? "";
-      const net = variables.netMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.netMinor)))} NGN` : "₦0 NGN";
-      const fees = variables.paystackFeesMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.paystackFeesMinor)))} NGN` : "₦0 NGN";
-      const expenses = variables.expensesTotalMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.expensesTotalMinor)))} NGN` : "₦0 NGN";
-      const profit = variables.profitMinor ? `₦${esc(new Intl.NumberFormat("en-NG").format(Number(variables.profitMinor)))} NGN` : "₦0 NGN";
+      const net = variables.netMinor
+        ? esc(formatNairaMinor(Number(variables.netMinor)))
+        : "₦0.00";
+      const fees = variables.paystackFeesMinor
+        ? esc(formatNairaMinor(Number(variables.paystackFeesMinor)))
+        : "₦0.00";
+      const expenses = variables.expensesTotalMinor
+        ? esc(formatNairaMinor(Number(variables.expensesTotalMinor)))
+        : "₦0.00";
+      const profit = variables.profitMinor
+        ? esc(formatNairaMinor(Number(variables.profitMinor)))
+        : "₦0.00";
       return {
         subject: `Profit report for ${month}`,
         html: `<div style="background:#fcfaf8;padding:32px 16px;${FONT_STACK}"><div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #eee7de;border-radius:16px;overflow:hidden;">${emailHeader("Profit report")}<div style="padding:28px 32px;"><p style="font-size:16px;line-height:1.6;margin:0 0 18px;color:#11121d;">Monthly profit calculation for <strong>${esc(month)}</strong>.</p><table style="width:100%;border:1px solid #eee7de;border-radius:12px;border-collapse:separate;border-spacing:0;margin:0 0 24px;overflow:hidden;"><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Revenue (net)</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(net)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Paystack fees</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(fees)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;border-bottom:1px solid #eee7de;">Expenses</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#11121d;text-align:right;border-bottom:1px solid #eee7de;">${esc(expenses)}</td></tr><tr><td style="padding:13px 20px;font-size:13px;color:#74778c;">Profit</td><td style="padding:13px 20px;font-size:13px;font-weight:700;color:#c75d3c;text-align:right;">${esc(profit)}</td></tr></table></div></div></div>`,

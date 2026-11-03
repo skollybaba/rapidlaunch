@@ -72,8 +72,32 @@ describe("SmtpMailAdapter", () => {
     expect(result.sentAt).toBeInstanceOf(Date);
   });
 
-  it("embeds the brand logo inline via cid in template emails", async () => {
+  it("renders profit report amounts in naira, not raw kobo", async () => {
     await adapter.sendTemplateEmail({
+      templateKey: "profit_report",
+      to: "owner@gmail.com",
+      variables: {
+        month: "2024-01",
+        netMinor: "1499900",
+        paystackFeesMinor: "1425",
+        expensesTotalMinor: "15000",
+        profitMinor: "1483475",
+      },
+    });
+
+    const call = sendMail.mock.calls[0][0] as {
+      subject: string;
+      html: string;
+      text: string;
+    };
+    expect(call.subject).toBe("Profit report for 2024-01");
+    expect(call.html).toContain("₦14,999.00");
+    expect(call.text).toContain("₦14,999.00");
+    expect(call.html).not.toContain("1,499,900");
+    expect(call.text).not.toContain("1,499,900");
+  });
+
+  it("embeds the brand logo inline via cid in template emails", async () => {    await adapter.sendTemplateEmail({
       templateKey: "account_welcome",
       to: "student@gmail.com",
       variables: { name: "Ade", appUrl: "https://example.com" },

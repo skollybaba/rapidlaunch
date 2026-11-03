@@ -3,12 +3,7 @@ import "server-only";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { ProfitReport } from "@/models/ProfitReport";
 import { dbConnect } from "@/lib/db";
-import {
-  getMonthRevenueSummary,
-  monthStart,
-  monthEndExclusive,
-} from "@/lib/services/metrics-service";
-import { Order } from "@/models/Order";
+import { getMonthRevenueSummary } from "@/lib/services/metrics-service";
 import {
   ProfitCalculation,
   ProfitReportInput,
@@ -29,10 +24,6 @@ export class ProfitReportServiceError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function fmtMinor(n: number): string {
-  return new Intl.NumberFormat("en-NG").format(Math.max(0, n));
 }
 
 export async function computeProfit(
@@ -133,44 +124,20 @@ export async function sendProfitReportEmail(
   }
   const mail = createMailAdapter();
   const calc = await getProfitReportForMonth(month);
-  const subject = `Profit report for ${month} — ${fmtMinor(calc.profitMinor)} NGN`;
-  const html = `
-    <h1>Profit Report — ${month}</h1>
-    <p>Revenue (net): ₦${fmtMinor(calc.netMinor)}</p>
-    <p>Paystack fees: ₦${fmtMinor(calc.paystackFeesMinor)}</p>
-    <p>Expenses: ₦${fmtMinor(calc.expensesTotalMinor)}</p>
-    <p><strong>Profit: ₦${fmtMinor(calc.profitMinor)}</strong></p>
-  `;
-  const text = [
-    `Profit Report — ${month}`,
-    `Revenue (net): ${fmtMinor(calc.netMinor)} NGN`,
-    `Paystack fees: ${fmtMinor(calc.paystackFeesMinor)} NGN`,
-    `Expenses: ${fmtMinor(calc.expensesTotalMinor)} NGN`,
-    `Profit: ${fmtMinor(calc.profitMinor)} NGN`,
-  ].join("\n");
-  await mail.sendTemplateEmail({
-    to: to[0],
-    templateKey: "profit_report",
-    variables: {
-      month: calc.month,
-      netMinor: String(calc.netMinor),
-      paystackFeesMinor: String(calc.paystackFeesMinor),
-      expensesTotalMinor: String(calc.expensesTotalMinor),
-      profitMinor: String(calc.profitMinor),
-    },
-  });
+  const variables = {
+    month: calc.month,
+    netMinor: String(calc.netMinor),
+    paystackFeesMinor: String(calc.paystackFeesMinor),
+    expensesTotalMinor: String(calc.expensesTotalMinor),
+    profitMinor: String(calc.profitMinor),
+  };
+  await mail.sendTemplateEmail({ to: to[0], templateKey: "profit_report", variables });
   if (to.length > 1) {
-    for (let i = 1; i < to.length; i++) {
+    for (let i = 1; i < to.length; i += 1) {
       await mail.sendTemplateEmail({
         to: to[i],
         templateKey: "profit_report",
-        variables: {
-          month: calc.month,
-          netMinor: String(calc.netMinor),
-          paystackFeesMinor: String(calc.paystackFeesMinor),
-          expensesTotalMinor: String(calc.expensesTotalMinor),
-          profitMinor: String(calc.profitMinor),
-        },
+        variables,
       });
     }
   }
