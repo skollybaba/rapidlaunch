@@ -1014,6 +1014,8 @@ async function findFulfillment(
 
 interface EnrollmentTarget {
   productId: string;
+  /** Course slug; the `/learn/[slug]` route resolves by slug, not by id. */
+  courseSlug?: string;
   courseTitle: string;
   classroomCourseId?: string;
   courseJoinUrl?: string;
@@ -1029,6 +1031,8 @@ async function enrollmentTargetsForOrder(
   const targets: EnrollmentTarget[] = [
     {
       productId: parent?.productId ? String(parent.productId) : "",
+      // Recorded on the order at checkout; the player route needs the slug.
+      courseSlug: productSlugFromMetadata(order.metadata) || undefined,
       courseTitle: parent?.titleSnapshot ?? "",
       classroomCourseId: order.metadata?.classroomCourseId as
         | string
@@ -1048,7 +1052,7 @@ async function enrollmentTargetsForOrder(
     type: "COURSE",
     status: { $in: ["PUBLISHED", "DRAFT"] },
   } as unknown as Parameters<typeof Product.find>[0])
-    .select("_id title courseDetails")
+    .select("_id slug title courseDetails")
     .lean()
     .exec();
 
@@ -1070,6 +1074,7 @@ async function enrollmentTargetsForOrder(
     }
     targets.push({
       productId: id,
+      courseSlug: typeof doc.slug === "string" ? doc.slug : undefined,
       courseTitle: doc.title,
       classroomCourseId: doc.courseDetails?.classroomCourseId,
       courseJoinUrl: doc.courseDetails?.courseJoinUrl,
@@ -1167,7 +1172,11 @@ async function enrollInCourseTarget(
     );
     await sendCourseAccessEmail(order, target, {
       courseName: target.courseTitle,
-      courseLink: `${env.NEXT_PUBLIC_APP_URL}/learn/${target.productId}`,
+      // Prefer the slug so the player route resolves directly; the id is still
+      // accepted by `/learn/[slug]` for links already in inboxes.
+      courseLink: `${env.NEXT_PUBLIC_APP_URL}/learn/${
+        target.courseSlug ?? target.productId
+      }`,
       enrolled: true,
     });
   } catch (error) {

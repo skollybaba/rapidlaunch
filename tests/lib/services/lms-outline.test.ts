@@ -243,3 +243,58 @@ describe("getCourseOutlineForUser with a highlighted module", () => {
     ]);
   });
 });
+
+describe("getCourseOutlineForUser course reference", () => {
+  const COURSE_ID = "6a94cd7749eba0420aae3dd7";
+
+  function firstProductFilter() {
+    const [filter] = mockProductFindOne.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+    return filter;
+  }
+
+  it("resolves a course by slug", async () => {
+    mockProductFindOne.mockReturnValue(chainWithSelect(courseDoc(undefined)));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    await getCourseOutlineForUser("U1", "launch-fast");
+
+    expect(firstProductFilter()).toEqual({
+      slug: "launch-fast",
+      type: "COURSE",
+    });
+  });
+
+  it("also resolves a 24-hex product id so older email links keep working", async () => {
+    mockProductFindOne.mockReturnValue(chainWithSelect(courseDoc(undefined)));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    const outline = await getCourseOutlineForUser("U1", COURSE_ID);
+
+    // Links sent before the email used the slug pointed at `/learn/<id>`.
+    expect(firstProductFilter()).toEqual({ _id: COURSE_ID, type: "COURSE" });
+    expect(outline.courseSlug).toBe("launch-fast");
+  });
+
+  it("treats a slug-shaped 24-character reference as a slug", async () => {
+    mockProductFindOne.mockReturnValue(chainWithSelect(courseDoc(undefined)));
+    mockEnrollmentFindOne.mockReturnValue(chainPlain(enrollmentDoc()));
+
+    // 24 characters, but not hexadecimal — never an ObjectId.
+    await getCourseOutlineForUser("U1", "zzzzzzzzzzzzzzzzzzzzzzzz");
+
+    expect(firstProductFilter()).toEqual({
+      slug: "zzzzzzzzzzzzzzzzzzzzzzzz",
+      type: "COURSE",
+    });
+  });
+
+  it("still 404s when the id matches no course", async () => {
+    mockProductFindOne.mockReturnValue(chainWithSelect(null));
+
+    await expect(getCourseOutlineForUser("U1", COURSE_ID)).rejects.toMatchObject({
+      code: "COURSE_NOT_FOUND",
+    });
+  });
+});

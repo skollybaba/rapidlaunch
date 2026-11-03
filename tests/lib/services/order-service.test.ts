@@ -695,6 +695,24 @@ describe("verifyCheckoutPayment", () => {
         )
       );
     expect(emailTemplates).toContain("course_access_fulfilled");
+
+    // The player route resolves by course slug, so the CTA must not point at
+    // the product id.
+    const accessEmail = vi
+      .mocked(createMailAdapter)
+      .mock.results.flatMap((result) =>
+        result.value.sendTemplateEmail.mock.calls
+          .map(
+            (call: [
+              { templateKey: string; variables: Record<string, string> },
+            ]) => call[0]
+          )
+          .filter((input) => input.templateKey === "course_access_fulfilled")
+      )
+      .at(0);
+    expect(accessEmail?.variables.courseUrl).toBe(
+      "http://localhost:3000/learn/ai-product-strategy"
+    );
   });
 
   it("marks the course fulfillment ACTION_REQUIRED and emails action required when LMS enrollment fails", async () => {

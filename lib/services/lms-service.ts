@@ -198,11 +198,27 @@ export async function revokeCourseAccess(input: {
   return result.modifiedCount > 0;
 }
 
-async function loadCourseBySlug(slug: string): Promise<CourseContent | null> {
-  return Product.findOne({ slug, type: "COURSE" })
+/**
+ * Resolves a course from its slug, or from its id when the reference looks like
+ * an ObjectId. Links in older emails used the product id (`/learn/<id>`), so
+ * accepting both keeps already-delivered emails working instead of 404-ing.
+ */
+async function loadCourseBySlug(slugOrId: string): Promise<CourseContent | null> {
+  const reference = slugOrId.trim();
+  if (!reference) return null;
+
+  const query = isObjectId(reference)
+    ? Product.findOne({ _id: reference, type: "COURSE" })
+    : Product.findOne({ slug: reference, type: "COURSE" });
+
+  return query
     .select("slug title thumbnailUrl courseDetails.modules courseDetails.beforeYouStart")
     .lean()
     .exec();
+}
+
+function isObjectId(value: string): boolean {
+  return /^[0-9a-fA-F]{24}$/.test(value);
 }
 
 async function requireActiveEnrollment(userId: string, courseId: string) {
