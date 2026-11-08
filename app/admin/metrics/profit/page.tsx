@@ -19,8 +19,10 @@ import {
 
 import { formatPrice } from "@/lib/utils";
 import { StatCard } from "@/components/admin/metrics/stat-card";
+import { ProfitTrendChart } from "@/components/admin/metrics/profit-trend-chart";
 import { cn } from "@/lib/utils";
 import { NETWORK_ERROR_MESSAGE, readApiError } from "@/lib/feedback";
+import type { ProfitOverview } from "@/types/profit";
 
 const EXPENSE_CATEGORIES = ["ADS", "SALARY", "SERVER", "CUSTOM"] as const;
 type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
@@ -55,6 +57,17 @@ function formatMinor(n: number) {
   return formatPrice(Math.round(n || 0), "NGN");
 }
 
+function formatMonthLabel(key: string) {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+type ProfitScope = "month" | "all";
+
 function ProfitCalculator() {
   const searchParams = useSearchParams();
 
@@ -67,6 +80,10 @@ function ProfitCalculator() {
   const [notes, setNotes] = useState("");
   const [calc, setCalc] = useState<ProfitCalculation | null>(null);
   const [savedReports, setSavedReports] = useState<ProfitCalculation[]>([]);
+  const [scope, setScope] = useState<ProfitScope>("month");
+  const [overview, setOverview] = useState<ProfitOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -109,6 +126,40 @@ function ProfitCalculator() {
       // Non-fatal: the form stays usable with empty defaults.
     }
   }, [month]);
+
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const res = await fetch(
+        "/api/admin/metrics/profit-reports?scope=overview",
+        { cache: "no-store" }
+      );
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          readApiError(payload, "Could not load your all-time profit.")
+        );
+      }
+      setOverview((payload?.data ?? null) as ProfitOverview | null);
+    } catch (error) {
+      setOverviewError(
+        error instanceof TypeError
+          ? NETWORK_ERROR_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Could not load your all-time profit."
+      );
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Fetch the inception-to-date overview on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadOverview();
+  }, [loadOverview]);
 
   useEffect(() => {
     // Fetch saved reports on mount; the async loader sets state after the request.
@@ -174,6 +225,11 @@ function ProfitCalculator() {
       } catch {
         // The save succeeded; refreshing the list is best-effort only.
       }
+      try {
+        await loadOverview();
+      } catch {
+        // Totals refresh is best-effort; the saved report remains valid.
+      }
     } catch (error) {
       setStatus({
         type: "error",
@@ -238,6 +294,63 @@ function ProfitCalculator() {
     Math.round((safeFeePercent / 100) * netMinor) + safeFlatFee * paidOrders;
   const estimatedProfit = netMinor - paystackFees - expensesTotal;
 
+  const allTime = overview?.allTime;
+  const showingAllTime = scope === "all";
+  const firstMonth = overview?.monthly[0]?.month;
+  const allTimeValue = (value: number | undefined) =>
+    allTime
+      ? formatMinor(value ?? 0)
+      : overviewLoading
+        ? "Loading…"
+        : "Unavailable";
+
+  const cardValues = showingAllTime
+    ? {
+        net: allTimeValue(allTime?.netMinor),
+        fees: allTimeValue(allTime?.paystackFeesMinor),
+        expenses: allTimeValue(allTime?.expensesTotalMinor),
+        profit: allTimeValue(allTime?.profitMinor),
+        netHint: allTime
+          ? `${allTime.paidOrders} paid order${
+              allTime.paidOrders === 1 ? "" : "s"
+            }${firstMonth ? ` since ${formatMonthLabel(firstMonth)}` : ""}`
+          : overviewLoading
+            ? "Loading inception-to-date totals..."
+            : "Totals could not be loaded",
+        feesHint: allTime
+          ? `Saved fee settings · ${allTime.months} month${
+              allTime.months === 1 ? "" : "s"
+            }`
+          : "Saved fee settings per month",
+        expensesHint: allTime
+          ? `${allTime.months} month${allTime.months === 1 ? "" : "s"} tracked`
+          : "Recorded in monthly reports",
+        profitPositive: (allTime?.profitMinor ?? 0) >= 0,
+        profitHint: allTime
+          ? allTime.profitMinor >= 0
+            ? `${allTime.profitableMonths} of ${allTime.months} months in profit`
+            : `In the red across ${allTime.lossMonths} month${
+                allTime.lossMonths === 1 ? "" : "s"
+              }`
+          : "Inception to date",
+      }
+    : {
+        net: formatMinor(netMinor),
+        fees: formatMinor(paystackFees),
+        expenses: formatMinor(expensesTotal),
+        profit: formatMinor(estimatedProfit),
+        netHint: `${paidOrders} paid order${
+          paidOrders === 1 ? "" : "s"
+        } · ${formatMonthLabel(month)}`,
+        feesHint: `${safeFeePercent}% + ${formatMinor(safeFlatFee)} / order`,
+        expensesHint: `${expenses.length} line${
+          expenses.length === 1 ? "" : "s"
+        }`,
+        profitPositive: estimatedProfit >= 0,
+        profitHint:
+          estimatedProfit >= 0 ? "In the green" : "Running a loss",
+      };
+
   return (
     <div className="admin-enter flex flex-1 flex-col">
       <header>
@@ -257,7 +370,7 @@ function ProfitCalculator() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-[0.1em] text-neutral-500">
             <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-            Scope
+            Month
           </span>
           <div className="flex h-9 items-center gap-2 rounded-[10px] border border-neutral-300 bg-white px-3 transition-colors duration-[var(--duration-fast)] hover:border-neutral-500 focus-within:border-terracotta-600 focus-within:ring-[3px] focus-within:ring-[color-mix(in_srgb,var(--color-terracotta-500)_28%,transparent)]">
             <CalendarRange
@@ -278,37 +391,113 @@ function ProfitCalculator() {
         </div>
       </div>
 
-      <div className="admin-enter mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-enter mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="group"
+          aria-label="Profit view scope"
+          className="flex rounded-[10px] bg-lavender-100 p-1"
+        >
+          {(
+            [
+              { key: "month", label: "This month" },
+              { key: "all", label: "Inception to date" },
+            ] as const
+          ).map((option) => {
+            const active = option.key === scope;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setScope(option.key)}
+                aria-pressed={active}
+                className={cn(
+                  "rounded-[7px] px-3 py-1.5 text-sm font-semibold transition-colors duration-[var(--duration-fast)]",
+                  active
+                    ? "bg-white text-terracotta-600 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-950"
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-sm text-neutral-500">
+          {showingAllTime
+            ? overview
+              ? `All-time totals · ${overview.allTime.months} month${
+                  overview.allTime.months === 1 ? "" : "s"
+                } tracked`
+              : overviewLoading
+                ? "Loading all-time totals..."
+                : "All-time totals unavailable"
+            : `Live totals for ${formatMonthLabel(month)}`}
+        </p>
+      </div>
+
+      {showingAllTime && overviewError ? (
+        <div
+          role="alert"
+          className="admin-enter mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-danger-100 bg-danger-100/60 px-4 py-3 text-sm text-danger-600"
+        >
+          <span>{overviewError}</span>
+          <button
+            type="button"
+            onClick={() => void loadOverview()}
+            className="rounded-[8px] border border-danger-600/30 bg-white px-3 py-1.5 text-xs font-semibold text-danger-600 transition-colors hover:border-danger-600"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-enter mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Net revenue"
-          value={formatMinor(netMinor)}
+          value={cardValues.net}
           icon={CircleDollarSign}
-          hint={`${paidOrders} paid order${paidOrders === 1 ? "" : "s"}`}
+          hint={cardValues.netHint}
         />
         <StatCard
           label="Paystack fees"
-          value={formatMinor(paystackFees)}
+          value={cardValues.fees}
           icon={Percent}
           tone="warning"
-          hint={`${safeFeePercent}% + ${formatMinor(safeFlatFee)} / order`}
+          hint={cardValues.feesHint}
         />
         <StatCard
           label="Expenses"
-          value={formatMinor(expensesTotal)}
+          value={cardValues.expenses}
           icon={ReceiptText}
           tone="danger"
-          hint={`${expenses.length} line${
-            expenses.length === 1 ? "" : "s"
-          }`}
+          hint={cardValues.expensesHint}
         />
         <StatCard
-          label="Estimated profit"
-          value={formatMinor(estimatedProfit)}
+          label={showingAllTime ? "Profit to date" : "Estimated profit"}
+          value={cardValues.profit}
           icon={PiggyBank}
-          tone={estimatedProfit >= 0 ? "success" : "danger"}
-          hint={estimatedProfit >= 0 ? "In the green" : "Running a loss"}
+          tone={cardValues.profitPositive ? "success" : "danger"}
+          hint={cardValues.profitHint}
         />
       </div>
+
+      <ProfitTrendChart
+        className="admin-enter mt-6"
+        points={overview?.monthly ?? []}
+        totals={
+          allTime ?? {
+            netMinor: 0,
+            paystackFeesMinor: 0,
+            expensesTotalMinor: 0,
+            profitMinor: 0,
+            paidOrders: 0,
+            months: 0,
+            profitableMonths: 0,
+            lossMonths: 0,
+          }
+        }
+        loading={overviewLoading}
+      />
 
       <div className="admin-enter mt-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4">

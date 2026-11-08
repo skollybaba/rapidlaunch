@@ -1178,6 +1178,60 @@ export interface MonthRevenueSummary {
   uniqueCustomers: number;
 }
 
+/**
+ * Revenue summary for every month that has at least one paid order, ascending.
+ * One aggregation over the whole order history keeps the profit overview cheap
+ * even when the business has years of orders.
+ */
+export async function listMonthlyRevenueSummaries(): Promise<
+  MonthRevenueSummary[]
+> {
+  await dbConnect();
+
+  const rows = await Order.aggregate<{
+    _id: string;
+    grossMinor: number;
+    discountMinor: number;
+    netMinor: number;
+    paidOrders: number;
+    customers: string[];
+  }>([
+    {
+      $match: {
+        status: "PAID",
+        currency: CURRENCY,
+        paidAt: { $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m",
+            date: "$paidAt",
+            timezone: "UTC",
+          },
+        },
+        grossMinor: { $sum: "$subtotalMinor" },
+        discountMinor: { $sum: "$discountMinor" },
+        netMinor: { $sum: "$totalMinor" },
+        paidOrders: { $sum: 1 },
+        customers: { $addToSet: "$customerEmail" },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]).exec();
+
+  return rows.map((row) => ({
+    month: row._id,
+    grossMinor: row.grossMinor,
+    discountMinor: row.discountMinor,
+    netMinor: row.netMinor,
+    paidOrders: row.paidOrders,
+    uniqueCustomers: row.customers.length,
+  }));
+}
+
 export async function getMonthRevenueSummary(
   key: string
 ): Promise<MonthRevenueSummary> {

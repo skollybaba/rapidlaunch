@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { listProfitReports, getProfitReportForMonth, saveProfitReport, ProfitReportInput } from "@/lib/services/profit-service";
+import { listProfitReports, getProfitReportForMonth, getProfitOverview, saveProfitReport } from "@/lib/services/profit-service";
 import { apiOk, apiError, handleApiError, newRequestId } from "@/lib/api";
 import { ProfitReportSchema } from "@/types/profit";
 
@@ -17,6 +17,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month");
+
+    if (searchParams.get("scope") === "overview") {
+      const overview = await getProfitOverview();
+      return apiOk(overview);
+    }
 
     if (month) {
       const calc = await getProfitReportForMonth(month);
