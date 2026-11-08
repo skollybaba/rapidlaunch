@@ -82,6 +82,42 @@ export interface ProfitCalculation {
   currency: "NGN";
 }
 
+export interface ProfitMonthPoint {
+  /** `YYYY-MM` month key, UTC. */
+  month: string;
+  netMinor: number;
+  paystackFeesMinor: number;
+  expensesTotalMinor: number;
+  profitMinor: number;
+  /** Running total of `profitMinor` from the first known month to this one. */
+  cumulativeProfitMinor: number;
+  paidOrders: number;
+  /** True when a saved report supplied the fee settings and expenses. */
+  hasSavedReport: boolean;
+  /** True when the month has at least one paid order. */
+  hasRevenue: boolean;
+}
+
+export interface ProfitTotals {
+  netMinor: number;
+  paystackFeesMinor: number;
+  expensesTotalMinor: number;
+  profitMinor: number;
+  paidOrders: number;
+  months: number;
+  profitableMonths: number;
+  lossMonths: number;
+}
+
+export interface ProfitOverview {
+  /** Ascending by month, one entry per month with no gaps. */
+  monthly: ProfitMonthPoint[];
+  allTime: ProfitTotals;
+  bestMonth: ProfitMonthPoint | null;
+  worstMonth: ProfitMonthPoint | null;
+  currency: "NGN";
+}
+
 export interface ProfitReportEmailPayload {
   month: string;
   to: string[];

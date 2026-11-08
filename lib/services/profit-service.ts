@@ -3,16 +3,31 @@ import "server-only";
 import { createMailAdapter } from "@/lib/providers/mail";
 import { ProfitReport } from "@/models/ProfitReport";
 import { dbConnect } from "@/lib/db";
-import { getMonthRevenueSummary } from "@/lib/services/metrics-service";
+import {
+  getMonthRevenueSummary,
+  listMonthlyRevenueSummaries,
+  type MonthRevenueSummary,
+} from "@/lib/services/metrics-service";
 import {
   ProfitCalculation,
+  ProfitMonthPoint,
+  ProfitOverview,
   ProfitReportInput,
   ProfitReportSchema,
+  ProfitTotals,
 } from "@/types/profit";
 
 export type { ProfitReportInput, ProfitReportSchema } from "@/types/profit";
 
 const CURRENCY = "NGN";
+const DEFAULT_FEE_PERCENT = 1.5;
+/** Keep the inception-to-date view readable even if a stray month key is bad. */
+const MAX_OVERVIEW_MONTHS = 120;
+
+export type ProfitReportSettings = Pick<
+  ProfitReportInput,
+  "month" | "paystackFeePercent" | "paystackFlatFeeMinor" | "expenses"
+>;
 
 export class ProfitReportServiceError extends Error {
   code: string;
@@ -101,7 +116,7 @@ export async function getProfitReportForMonth(month: string) {
     return computeFromSummary(
       {
         month,
-        paystackFeePercent: 1.5,
+        paystackFeePercent: DEFAULT_FEE_PERCENT,
         paystackFlatFeeMinor: 0,
         expenses: [],
       },
@@ -109,6 +124,178 @@ export async function getProfitReportForMonth(month: string) {
     );
   }
   return computeFromSummary(doc, summary);
+}
+
+function monthKeyOfUtc(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function isMonthKey(value: string): boolean {
+  if (!/^\d{4}-\d{2}$/.test(value)) return false;
+  const [, month] = value.split("-").map(Number);
+  return month >= 1 && month <= 12;
+}
+
+/** Continuous list of month keys from `start` to `end`, inclusive. */
+function monthKeysBetween(start: string, end: string): string[] {
+  const keys: string[] = [];
+  let [year, month] = start.split("-").map(Number);
+  const [endYear, endMonth] = end.split("-").map(Number);
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    keys.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+
+  return keys;
+}
+
+/**
+ * Pure builder for the inception-to-date profitability view.
+ *
+ * Each month uses its saved fee settings and expenses when a report exists,
+ * otherwise the default 1.5% fee assumption with no expenses — the same rule
+ * `getProfitReportForMonth` applies. Months without revenue still appear so the
+ * chart keeps an honest timeline.
+ */
+export function buildProfitOverview(
+  summaries: MonthRevenueSummary[],
+  reports: ProfitReportSettings[],
+  currentMonth: string
+): ProfitOverview {
+  const summaryByMonth = new Map(summaries.map((s) => [s.month, s]));
+  const reportByMonth = new Map(reports.map((r) => [r.month, r]));
+
+  const knownMonths = [
+    ...new Set([...summaryByMonth.keys(), ...reportByMonth.keys()]),
+  ]
+    .filter(isMonthKey)
+    .sort();
+
+  const emptyAllTime: ProfitTotals = {
+    netMinor: 0,
+    paystackFeesMinor: 0,
+    expensesTotalMinor: 0,
+    profitMinor: 0,
+    paidOrders: 0,
+    months: 0,
+    profitableMonths: 0,
+    lossMonths: 0,
+  };
+
+  if (knownMonths.length === 0) {
+    return {
+      monthly: [],
+      allTime: emptyAllTime,
+      bestMonth: null,
+      worstMonth: null,
+      currency: CURRENCY,
+    };
+  }
+
+  const start = knownMonths[0];
+  const latestKnown = knownMonths[knownMonths.length - 1];
+  const end = latestKnown > currentMonth ? latestKnown : currentMonth;
+
+  let keys = monthKeysBetween(start, end);
+  if (keys.length > MAX_OVERVIEW_MONTHS) {
+    keys = keys.slice(-MAX_OVERVIEW_MONTHS);
+  }
+
+  let cumulative = 0;
+  const monthly: ProfitMonthPoint[] = keys.map((month) => {
+    const summary = summaryByMonth.get(month) ?? {
+      month,
+      grossMinor: 0,
+      discountMinor: 0,
+      netMinor: 0,
+      paidOrders: 0,
+      uniqueCustomers: 0,
+    };
+    const settings = reportByMonth.get(month) ?? {
+      month,
+      paystackFeePercent: DEFAULT_FEE_PERCENT,
+      paystackFlatFeeMinor: 0,
+      expenses: [],
+    };
+    const calc = computeFromSummary(settings, summary);
+    cumulative += calc.profitMinor;
+
+    return {
+      month,
+      netMinor: calc.netMinor,
+      paystackFeesMinor: calc.paystackFeesMinor,
+      expensesTotalMinor: calc.expensesTotalMinor,
+      profitMinor: calc.profitMinor,
+      cumulativeProfitMinor: cumulative,
+      paidOrders: calc.paidOrders,
+      hasSavedReport: reportByMonth.has(month),
+      hasRevenue: calc.paidOrders > 0,
+    };
+  });
+
+  const allTime = monthly.reduce<ProfitTotals>(
+    (totals, point) => ({
+      netMinor: totals.netMinor + point.netMinor,
+      paystackFeesMinor: totals.paystackFeesMinor + point.paystackFeesMinor,
+      expensesTotalMinor: totals.expensesTotalMinor + point.expensesTotalMinor,
+      profitMinor: totals.profitMinor + point.profitMinor,
+      paidOrders: totals.paidOrders + point.paidOrders,
+      months: totals.months + 1,
+      profitableMonths: totals.profitableMonths + (point.profitMinor >= 0 ? 1 : 0),
+      lossMonths: totals.lossMonths + (point.profitMinor < 0 ? 1 : 0),
+    }),
+    { ...emptyAllTime }
+  );
+
+  const meaningful = monthly.filter(
+    (point) => point.hasRevenue || point.profitMinor !== 0
+  );
+  const bestMonth =
+    meaningful.length > 0
+      ? meaningful.reduce((best, point) =>
+          point.profitMinor > best.profitMinor ? point : best
+        )
+      : null;
+  const worstMonth =
+    meaningful.length > 0
+      ? meaningful.reduce((worst, point) =>
+          point.profitMinor < worst.profitMinor ? point : worst
+        )
+      : null;
+
+  return {
+    monthly,
+    allTime,
+    bestMonth,
+    worstMonth,
+    currency: CURRENCY,
+  };
+}
+
+export async function getProfitOverview(): Promise<ProfitOverview> {
+  await dbConnect();
+
+  const [summaries, docs] = await Promise.all([
+    listMonthlyRevenueSummaries(),
+    ProfitReport.find({}).lean().exec(),
+  ]);
+
+  const reports: ProfitReportSettings[] = (docs ?? []).map((doc) => ({
+    month: doc.month,
+    paystackFeePercent: doc.paystackFeePercent,
+    paystackFlatFeeMinor: doc.paystackFlatFeeMinor,
+    expenses: doc.expenses ?? [],
+  }));
+
+  return buildProfitOverview(summaries, reports, monthKeyOfUtc(new Date()));
 }
 
 export async function sendProfitReportEmail(
